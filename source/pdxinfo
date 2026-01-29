@@ -1,0 +1,8 @@
+name=Interstellar Survivors
+author=Shawn R
+description=A Vampire Survivors-style auto-shooter roguelike. Defend your research station from waves of threats using the crank to rotate and bring your tools to bear!
+bundleID=com.shawnr.interstellarsurvivors
+version=0.1.32
+buildNumber=33
+imagePath=images/ui/logo_icon
+launchSoundPath=sounds/sfx_menu_confirm
