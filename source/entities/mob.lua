@@ -45,6 +45,18 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.showHealthBar = false
     self.healthBarTimer = 0
 
+    -- Animation support
+    self.animImageTable = nil
+    self.currentFrame = 1
+    self.frameTime = 0
+    self.frameDuration = mobData.frameDuration or 0.15  -- Default: 150ms per frame
+    self.frameCount = 1
+
+    -- Load animation if animPath is specified
+    if mobData.animPath then
+        self:loadAnimation(mobData.animPath)
+    end
+
     -- Set center point FIRST
     self:setCenter(0.5, 0.5)
 
@@ -61,6 +73,21 @@ function MOB:init(x, y, mobData, waveMultipliers)
 
     -- Add to sprite system
     self:add()
+end
+
+-- Load animation from image table
+function MOB:loadAnimation(animPath)
+    local imageTable = gfx.imagetable.new(animPath)
+    if imageTable then
+        self.animImageTable = imageTable
+        self.frameCount = imageTable:getLength()
+        self.currentFrame = 1
+        -- Set the first frame
+        self:setImage(imageTable:getImage(1))
+        print("  Loaded animation: " .. animPath .. " (" .. self.frameCount .. " frames)")
+    else
+        print("  WARNING: Failed to load animation: " .. animPath)
+    end
 end
 
 function MOB:update(dt)
@@ -81,11 +108,30 @@ function MOB:update(dt)
         end
     end
 
+    -- Update animation
+    if self.animImageTable and self.frameCount > 1 then
+        self:updateAnimation(dt)
+    end
+
     -- Movement
     if self.emits then
         self:updateShooterMovement(dt)
     else
         self:updateRammerMovement(dt)
+    end
+end
+
+-- Update animation frame
+function MOB:updateAnimation(dt)
+    self.frameTime = self.frameTime + dt
+
+    if self.frameTime >= self.frameDuration then
+        self.frameTime = self.frameTime - self.frameDuration
+        self.currentFrame = self.currentFrame + 1
+        if self.currentFrame > self.frameCount then
+            self.currentFrame = 1
+        end
+        self:setImage(self.animImageTable:getImage(self.currentFrame))
     end
 end
 

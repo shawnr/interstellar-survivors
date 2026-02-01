@@ -8,6 +8,8 @@ GreetingDrone.DATA = {
     name = "Greeting Drone",
     description = "Small, fast, eager to hug your station",
     imagePath = "images/episodes/ep1/ep1_greeting_drone",
+    animPath = "images/episodes/ep1/ep1_greeting_drone",  -- Animation table
+    frameDuration = 0.12,  -- 120ms per frame
 
     -- Stats - faster than asteroids but less damage
     baseHealth = 5,

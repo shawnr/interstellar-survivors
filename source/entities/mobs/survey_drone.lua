@@ -8,6 +8,8 @@ SurveyDrone.DATA = {
     name = "Survey Drone",
     description = "Collecting performance metrics",
     imagePath = "images/episodes/ep2/ep2_survey_drone",
+    animPath = "images/episodes/ep2/ep2_survey_drone",  -- Animation table
+    frameDuration = 0.15,  -- 150ms per frame
 
     -- Stats
     baseHealth = 6,

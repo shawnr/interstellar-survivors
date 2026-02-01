@@ -8,6 +8,8 @@ ProbabilityFluctuation.DATA = {
     name = "Probability Fluctuation",
     description = "Exists despite the odds",
     imagePath = "images/episodes/ep3/ep3_probability_fluctuation",
+    animPath = "images/episodes/ep3/ep3_probability_fluctuation",  -- Animation table (3 frames)
+    frameDuration = 0.1,  -- 100ms per frame - flickery effect
 
     -- Stats - flickery and unpredictable
     baseHealth = 7,

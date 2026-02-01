@@ -259,15 +259,27 @@ Collectibles:
 
 Intro Panels:
 
-1. "Mission: Collect samples from an uplift project that got out of hand. Spiders. Very smart spiders. Nothing ever goes wrong with spiders."  
-2. "Update: The spiders have spotted us. They're very excited. They're sending gifts. The gifts are approaching at ramming speed."  
-3. "Revised mission: Collect samples. Survive the welcome party. Do NOT insult their poetry. Apparently the last research team did that."
+1. "Mission: Collect samples from an uplift project that got out of hand." 
+   a. "Spiders. Very smart spiders."
+   b. "Nothing ever goes wrong with spiders."  
+2. "Update: The spiders have spotted us."
+   a."They're very excited. They're sending gifts."
+   b. "The gifts are approaching at ramming speed."  
+3. "Revised mission: Collect samples, survive welcome party."
+   a. "Do NOT insult their poetry."
+   b. "Apparently the last research team did that."
 
 Ending Panels:
 
-1. "Sample collection complete. We've catalogued 847 cultural artifacts, including one epic poem about a fly. It's 11,000 verses long."  
-2. "A spider named Maserati has stowed away in the sample bay. She claims diplomatic immunity. She's also reorganized our filing system."  
-3. "Research Spec unlocked: Their silk has remarkable tensile properties. Maserati is very smug about this."
+1. "Sample collection complete: 847 artifacts cataloged..."
+   a. "...including one epic poem about a fly."
+   b. "It's 11,000 verses long."  
+2. "A spider named Maserati has stowed away in the sample bay."
+   b. "She claims diplomatic immunity."
+   c. "She's also reorganized our filing system."  
+3. "Research Spec unlocked:"
+   b. "Their silk has remarkable tensile properties."
+   c. "Maserati is very smug about this."
 
 Research Spec Unlock: "Silk Weave Plating" — Station takes 10% less damage from ramming attacks.  
 ---
@@ -295,15 +307,27 @@ Collectibles:
 
 Intro Panels:
 
-1. "Standard mineral survey. Corporate has assigned consultants to ensure we meet quarterly research targets. This is fine."  
-2. "The consultants have arrived. They have questions about our 'process.' They have suggestions about our 'workflow.' They have exploded near the hull."  
-3. "New priority: Collect ore samples. Ignore the helpers. If a drone asks you to rate your experience, just keep shooting."
+1. "Standard mineral survey. Corporate has assigned consultants..."
+   a. "...to ensure we meet quarterly research targets. 
+   b. "This is fine."  
+2. "The consultants have arrived."
+   a. "They have questions about our 'process' and our 'workflow.'"
+   b. "They have exploded near the hull."  
+3. "New priority: Collect ore samples. Ignore the helpers."
+   a. "If a drone asks you to rate your experience..."
+   b. "...just keep shooting."
 
 Ending Panels:
 
-1. "Survey complete. Mineral yield: Excellent. Consultant survival rate: We're not tracking that metric."  
-2. "Corporate has sent a follow-up survey about the follow-up survey. We have filed it appropriately. The file is labeled 'Space.'"  
-3. "Research Spec unlocked: The drones' targeting software was actually pretty good. We've repurposed it. Don't tell corporate."
+1. "Survey complete. Mineral yield: Excellent."
+   a. "Consultant survival rate: Unknown"
+   b. "We're not tracking that metric."  
+2. "Corporate has sent a follow-up survey about the follow-up survey."
+   a. "We have filed it appropriately."
+   b. "The file is labeled 'dumb'"  
+3. "Research Spec unlocked: The drones' targeting software..."
+   a. "...was actually pretty good. We've repurposed it."
+   b. "Don't tell corporate."
 
 Research Spec Unlock: "Optimized Targeting" — Projectiles track targets 5% more accurately.  
 ---
@@ -331,15 +355,27 @@ Collectibles:
 
 Intro Panels:
 
-1. "The Improbability Drive test was supposed to be contained. It was not contained. Reality is now 'optional' in this sector."  
-2. "Current status: Things are becoming other things. Some of those things are hostile. One of them is a whale. The whale seems fine."  
-3. "Objective: Collect probability particles for study. Try not to become something else yourself. If you do, please file Form 42-B."
+1. "The Improbability Drive test was supposed to be contained."
+   a. "It was not contained."
+   b. "Reality is now 'optional' in this sector."  
+2. "Current status: Things are becoming other things."
+   a. "Some of those things are hostile."
+   b. "One of them is a whale. The whale seems fine."  
+3. "Objective: Collect probability particles for study."
+   a. "Try not to become something else yourself."
+   b. "If you do, please file Form 42-B."
 
 Ending Panels:
 
-1. "Particles collected. Reality is stabilizing. Most things are back to being themselves. The sofa remains unexplained."  
-2. "Final inventory includes 47 impossible objects and one cup of tea that appeared exactly when someone needed it. Coincidence rate: Improbable."  
-3. "Research Spec unlocked: We've learned to predict small impossibilities. This should not be possible. That's rather the point."
+1. "Particles collected. Reality is stabilizing."
+   a. "Most things are back to being themselves."
+   b. "The sofa remains unexplained."  
+2. "Final inventory includes 47 impossible objects..."
+   a. "... and one cup of tea that appeared exactly when someone needed it."
+   b. "Coincidence rate: Improbable."  
+3. "Research Spec unlocked: We've learned to predict small impossibilities."
+   a. "This should not be possible."
+   b. "That's rather the point."
 
 Research Spec Unlock: "Improbability Compensation" — 5% chance for any damage to be negated entirely.  
 ---
@@ -367,15 +403,27 @@ Collectibles:
 
 Intro Panels:
 
-1. "Salvage mission. This debris field dates back to a war nobody remembers. One civilization's apocalypse is another's research opportunity."  
-2. "Scans show valuable materials, active defense systems, and one (1) extremely large life sign. The life sign is circling us. Casually."  
-3. "Objective: Collect salvage. Avoid the turrets. Make friends with whatever that thing is. It looks lonely. Also hungry. Mostly lonely."
+1. "Salvage mission. This debris field dates back..."
+   a."... to a war nobody remembers. One civilization's apocalypse..."
+   b. "... is another's research opportunity."  
+2. "Scans show valuable materials, active defense systems,"
+   a. "... and one (1) extremely large life sign."
+   b. "The life sign is circling us. Casually."  
+3. "Objective: Collect salvage. Avoid the turrets." 
+   a. "Make friends with whatever that thing is. It looks lonely."
+   b. "Also hungry. But mostly lonely."
 
 Ending Panels:
 
-1. "Salvage complete. We've recovered alloys that predate most known civilizations. Also, we've made a friend."  
-2. "The creature followed us to the edge of the debris field, then stopped. It made a sound. Acoustics says it might have been 'goodbye.' Or 'indigestion.'"  
-3. "Research Spec unlocked: The ancient alloys have remarkable properties. We've named them 'Chompite' in honor of our new friend."
+1. "Salvage complete. We've recovered alloys..."
+   a. "... that predate most known civilizations."
+   b. "Also, we've made a friend."  
+2. "The creature followed us to the edge of the debris field,"
+   a. "... then stopped. It made a sound. Acoustics says it might..."
+   b. "...have been 'goodbye.' Or 'indigestion.'"  
+3. "Research Spec unlocked: The ancient alloys..."
+   a. "... have remarkable properties."
+   b. "We've named them 'Chompite' in honor of our new friend."
 
 Research Spec Unlock: "Ancient Alloys" — Station hull integrity increased by 15%.  
 ---
@@ -403,15 +451,27 @@ Collectibles:
 
 Intro Panels:
 
-1. "Welcome to the Interspecies Research Symposium. Today's sessions include 'Is Time Real?' and 'Tentacles: A Reappraisal.' Attendance is mandatory."  
-2. "Reminder: What looks like aggression may be enthusiastic agreement. What looks like agreement may be a prelude to aggression. Read the room."  
-3. "Your job: Collect proceedings. Facilitate exchange. Avoid the Vorthian delegation—they debate with their ships."
+1. "Welcome to the Interspecies Research Symposium. "
+   a. "Today's sessions include 'Is Time Real?' and 'Tentacles: A Reappraisal.'"
+   b. "Attendance is mandatory."  
+2. "Reminder: What looks like aggression may be enthusiastic agreement."
+   a. "What looks like agreement may be a prelude to aggression."
+   b. "Read the room."  
+3. "Your job: Collect proceedings."
+   a. "Facilitate exchange."
+   b. "Avoid the Vorthian delegation—they debate with their ships."
 
 Ending Panels:
 
-1. "Conference concluded. Fourteen collaborative papers drafted. Only three diplomatic incidents. The organizing committee is calling this 'a qualified success.'"  
-2. "The Distinguished Professor has revised their opinion of our research from 'derivative' to 'merely obvious.' We're choosing to see this as progress."  
-3. "Research Spec unlocked: Cross-species collaboration yields unexpected insights. Also unexpected bruises."
+1. "Conference concluded. Fourteen collaborative papers drafted."
+   a. "Only three diplomatic incidents. The organizing committee..."
+   b. "... is calling this 'a qualified success.'"  
+2. "The Distinguished Professor has revised their..."
+   a. "... opinion of our research from 'derivative' to 'merely obvious.'"
+   b. "We're choosing to see this as progress."  
+3. "Research Spec unlocked: Cross-species collaboration..."
+   a. "... yields unexpected insights."
+   b. "Also unexpected bruises."
 
 Research Spec Unlock: "Peer Review" — Bonus items appear 10% more frequently.  
 ---
@@ -651,6 +711,7 @@ The game is framed as a campy sci-fi television series called **"Interstellar Su
 
 | Element | Description | When It Appears |
 | :---- | :---- | :---- |
+| Game Title Card | "INTERSTELLAR SURVIVORS" logo with random tagline | When game starts from Play.date menu |
 | Title Card | "INTERSTELLAR SURVIVORS" logo with episode number | Before intro panels |
 | Episode Title | Large text with episode name and tagline | After title card |
 | Intro Panels | 3 comic-style panels setting up the episode | Before gameplay |
@@ -676,6 +737,73 @@ The game is framed as a campy sci-fi television series called **"Interstellar Su
 - **Episode 3**: Unlocks after completing Episode 2  
 - **Episode 4**: Unlocks after completing Episode 3  
 - **Episode 5**: Unlocks after completing Episode 4
+
+### Title Screen Taglines
+The following list of taglines should be randomly rotated in on the game title screen. If the game title screen sits idle, the tagline should change every 20 seconds. Each time a random tagline is chosen it should be rejected if it is the same as the current tagline.
+
+"Boldly going to have boldly gone!"
+"My gosh, it's full of paperwork!"
+"Intrepid Space Adventurers Wanted"
+"To probability, and beyond!"
+"Live long and file reports."
+"In space, no one can hear you take notes."
+"The spice must document."
+"So long, and thanks for all the data."
+"Collect knowledge. Avoid death. Repeat."
+"The universe is trying to kill you. Write it down."
+"Every discovery could be your last. Make it count."
+"Curiosity killed the cat. You're not a cat... probably."
+"Set phasers to 'document.'"
+"Tea. Earl Grey. And a comprehensive survey."
+"The truth is out there. Go catalog it."
+"Warning: May contain trace amounts of existential dread."
+"Now with 40% more inexplicable alien artifacts!"
+"Your sacrifice will be noted. Literally."
+"Knowledge is power. Power is survival. Survival is unlikely."
+"Maserati sends her regards."
+"Do NOT insult the poetry."
+"Diplomatic hugs incoming."
+"11,000 verses. One fly."
+"Please rate your survival experience."
+"Synergy. Alignment. Explosion."
+"Quarterly targets: survival optional."
+"The consultants are here to help."
+"The whale seems fine."
+"Please file Form 42-B."
+"The sofa remains unexplained."
+"Reality is more of a suggestion."
+"Coincidence rate: Improbable."
+"The Chomper remembers."
+"Salvage rights: contested."
+"Always let the Vorthian win."
+"Peer review can be brutal. Literally."
+"Attendance is mandatory. Survival is extra credit."
+"The Professor has notes."
+"A qualified success."
+
+
+### Intro Panels Rules
+   1. When the mission is selected, the mission title screen shows
+   2. That fades into the mission Intro Panels
+   3. For each panel, do the following:
+      1. Show the panel background
+      2. Play a randomly chosen audio hit from the game_assets/audio/hits directory
+      3. Show the first line of text for 5 sec (or button press)
+      4. Show the second line of text for 5 sec (or button press)
+      5. Show the third line of text for 5 sec (or button press)
+      6. Wait for button press to continue
+      6. On button press enter game field and play session
+
+### End Panels Rules
+   1. After the mission is beaten, show the End Panels
+   3. For each panel, do the following:
+      1. Show the panel background
+      2. Play a randomly chosen audio hit from the game_assets/audio/hits directory
+      3. Show the first line of text for 5 sec (or button press)
+      4. Show the second line of text for 5 sec (or button press)
+      5. Show the third line of text for 5 sec (or button press)
+      6. Wait for button press to continue
+      6. On button press go to mission select menu
 
 ---
 

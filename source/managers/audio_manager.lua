@@ -32,6 +32,7 @@ function AudioManager:init()
     self:loadSFX("mob_destroyed", "sounds/sfx_mob_destroyed")
     self:loadSFX("station_hit", "sounds/sfx_station_hit")
     self:loadSFX("station_destroyed", "sounds/sfx_station_destroyed")
+    self:loadSFX("shield_hit", "sounds/sfx_shield_hit")
 
     self:loadSFX("collectible_get", "sounds/sfx_collectible_get")
     self:loadSFX("collectible_rare", "sounds/sfx_collectible_rare")
@@ -74,28 +75,38 @@ function AudioManager:playSFX(name, volume)
 
     local sfx = self.sfx[name]
     if sfx then
-        volume = volume or self.sfxVolume
-        sfx:setVolume(volume)
+        -- Multiply the base volume by the global sfxVolume setting
+        local baseVolume = volume or 1.0
+        local finalVolume = baseVolume * self.sfxVolume
+        sfx:setVolume(finalVolume)
         sfx:play()
     end
 end
 
 -- Play music
 function AudioManager:playMusic(path, loop)
-    if self.musicMuted then return end
+    print("AudioManager:playMusic called with path: " .. path)
+    if self.musicMuted then
+        print("Music is muted, returning")
+        return
+    end
 
     -- Stop current music
     self:stopMusic()
 
     -- Load and play new music
+    print("Loading music file...")
     local player = snd.fileplayer.new(path)
     if player then
+        print("Music file loaded successfully")
         player:setVolume(self.musicVolume)
+        print("Volume set to: " .. self.musicVolume)
         if loop ~= false then
             player:setLoopRange(0)  -- Loop entire track
         end
         player:play(loop ~= false and 0 or 1)
         self.currentMusic = player
+        print("Music playback started")
     else
         print("WARNING: Failed to load music: " .. path)
     end

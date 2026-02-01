@@ -9,11 +9,14 @@ EpisodeSelect = {
     episodes = {},
     unlockedEpisodes = {},
     onSelect = nil,
+    patternBg = nil,
 }
 
 function EpisodeSelect:init()
     -- Load episode data
     self:refreshEpisodes()
+    -- Load pattern background
+    self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
     print("EpisodeSelect initialized")
 end
 
@@ -42,6 +45,11 @@ function EpisodeSelect:show(callback)
     self.selectedIndex = 1
     self.onSelect = callback
     self:refreshEpisodes()
+
+    -- Load pattern if not already loaded
+    if not self.patternBg then
+        self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
+    end
 
     -- Find first unlocked episode
     for i, _ in ipairs(self.episodes) do
@@ -137,29 +145,39 @@ end
 function EpisodeSelect:draw()
     if not self.isVisible then return end
 
-    -- Clear screen
-    gfx.clear(gfx.kColorWhite)
+    -- Draw pattern background
+    if self.patternBg then
+        self.patternBg:draw(0, 0)
+    else
+        gfx.clear(gfx.kColorWhite)
+    end
 
-    -- Draw title
-    gfx.drawTextAligned("*SELECT EPISODE*", Constants.SCREEN_WIDTH / 2, 8, kTextAlignment.center)
-
-    -- Draw horizontal line
+    -- Title bar with white background (matches Settings)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
     gfx.setColor(gfx.kColorBlack)
-    gfx.drawLine(20, 26, Constants.SCREEN_WIDTH - 20, 26)
+    gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
+    gfx.drawTextAligned("*SELECT EPISODE*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
 
-    -- Draw episodes (compact list)
-    local startY = 32
-    local itemHeight = 22
+    -- Draw episodes (spaced like Settings)
+    local startY = 52
+    local itemHeight = 32
 
     for i, episode in ipairs(self.episodes) do
         local y = startY + (i - 1) * itemHeight
         local isSelected = (i == self.selectedIndex)
         local isUnlocked = self.unlockedEpisodes[i]
 
-        -- Draw selection highlight
+        -- Row background for readability
+        gfx.setColor(gfx.kColorWhite)
+        gfx.fillRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26)
+
+        -- Selection highlight or border
+        gfx.setColor(gfx.kColorBlack)
         if isSelected then
-            gfx.setColor(gfx.kColorBlack)
-            gfx.fillRoundRect(10, y, Constants.SCREEN_WIDTH - 20, itemHeight - 2, 3)
+            gfx.fillRoundRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26, 4)
+        else
+            gfx.drawRoundRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26, 4)
         end
 
         -- Set draw mode based on selection
@@ -177,39 +195,18 @@ function EpisodeSelect:draw()
             titleText = i .. ". [LOCKED]"
         end
 
-        gfx.drawText(titleText, 18, y + 3)
+        gfx.drawText(titleText, 30, y)
 
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
-    -- Draw selected episode details below the list
-    local detailY = startY + (#self.episodes * itemHeight) + 8
+    -- Draw instructions at bottom with white background
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
     gfx.setColor(gfx.kColorBlack)
-    gfx.drawLine(20, detailY - 4, Constants.SCREEN_WIDTH - 20, detailY - 4)
-
-    local selectedEpisode = self.episodes[self.selectedIndex]
-    if selectedEpisode then
-        local isUnlocked = self.unlockedEpisodes[self.selectedIndex]
-
-        if isUnlocked then
-            -- Show tagline
-            gfx.drawTextAligned("\"" .. selectedEpisode.tagline .. "\"",
-                Constants.SCREEN_WIDTH / 2, detailY, kTextAlignment.center)
-        else
-            -- Show unlock requirement
-            gfx.drawTextAligned("Complete Episode " .. (self.selectedIndex - 1) .. " to unlock",
-                Constants.SCREEN_WIDTH / 2, detailY, kTextAlignment.center)
-        end
-    end
-
-    -- Draw instructions at bottom
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 20, Constants.SCREEN_WIDTH, 20)
-
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned("[A] Select   [B] Back   Crank to scroll",
-        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 14, kTextAlignment.center)
-    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    gfx.drawTextAligned("[A] Select   [B] Back   [Settings]",
+        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
 end
 
 return EpisodeSelect

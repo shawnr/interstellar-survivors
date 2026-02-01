@@ -8,6 +8,7 @@ UpgradeSelection = {
     selectedIndex = 1,
     options = {},
     onSelect = nil,
+    scrollOffset = 0,  -- For scrolling when items don't fit
 }
 
 function UpgradeSelection:init()
@@ -17,6 +18,7 @@ end
 function UpgradeSelection:show(tools, bonusItems, callback)
     self.isVisible = true
     self.selectedIndex = 1
+    self.scrollOffset = 0
     self.onSelect = callback
     self.options = {}
 
@@ -74,12 +76,26 @@ function UpgradeSelection:draw()
     if not self.isVisible then return end
 
     -- Layout constants
-    local panelX, panelY = 20, 20
-    local panelW, panelH = 360, 200
-    local headerH = 26
-    local cardH = 38
-    local cardMargin = 4
+    local panelX, panelY = 10, 10
+    local panelW, panelH = 380, 220
+    local headerH = 30
+    local footerH = 24
+    local cardH = 50  -- Larger cards for better readability
+    local cardMargin = 6
     local cardW = panelW - (cardMargin * 2)
+    local contentAreaH = panelH - headerH - footerH
+
+    -- Calculate scroll offset to keep selected item visible
+    local maxVisibleCards = math.floor(contentAreaH / cardH)
+    local selectedCardTop = (self.selectedIndex - 1) * cardH
+    local selectedCardBottom = selectedCardTop + cardH
+
+    -- Adjust scroll to keep selected in view
+    if selectedCardTop < self.scrollOffset then
+        self.scrollOffset = selectedCardTop
+    elseif selectedCardBottom > self.scrollOffset + contentAreaH then
+        self.scrollOffset = selectedCardBottom - contentAreaH
+    end
 
     -- 1. Dim the background
     gfx.setColor(gfx.kColorBlack)
@@ -96,41 +112,51 @@ function UpgradeSelection:draw()
     gfx.drawRect(panelX, panelY, panelW, panelH)
     gfx.drawRect(panelX + 2, panelY + 2, panelW - 4, panelH - 4)
 
-    -- 4. Draw header
+    -- 4. Draw header background and text
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillRect(panelX + 4, panelY + 4, panelW - 8, headerH - 4)
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned("*LEVEL UP!*", 200, panelY + 6, kTextAlignment.center)
+    gfx.drawTextAligned("*LEVEL UP!*", 200, panelY + 8, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- 5. Draw horizontal line under header
     gfx.setColor(gfx.kColorBlack)
     gfx.drawLine(panelX + 4, panelY + headerH, panelX + panelW - 4, panelY + headerH)
 
-    -- 6. Draw each card
+    -- Set clip rect for scrolling content area
+    local contentY = panelY + headerH + 2
+    gfx.setClipRect(panelX + 4, contentY, panelW - 8, contentAreaH - 4)
+
+    -- 6. Draw each card (with scroll offset)
     for i, option in ipairs(self.options) do
-        local cardY = panelY + headerH + 2 + (i - 1) * cardH
+        local cardY = contentY + (i - 1) * cardH - self.scrollOffset
         local cardX = panelX + cardMargin
         local isSelected = (i == self.selectedIndex)
 
+        -- Skip if card is outside visible area
+        if cardY + cardH < contentY or cardY > contentY + contentAreaH then
+            goto continue
+        end
+
         -- Card background
         if isSelected then
-            -- Selected: black fill
             gfx.setColor(gfx.kColorBlack)
-            gfx.fillRect(cardX, cardY, cardW, cardH - 2)
+            gfx.fillRoundRect(cardX, cardY, cardW, cardH - 4, 4)
         else
-            -- Unselected: white fill with black border
             gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(cardX, cardY, cardW, cardH - 2)
+            gfx.fillRoundRect(cardX, cardY, cardW, cardH - 4, 4)
             gfx.setColor(gfx.kColorBlack)
-            gfx.drawRect(cardX, cardY, cardW, cardH - 2)
+            gfx.drawRoundRect(cardX, cardY, cardW, cardH - 4, 4)
         end
 
         -- Icon placeholder (left side)
-        local iconX = cardX + 4
-        local iconY = cardY + 2
-        local iconSize = cardH - 6
+        local iconX = cardX + 6
+        local iconY = cardY + 4
+        local iconSize = cardH - 12
 
         if option.icon then
-            if isSelected then
+            -- Icons are white on transparent - invert when on white background (not selected)
+            if not isSelected then
                 gfx.setImageDrawMode(gfx.kDrawModeInverted)
             end
             option.icon:drawScaled(iconX, iconY, iconSize / 32)
@@ -145,8 +171,8 @@ function UpgradeSelection:draw()
         end
 
         -- Text (right of icon)
-        local textX = iconX + iconSize + 8
-        local textY = cardY + 4
+        local textX = iconX + iconSize + 10
+        local textY = cardY + 6
 
         if isSelected then
             gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
@@ -154,25 +180,40 @@ function UpgradeSelection:draw()
             gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
         end
 
-        -- Name
+        -- Name and level (if tool)
         local name = option.data.name or "Unknown"
-        gfx.drawText("*" .. name .. "*", textX, textY)
+        local levelText = ""
+        if option.type == "tool" and option.data.level then
+            levelText = " Lv" .. option.data.level
+        end
+        gfx.drawText("*" .. name .. levelText .. "*", textX, textY)
 
-        -- Description
+        -- Description on second line
         local desc = option.data.description or ""
-        gfx.drawText(desc, textX, textY + 16)
+        gfx.drawText(desc, textX, textY + 18)
 
         -- Type badge on right
         local badge = option.type == "tool" and "[TOOL]" or "[BONUS]"
-        gfx.drawTextAligned(badge, cardX + cardW - 8, textY, kTextAlignment.right)
+        gfx.drawTextAligned(badge, cardX + cardW - 10, textY, kTextAlignment.right)
 
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
+        ::continue::
     end
 
-    -- 7. Draw instructions at bottom
+    -- Clear clip rect
+    gfx.clearClipRect()
+
+    -- Draw footer line
+    gfx.setColor(gfx.kColorBlack)
+    gfx.drawLine(panelX + 4, panelY + panelH - footerH, panelX + panelW - 4, panelY + panelH - footerH)
+
+    -- 7. Draw instructions at bottom (with padding from edges)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillRect(panelX + 6, panelY + panelH - footerH + 2, panelW - 12, footerH - 6)
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned("Up/Down: Select   A: Confirm",
-        200, panelY + panelH - 16, kTextAlignment.center)
+    gfx.drawTextAligned("Up/Down: Select   Ⓐ: Confirm",
+        200, panelY + panelH - footerH + 5, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 

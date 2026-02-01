@@ -187,6 +187,209 @@ BonusItemsData = {
         pairsWithTool = nil,
         unlockCondition = "all_episodes",
     },
+
+    shield_capacitor = {
+        id = "shield_capacitor",
+        name = "Shield Capacitor",
+        description = "Upgrades shield",
+        iconPath = "images/bonus_items/bonus_shield_capacitor",
+        effect = "shield_upgrade",
+        effectValue = 1,  -- Upgrades shield by 1 level
+        pairsWithTool = nil,
+        unlockCondition = "start",
+        -- Per-level scaling
+        effectPerLevel = 1,  -- Each level adds another shield upgrade
+    },
+
+    quantum_stabilizer = {
+        id = "quantum_stabilizer",
+        name = "Quantum Stabilizer",
+        description = "-10% all damage",
+        iconPath = "images/bonus_items/bonus_quantum_stabilizer",
+        effect = "damage_reduction",
+        effectValue = 0.1,
+        pairsWithTool = nil,
+        unlockCondition = "episode_2",
+        effectPerLevel = 0.05,  -- +5% per additional level
+    },
+
+    power_relay = {
+        id = "power_relay",
+        name = "Power Relay",
+        description = "+10% all damage",
+        iconPath = "images/bonus_items/bonus_power_relay",
+        effect = "damage_boost",
+        effectValue = 0.1,
+        pairsWithTool = nil,
+        unlockCondition = "episode_1",
+        effectPerLevel = 0.05,  -- +5% per additional level
+    },
+
+    -- Targeting Matrix - pairs with Modified Mapping Drone
+    targeting_matrix = {
+        id = "targeting_matrix",
+        name = "Targeting Matrix",
+        description = "+30% homing accuracy",
+        iconPath = "images/bonus_items/bonus_targeting_matrix",
+        effect = "homing_accuracy",
+        effectValue = 0.3,
+        pairsWithTool = "modified_mapping_drone",
+        upgradesTo = "Perihelion Strike",
+        unlockCondition = "episode_2",
+        effectPerLevel = 0.15,
+    },
+
+    -- BrainBuddy - neuro-implant augmentation for improved targeting
+    brain_buddy = {
+        id = "brain_buddy",
+        name = "BrainBuddy",
+        description = "+15% accuracy, +10% fire rate",
+        iconPath = "images/bonus_items/bonus_brain_buddy",
+        effect = "brain_buddy",  -- Custom combined effect
+        effectValue = 0.15,  -- Base accuracy bonus
+        pairsWithTool = nil,
+        unlockCondition = "episode_3",
+        effectPerLevel = 0.08,  -- +8% accuracy per level
+    },
+
+    -- Tool-pairing bonuses for new tools
+
+    -- Graviton Lens - pairs with Singularity Core
+    graviton_lens = {
+        id = "graviton_lens",
+        name = "Graviton Lens",
+        description = "+50% orbital range",
+        iconPath = "images/bonus_items/bonus_graviton_lens",
+        effect = "orbital_range",
+        effectValue = 0.5,
+        pairsWithTool = "singularity_core",
+        upgradesTo = "Black Hole Generator",
+        unlockCondition = "episode_3",
+        effectPerLevel = 0.25,
+    },
+
+    -- Fuel Injector - pairs with Plasma Sprayer
+    fuel_injector = {
+        id = "fuel_injector",
+        name = "Fuel Injector",
+        description = "+25% plasma damage",
+        iconPath = "images/bonus_items/bonus_fuel_injector",
+        effect = "damage_plasma",
+        effectValue = 0.25,
+        pairsWithTool = "plasma_sprayer",
+        upgradesTo = "Inferno Cannon",
+        unlockCondition = "episode_1",
+        effectPerLevel = 0.12,
+    },
+
+    -- Arc Capacitors - pairs with Tesla Coil
+    arc_capacitors = {
+        id = "arc_capacitors",
+        name = "Arc Capacitors",
+        description = "+1 chain target",
+        iconPath = "images/bonus_items/bonus_arc_capacitors",
+        effect = "chain_targets",
+        effectValue = 1,
+        pairsWithTool = "tesla_coil",
+        upgradesTo = "Storm Generator",
+        unlockCondition = "episode_3",
+        effectPerLevel = 1,
+    },
+
+    -- Guidance Module - pairs with Micro-Missile Pod
+    guidance_module = {
+        id = "guidance_module",
+        name = "Guidance Module",
+        description = "+2 missiles per burst",
+        iconPath = "images/bonus_items/bonus_guidance_module",
+        effect = "missiles_per_burst",
+        effectValue = 2,
+        pairsWithTool = "micro_missile_pod",
+        upgradesTo = "Swarm Launcher",
+        unlockCondition = "episode_2",
+        effectPerLevel = 1,
+    },
+
+    -- Phase Modulators - pairs with Phase Disruptor
+    phase_modulators = {
+        id = "phase_modulators",
+        name = "Phase Modulators",
+        description = "+25% phase damage",
+        iconPath = "images/bonus_items/bonus_phase_modulators",
+        effect = "damage_phase",
+        effectValue = 0.25,
+        pairsWithTool = "phase_disruptor",
+        upgradesTo = "Dimensional Rift",
+        unlockCondition = "episode_4",
+        effectPerLevel = 0.12,
+    },
+
+    -- General passive bonuses
+
+    -- Critical Matrix - adds critical hit system
+    critical_matrix = {
+        id = "critical_matrix",
+        name = "Critical Matrix",
+        description = "+15% crit chance (2x dmg)",
+        iconPath = "images/bonus_items/bonus_critical_matrix",
+        effect = "crit_chance",
+        effectValue = 0.15,
+        pairsWithTool = nil,
+        unlockCondition = "episode_2",
+        effectPerLevel = 0.08,
+    },
+
+    -- Salvage Drone - auto-collect RP
+    salvage_drone = {
+        id = "salvage_drone",
+        name = "Salvage Drone",
+        description = "Auto-collect RP in 60px",
+        iconPath = "images/bonus_items/bonus_salvage_drone",
+        effect = "auto_collect",
+        effectValue = 60,  -- Pixel radius
+        pairsWithTool = nil,
+        unlockCondition = "episode_1",
+        effectPerLevel = 20,  -- +20px per level
+    },
+
+    -- Kinetic Absorber - HP on kills
+    kinetic_absorber = {
+        id = "kinetic_absorber",
+        name = "Kinetic Absorber",
+        description = "+1 HP per 10 kills",
+        iconPath = "images/bonus_items/bonus_kinetic_absorber",
+        effect = "hp_on_kill",
+        effectValue = 10,  -- Kills needed for 1 HP
+        pairsWithTool = nil,
+        unlockCondition = "episode_3",
+        effectPerLevel = -2,  -- Reduces kills needed (10, 8, 6, 4)
+    },
+
+    -- Rapid Loader - cooldown reduction on kill
+    rapid_loader = {
+        id = "rapid_loader",
+        name = "Rapid Loader",
+        description = "-20% cooldown on kill",
+        iconPath = "images/bonus_items/bonus_rapid_loader",
+        effect = "cooldown_on_kill",
+        effectValue = 0.2,
+        pairsWithTool = nil,
+        unlockCondition = "episode_4",
+        effectPerLevel = 0.1,
+    },
+
+    -- Multi-Spectrum Rounds - damage per tool
+    multi_spectrum_rounds = {
+        id = "multi_spectrum_rounds",
+        name = "Multi-Spectrum",
+        description = "+5% dmg per tool equipped",
+        iconPath = "images/bonus_items/bonus_multi_spectrum_rounds",
+        effect = "damage_per_tool",
+        effectValue = 0.05,
+        pairsWithTool = nil,
+        unlockCondition = "episode_5",
+        effectPerLevel = 0.025,
+    },
 }
 
 -- Get bonus items available at game start
@@ -203,6 +406,18 @@ end
 -- Get bonus item by ID
 function BonusItemsData.get(id)
     return BonusItemsData[id]
+end
+
+-- Calculate effect value for a bonus item at a specific level (1-4)
+function BonusItemsData.getEffectAtLevel(id, level)
+    local data = BonusItemsData[id]
+    if not data then return nil end
+
+    level = math.max(1, math.min(4, level or 1))
+    local levelBonus = level - 1
+
+    local effectPerLevel = data.effectPerLevel or (data.effectValue * 0.5)  -- Default: +50% per level
+    return data.effectValue + effectPerLevel * levelBonus
 end
 
 return BonusItemsData

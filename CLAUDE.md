@@ -87,11 +87,13 @@ source/
 
 The game has a Debug Mode toggle in Settings that enables:
 - **All episodes unlocked** - Skip episode progression requirements
-- **Fast boss spawn** - Boss appears at 2 minutes instead of 7 minutes
+- **Fast boss spawn** - Boss appears at 1 minute instead of 7 minutes
+- **Station invincibility** - Station takes no damage
 
 Normal mode (Debug OFF):
 - Episodes unlock sequentially (must complete Episode N to unlock Episode N+1)
 - Boss spawns at 7 minutes (420 seconds)
+- Station health: 100 HP (per design document)
 
 ## Common Issues & Solutions
 
@@ -121,4 +123,4 @@ Full game design document is in `/Interstellar Survivors.md`
 
 ## Current Version
 
-v0.1.32 (build 33)
+v0.1.34 (build 35)

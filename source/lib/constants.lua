@@ -3,8 +3,8 @@
 
 Constants = {
     -- Version info (keep in sync with pdxinfo)
-    VERSION = "0.1.32",
-    BUILD = 33,
+    VERSION = "0.1.49",
+    BUILD = 50,
 
     -- Screen dimensions
     SCREEN_WIDTH = 400,
@@ -13,7 +13,7 @@ Constants = {
     -- Station
     STATION_CENTER_X = 200,
     STATION_CENTER_Y = 120,
-    STATION_BASE_HEALTH = 1000,  -- 10x for testing
+    STATION_BASE_HEALTH = 100,   -- Per design document
     STATION_RADIUS = 32,
     STATION_SLOTS = 8,
 
@@ -25,7 +25,7 @@ Constants = {
     -- Gameplay
     -- Boss spawn time is controlled by debug mode setting:
     -- Debug ON: 120 seconds (2 min), Debug OFF: 420 seconds (7 min)
-    MAX_TOOLS_PER_EPISODE = 6,
+    MAX_TOOLS_PER_EPISODE = 8,
 
     -- XP/Leveling (lower values = faster early leveling)
     BASE_XP = 50,

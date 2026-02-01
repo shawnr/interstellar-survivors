@@ -11,10 +11,10 @@ ProductivityLiaison.DATA = {
     description = "Your performance is under review",
     imagePath = "images/episodes/ep2/ep2_boss_productivity_liaison",
 
-    -- Boss stats (balanced for difficulty)
-    baseHealth = 150,
-    baseSpeed = 0.28,
-    baseDamage = 9,
+    -- Boss stats (Episode 2)
+    baseHealth = 300,
+    baseSpeed = 0.22,
+    baseDamage = 6,
     rpValue = 120,
 
     -- Collision
@@ -34,6 +34,9 @@ ProductivityLiaison.PHASES = {
 
 function ProductivityLiaison:init(x, y)
     ProductivityLiaison.super.init(self, x, y, ProductivityLiaison.DATA, { health = 1, damage = 1, speed = 1 })
+
+    -- DEBUG: Log boss health
+    print("BOSS INIT: Productivity Liaison health = " .. self.health .. " / " .. self.maxHealth)
 
     -- Boss-specific state
     self.phase = ProductivityLiaison.PHASES.APPROACH
@@ -218,7 +221,14 @@ function ProductivityLiaison:applyFeedbackDebuff()
     end
 end
 
+-- Override takeDamage for debug logging
+function ProductivityLiaison:takeDamage(amount, damageType)
+    print("BOSS DAMAGE: Productivity " .. amount .. " -> health now: " .. (self.health - amount) .. "/" .. self.maxHealth)
+    return ProductivityLiaison.super.takeDamage(self, amount, damageType)
+end
+
 function ProductivityLiaison:onDestroyed()
+    print("BOSS DESTROYED! Productivity Liaison final health was: " .. self.health)
     self.active = false
 
     if GameManager then
@@ -234,33 +244,50 @@ function ProductivityLiaison:onDestroyed()
     end
 end
 
--- Override health bar for boss (at bottom of screen, above HUD)
+-- Override health bar for boss (compact bar in bottom border area)
 function ProductivityLiaison:drawHealthBar()
     if not self.active then return end
 
-    -- Boss health bar at bottom of screen (above bottom HUD)
-    local barWidth = 280
-    local barHeight = 10
-    local barX = (Constants.SCREEN_WIDTH - barWidth) / 2
-    local barY = Constants.SCREEN_HEIGHT - 38
+    -- Compact boss health bar in bottom left area
+    local barWidth = 170
+    local barHeight = 14
+    local barX = 6
+    local barY = Constants.SCREEN_HEIGHT - 20
 
-    -- Background box
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(barX - 4, barY - 14, barWidth + 8, barHeight + 18)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.drawRect(barX - 4, barY - 14, barWidth + 8, barHeight + 18)
+    local healthPercent = self.health / self.maxHealth
+    local fillWidth = math.floor(healthPercent * (barWidth - 2))
 
-    -- Boss name
-    gfx.drawTextAligned("*PRODUCTIVITY LIAISON*", Constants.SCREEN_WIDTH / 2, barY - 12, kTextAlignment.center)
-
-    -- Health bar border
+    -- Health bar background (black = empty)
     gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(barX, barY, barWidth, barHeight)
 
-    -- Health bar fill
-    local fillWidth = (self.health / self.maxHealth) * (barWidth - 2)
+    -- Health bar fill (white = health remaining)
     gfx.setColor(gfx.kColorWhite)
     gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
+
+    -- Draw boss name inside the bar using smaller font
+    local bossName = "LIAISON"
+    local textX = barX + barWidth / 2
+    local textY = barY + 2
+
+    -- Use tighter tracking for compact text
+    gfx.setFontTracking(-1)
+
+    -- Use clip rect to draw text in two colors
+    -- First draw white text (for the empty/black portion)
+    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
+
+    -- Then draw black text (for the filled/white portion)
+    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
+    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
+
+    -- Clear clip rect and restore draw mode
+    gfx.clearClipRect()
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    gfx.setFontTracking(0)
 end
 
 return ProductivityLiaison

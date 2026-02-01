@@ -31,6 +31,9 @@ function GameplayScene:init()
     self.boss = nil
     self.bossSpawned = false
 
+    -- Salvage drone (spawned by bonus item)
+    self.salvageDrone = nil
+
     -- Background
     self.backgroundSprite = nil
 
@@ -110,6 +113,7 @@ function GameplayScene:enter(params)
     self.messages = {}
     self.boss = nil
     self.bossSpawned = false
+    self.salvageDrone = nil
 
     -- Initialize upgrade system for this episode
     UpgradeSystem:reset()
@@ -215,6 +219,11 @@ function GameplayScene:updateCollectibles(dt)
         else
             table.remove(self.collectibles, i)
         end
+    end
+
+    -- Update salvage drone (if present)
+    if self.salvageDrone and self.salvageDrone.active then
+        self.salvageDrone:update()
     end
 end
 
@@ -559,8 +568,10 @@ function GameplayScene:checkCollisions()
             local collisionDist = Constants.STATION_RADIUS + mob:getRadius()
 
             if dist < collisionDist then
-                -- MOB hit station
-                self.station:takeDamage(mob.damage)
+                -- Calculate attack angle (direction MOB approached from)
+                local attackAngle = Utils.vectorToAngle(mob.x - self.station.x, mob.y - self.station.y)
+                -- MOB hit station (pass attack angle for shield check)
+                self.station:takeDamage(mob.damage, attackAngle)
                 mob:onDestroyed()
             end
         end
@@ -572,8 +583,10 @@ function GameplayScene:checkCollisions()
         if proj.active then
             local dist = Utils.distance(proj.x, proj.y, self.station.x, self.station.y)
             if dist < Constants.STATION_RADIUS + 4 then
+                -- Calculate attack angle for shield check
+                local attackAngle = Utils.vectorToAngle(proj.x - self.station.x, proj.y - self.station.y)
                 -- Hit station!
-                self.station:takeDamage(proj:getDamage())
+                self.station:takeDamage(proj:getDamage(), attackAngle)
 
                 -- Apply special effects
                 local effect = proj:getEffect()
@@ -595,9 +608,9 @@ function GameplayScene:checkGameConditions()
     end
 
     -- Check for boss spawn
-    -- Debug mode: 2 minutes, Normal mode: 7 minutes
+    -- Debug mode: 1 minute, Normal mode: 7 minutes
     local debugMode = SaveManager and SaveManager:getSetting("debugMode", false)
-    local bossSpawnTime = debugMode and 120 or 420
+    local bossSpawnTime = debugMode and 60 or 420
 
     if self.elapsedTime >= bossSpawnTime and not self.bossSpawned then
         self:spawnBoss()
@@ -622,8 +635,8 @@ function GameplayScene:spawnBoss()
     local episodeId = GameManager.currentEpisodeId or 1
 
     if episodeId == 1 then
-        print("BOSS TIME! Spawning Cultural Attaché!")
-        self:showMessage("BOSS: Cultural Attaché!", 3.0)
+        print("BOSS TIME! Spawning Cultural Attache!")
+        self:showMessage("BOSS: Cultural Attache!", 3.0)
         self.boss = CulturalAttache(x, y)
     elseif episodeId == 2 then
         print("BOSS TIME! Spawning Productivity Liaison!")
@@ -678,6 +691,9 @@ function GameplayScene:drawOverlay()
             mob:drawDebugLabel()
         end
     end
+
+    -- Draw shield effect (before HUD so it's behind UI elements)
+    self.station:drawShield()
 
     -- Draw HUD
     self:drawHUD()
@@ -749,8 +765,10 @@ function GameplayScene:drawHUD()
     local healthStr = math.floor(self.station.health) .. "/" .. self.station.maxHealth
     gfx.drawTextAligned(healthStr, healthBarX - 6, healthBarY, kTextAlignment.right)
 
-    -- Debug info (bottom left)
-    gfx.drawText("M:" .. #self.mobs .. " C:" .. #self.collectibles, 8, Constants.SCREEN_HEIGHT - 18)
+    -- Draw boss health bar AFTER the HUD (so it's not covered by the white background)
+    if self.boss and self.boss.active then
+        self.boss:drawHealthBar()
+    end
 end
 
 function GameplayScene:onLevelUp()

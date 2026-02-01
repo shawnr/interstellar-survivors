@@ -10,11 +10,13 @@ Chomper.DATA = {
     name = "Chomper",
     description = "Very large. Very hungry.",
     imagePath = "images/episodes/ep4/ep4_boss_chomper",
+    animPath = "images/episodes/ep4/ep4_boss_chomper",  -- Animation table (2 frames - chomping)
+    frameDuration = 0.2,  -- 200ms per frame - chomping animation
 
-    -- Boss stats (balanced for difficulty)
-    baseHealth = 200,
-    baseSpeed = 0.3,
-    baseDamage = 12,
+    -- Boss stats (Episode 4)
+    baseHealth = 500,
+    baseSpeed = 0.25,
+    baseDamage = 8,
     rpValue = 180,
 
     -- Collision - larger boss
@@ -35,6 +37,9 @@ Chomper.PHASES = {
 
 function Chomper:init(x, y)
     Chomper.super.init(self, x, y, Chomper.DATA, { health = 1, damage = 1, speed = 1 })
+
+    -- DEBUG: Log boss health
+    print("BOSS INIT: Chomper health = " .. self.health .. " / " .. self.maxHealth)
 
     -- Boss-specific state
     self.phase = Chomper.PHASES.APPROACH
@@ -70,6 +75,11 @@ function Chomper:update(dt)
         if self.healthBarTimer <= 0 then
             self.showHealthBar = false
         end
+    end
+
+    -- Update animation (chomping effect)
+    if self.animImageTable and self.frameCount > 1 then
+        self:updateAnimation(dt)
     end
 
     -- Update timers
@@ -249,6 +259,7 @@ end
 
 -- Override takeDamage to spawn debris in enraged phase
 function Chomper:takeDamage(amount)
+    print("BOSS DAMAGE: Chomper " .. amount .. " -> health now: " .. (self.health - amount) .. "/" .. self.maxHealth)
     local killed = Chomper.super.takeDamage(self, amount)
 
     -- Spawn debris when hit in enraged phase
@@ -271,6 +282,7 @@ function Chomper:spawnDebris()
 end
 
 function Chomper:onDestroyed()
+    print("BOSS DESTROYED! Chomper final health was: " .. self.health)
     self.active = false
 
     if GameManager then
@@ -286,32 +298,50 @@ function Chomper:onDestroyed()
     end
 end
 
--- Override health bar for boss
+-- Override health bar for boss (compact bar in bottom border area)
 function Chomper:drawHealthBar()
     if not self.active then return end
 
-    local barWidth = 280
-    local barHeight = 10
-    local barX = (Constants.SCREEN_WIDTH - barWidth) / 2
-    local barY = Constants.SCREEN_HEIGHT - 38
+    -- Compact boss health bar in bottom left area
+    local barWidth = 170
+    local barHeight = 14
+    local barX = 6
+    local barY = Constants.SCREEN_HEIGHT - 20
 
-    -- Background box
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(barX - 4, barY - 14, barWidth + 8, barHeight + 18)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.drawRect(barX - 4, barY - 14, barWidth + 8, barHeight + 18)
+    local healthPercent = self.health / self.maxHealth
+    local fillWidth = math.floor(healthPercent * (barWidth - 2))
 
-    -- Boss name
-    gfx.drawTextAligned("*CHOMPER*", Constants.SCREEN_WIDTH / 2, barY - 12, kTextAlignment.center)
-
-    -- Health bar border
+    -- Health bar background (black = empty)
     gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(barX, barY, barWidth, barHeight)
 
-    -- Health bar fill
-    local fillWidth = (self.health / self.maxHealth) * (barWidth - 2)
+    -- Health bar fill (white = health remaining)
     gfx.setColor(gfx.kColorWhite)
     gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
+
+    -- Draw boss name inside the bar using smaller font
+    local bossName = "CHOMPER"
+    local textX = barX + barWidth / 2
+    local textY = barY + 2
+
+    -- Use tighter tracking for compact text
+    gfx.setFontTracking(-1)
+
+    -- Use clip rect to draw text in two colors
+    -- First draw white text (for the empty/black portion)
+    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
+
+    -- Then draw black text (for the filled/white portion)
+    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
+    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
+
+    -- Clear clip rect and restore draw mode
+    gfx.clearClipRect()
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    gfx.setFontTracking(0)
 end
 
 return Chomper

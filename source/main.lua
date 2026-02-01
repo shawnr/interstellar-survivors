@@ -77,6 +77,15 @@ import "entities/tools/cryo_projector"
 import "entities/tools/emp_burst"
 import "entities/tools/probe_launcher"
 import "entities/tools/repulsor_field"
+import "entities/tools/modified_mapping_drone"
+import "entities/tools/singularity_core"
+import "entities/tools/plasma_sprayer"
+import "entities/tools/tesla_coil"
+import "entities/tools/micro_missile_pod"
+import "entities/tools/phase_disruptor"
+
+-- Import other entities
+import "entities/salvage_drone"
 
 -- Import scenes
 import "scenes/gameplay_scene"
@@ -111,7 +120,8 @@ local function initialize()
     end)
 
     menu:addMenuItem("Settings", function()
-        GameManager:setState(GameManager.states.SETTINGS)
+        -- Pass current state so settings can return here
+        GameManager:setState(GameManager.states.SETTINGS, { fromState = GameManager.currentState })
     end)
 
     -- Start at title screen

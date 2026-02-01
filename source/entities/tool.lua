@@ -17,6 +17,9 @@ function Tool:init(toolData)
     self.slotIndex = nil
     self.slotData = nil
 
+    -- Level system (1-4)
+    self.level = 1
+
     -- Tool stats from data (with research spec bonuses)
     local baseFireRate = toolData.fireRate or 1.0
     local baseDamage = toolData.baseDamage or 1
@@ -34,19 +37,28 @@ function Tool:init(toolData)
     self.projectileSpeed = toolData.projectileSpeed or 10
     self.pattern = toolData.pattern or "straight"
 
+    -- DEBUG: Log tool creation
+    print("TOOL INIT: " .. toolData.id .. " | baseDmg=" .. baseDamage .. " specBonus=" .. damageBonus .. " -> damage=" .. self.damage)
+
     -- Firing state
     self.fireCooldown = 0
     self.fireInterval = 1 / self.fireRate  -- Convert rate to interval
 
-    -- Upgrade state
-    self.upgraded = false
-    self.isUpgraded = false  -- Alias for upgrade system
+    -- Evolution state (different from level upgrades)
+    self.isEvolved = false
     self.bonusItem = nil
+
+    -- Legacy upgrade flag (for backward compatibility)
+    self.upgraded = false
+    self.isUpgraded = false
 
     -- Bonus modifiers (applied by upgrade system)
     self.damageBonus = 0
     self.fireRateBonus = 0
     self.accuracyBonus = 0
+    self.globalDamageBonus = 0
+    self.projectileSpeedBonus = 0
+    self.rangeBonus = 0
 
     -- Set center point for proper rotation
     self:setCenter(0.5, 0.5)
@@ -119,7 +131,7 @@ function Tool:createProjectile(x, y, angle)
     if GameplayScene and GameplayScene.projectilePool then
         local projectile = GameplayScene.projectilePool:get(
             x, y, angle,
-            self.projectileSpeed,
+            self.projectileSpeed * (1 + self.projectileSpeedBonus),
             self.damage,
             self.data.projectileImage or "images/tools/tool_rail_driver_projectile"
         )
@@ -127,42 +139,56 @@ function Tool:createProjectile(x, y, angle)
     end
 end
 
--- Upgrade the tool with a bonus item
-function Tool:upgrade(bonusItem)
-    if self.upgraded then return false end
+-- Evolve the tool (called when both tool and matching bonus are at max level)
+function Tool:evolve(toolData)
+    if self.isEvolved then return false end
 
+    self.isEvolved = true
     self.upgraded = true
     self.isUpgraded = true
-    self.bonusItem = bonusItem
 
-    -- Apply upgraded stats
-    if self.data.upgradedDamage then
-        self.damage = self.data.upgradedDamage
+    -- Apply evolved stats
+    if toolData.upgradedDamage then
+        self.damage = toolData.upgradedDamage
     end
-    if self.data.upgradedFireRate then
-        self.fireRate = self.data.upgradedFireRate
+    if toolData.upgradedFireRate then
+        self.fireRate = toolData.upgradedFireRate
         self.fireInterval = 1 / self.fireRate
     end
-    if self.data.upgradedSpeed then
-        self.projectileSpeed = self.data.upgradedSpeed
+    if toolData.upgradedSpeed then
+        self.projectileSpeed = toolData.upgradedSpeed
     end
 
-    -- Change to upgraded image
-    if self.data.upgradedImagePath then
-        local img = gfx.image.new(self.data.upgradedImagePath)
+    -- Change to evolved image
+    if toolData.upgradedImagePath then
+        local img = gfx.image.new(toolData.upgradedImagePath)
         if img then self:setImage(img) end
     end
 
-    print("Tool upgraded: " .. self.data.name .. " -> " .. (self.data.upgradedName or "Upgraded"))
+    -- Recalculate with new base stats
+    self:recalculateStats()
+
+    print("Tool evolved: " .. self.data.name .. " -> " .. (toolData.upgradedName or "Evolved"))
     return true
 end
 
--- Check if tool can be upgraded
-function Tool:canUpgrade()
-    return not self.upgraded and self.data.pairsWithBonus ~= nil
+-- Legacy upgrade method (for backward compatibility)
+function Tool:upgrade(bonusItem)
+    self.bonusItem = bonusItem
+    return self:evolve(self.data)
 end
 
--- Recalculate stats based on bonuses
+-- Check if tool can be upgraded (level-wise)
+function Tool:canLevelUp()
+    return self.level < 4
+end
+
+-- Check if tool can evolve (max level + matching bonus)
+function Tool:canEvolve()
+    return not self.isEvolved and self.level >= 4 and self.data.pairsWithBonus ~= nil
+end
+
+-- Recalculate stats based on level and bonuses
 function Tool:recalculateStats()
     -- Get research spec bonuses
     local specFireRateBonus = 0
@@ -172,23 +198,52 @@ function Tool:recalculateStats()
         specDamageBonus = ResearchSpecSystem:getDamageBonus()
     end
 
-    -- Base damage with bonuses (item bonus + spec bonus)
-    local baseDamage = self.upgraded and (self.data.upgradedDamage or self.data.baseDamage) or self.data.baseDamage
-    self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus)
+    -- Get level-scaled stats from data
+    local levelStats = ToolsData.getStatsAtLevel(self.data.id, self.level)
+    if levelStats then
+        -- Use evolved stats as base if evolved
+        local baseDamage, baseRate
+        if self.isEvolved and self.data.upgradedDamage then
+            baseDamage = self.data.upgradedDamage
+            baseRate = self.data.upgradedFireRate or self.data.fireRate
+        else
+            baseDamage = levelStats.damage
+            baseRate = levelStats.fireRate
+        end
 
-    -- Fire rate with bonuses (item bonus + spec bonus)
-    local baseRate = self.upgraded and (self.data.upgradedFireRate or self.data.fireRate) or self.data.fireRate
-    self.fireRate = baseRate * (1 + self.fireRateBonus + specFireRateBonus)
-    self.fireInterval = 1 / self.fireRate
+        -- Apply all bonuses: level + item bonus + spec bonus + global bonus
+        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus)
+
+        -- DEBUG: Log damage calculation
+        print("TOOL STATS: " .. self.data.id .. " Lv" .. self.level .. " | baseDmg=" .. baseDamage ..
+              " itemBonus=" .. self.damageBonus .. " specBonus=" .. specDamageBonus ..
+              " globalBonus=" .. self.globalDamageBonus .. " -> damage=" .. self.damage)
+
+        -- Fire rate with bonuses
+        self.fireRate = baseRate * (1 + self.fireRateBonus + specFireRateBonus)
+        self.fireInterval = 1 / self.fireRate
+
+        -- Range bonus (used by some tools)
+        self.range = levelStats.range + (self.rangeBonus * levelStats.range)
+    else
+        -- Fallback to base calculation
+        local baseDamage = self.isEvolved and (self.data.upgradedDamage or self.data.baseDamage) or self.data.baseDamage
+        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus)
+
+        local baseRate = self.isEvolved and (self.data.upgradedFireRate or self.data.fireRate) or self.data.fireRate
+        self.fireRate = baseRate * (1 + self.fireRateBonus + specFireRateBonus)
+        self.fireInterval = 1 / self.fireRate
+    end
 end
 
 -- Get tool info for UI
 function Tool:getInfo()
     return {
-        name = self.upgraded and self.data.upgradedName or self.data.name,
+        name = self.isEvolved and self.data.upgradedName or self.data.name,
+        level = self.level,
         damage = self.damage,
         fireRate = self.fireRate,
         pattern = self.pattern,
-        upgraded = self.upgraded
+        evolved = self.isEvolved
     }
 end

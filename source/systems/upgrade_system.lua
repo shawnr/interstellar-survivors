@@ -1,9 +1,16 @@
 -- Upgrade System
--- Manages tool and bonus item selection, application, and upgrades
+-- Manages tool and bonus item selection, application, and multi-level upgrades
+
+local MAX_LEVEL = 4  -- Maximum upgrade level for tools and bonus items
 
 UpgradeSystem = {
-    -- Currently owned bonus items (by id)
+    -- Currently owned bonus items with their levels (by id)
+    -- Format: { item_id = level }
     ownedBonusItems = {},
+
+    -- Tool levels (tracked separately, tools are on station)
+    -- Format: { tool_id = level }
+    toolLevels = {},
 
     -- Available pools for selection
     availableTools = {},
@@ -19,6 +26,7 @@ end
 
 function UpgradeSystem:reset()
     self.ownedBonusItems = {}
+    self.toolLevels = {}
     self:refreshAvailablePools()
 end
 
@@ -26,6 +34,16 @@ end
 function UpgradeSystem:setEpisode(episodeNum)
     self.currentEpisode = episodeNum
     self:refreshAvailablePools()
+end
+
+-- Get current level of a tool (0 if not owned)
+function UpgradeSystem:getToolLevel(toolId)
+    return self.toolLevels[toolId] or 0
+end
+
+-- Get current level of a bonus item (0 if not owned)
+function UpgradeSystem:getBonusItemLevel(itemId)
+    return self.ownedBonusItems[itemId] or 0
 end
 
 -- Refresh available tool and bonus item pools based on current unlock state
@@ -42,10 +60,10 @@ function UpgradeSystem:refreshAvailablePools()
         end
     end
 
-    -- Get all bonus items that are unlocked and not owned
+    -- Get all bonus items that are unlocked
     for id, data in pairs(BonusItemsData) do
         if type(data) == "table" and data.id then
-            if self:isUnlocked(data.unlockCondition) and not self.ownedBonusItems[id] then
+            if self:isUnlocked(data.unlockCondition) then
                 table.insert(self.availableBonusItems, data)
             end
         end
@@ -70,7 +88,14 @@ function UpgradeSystem:isUnlocked(condition)
         return self.currentEpisode >= 5
     elseif condition == "all_episodes" then
         -- Requires completing all episodes - check save data
-        -- TODO: Check SaveManager for completion
+        if SaveManager then
+            for i = 1, 5 do
+                if not SaveManager:isEpisodeCompleted(i) then
+                    return false
+                end
+            end
+            return true
+        end
         return false
     end
     return false
@@ -82,36 +107,35 @@ function UpgradeSystem:getUpgradeOptions(station)
     local toolOptions = {}
     local bonusOptions = {}
 
-    -- Get tools the station doesn't already have (or that can be upgraded)
+    -- Get tools: either new tools or upgrades for existing ones
     local eligibleTools = {}
     for _, toolData in ipairs(self.availableTools) do
         -- Check if station already has this tool
         local hasTool = false
-        local canUpgrade = false
+        local currentLevel = 0
 
         for _, equippedTool in ipairs(station.tools) do
             if equippedTool.data.id == toolData.id then
                 hasTool = true
-                -- Check if it can be upgraded (has matching bonus item)
-                if not equippedTool.isUpgraded and toolData.pairsWithBonus then
-                    if self.ownedBonusItems[toolData.pairsWithBonus] then
-                        canUpgrade = true
-                    end
-                end
+                currentLevel = equippedTool.level or 1
                 break
             end
         end
 
-        -- Add to eligible if station doesn't have it or can upgrade it
+        -- Can add if station doesn't have it, or upgrade if below max level
         if not hasTool then
             table.insert(eligibleTools, {
                 data = toolData,
-                isUpgrade = false
+                isNew = true,
+                currentLevel = 0,
+                nextLevel = 1
             })
-        elseif canUpgrade then
+        elseif currentLevel < MAX_LEVEL then
             table.insert(eligibleTools, {
                 data = toolData,
-                isUpgrade = true
+                isNew = false,
+                currentLevel = currentLevel,
+                nextLevel = currentLevel + 1
             })
         end
     end
@@ -122,27 +146,69 @@ function UpgradeSystem:getUpgradeOptions(station)
         local option = eligibleTools[i]
         local displayData = {
             id = option.data.id,
-            name = option.isUpgrade and option.data.upgradedName or option.data.name,
-            description = option.isUpgrade and "UPGRADE!" or option.data.description,
-            iconPath = option.isUpgrade and option.data.upgradedImagePath or option.data.iconPath,
-            isUpgrade = option.isUpgrade,
+            type = "tool",
+            name = option.data.name,
+            description = option.isNew and option.data.description or ("Level " .. option.nextLevel),
+            iconPath = option.data.iconPath,
+            isNew = option.isNew,
+            currentLevel = option.currentLevel,
+            nextLevel = option.nextLevel,
             originalData = option.data
         }
+
+        -- Show upgraded name at max level
+        if option.nextLevel == MAX_LEVEL and option.data.upgradedName then
+            displayData.name = option.data.upgradedName
+            if option.data.upgradedImagePath then
+                displayData.iconPath = option.data.upgradedImagePath
+            end
+        end
+
+        -- Add level indicator to name if upgrading
+        if not option.isNew then
+            displayData.name = displayData.name .. " Lv" .. option.nextLevel
+        end
+
         table.insert(toolOptions, displayData)
     end
 
-    -- Get bonus items not yet owned
+    -- Get bonus items: can always re-select to upgrade up to max level
     local eligibleBonus = {}
     for _, bonusData in ipairs(self.availableBonusItems) do
-        if not self.ownedBonusItems[bonusData.id] then
-            table.insert(eligibleBonus, bonusData)
+        local currentLevel = self.ownedBonusItems[bonusData.id] or 0
+
+        if currentLevel < MAX_LEVEL then
+            table.insert(eligibleBonus, {
+                data = bonusData,
+                isNew = currentLevel == 0,
+                currentLevel = currentLevel,
+                nextLevel = currentLevel + 1
+            })
         end
     end
 
     -- Randomly select up to 2 bonus items
     self:shuffleArray(eligibleBonus)
     for i = 1, math.min(2, #eligibleBonus) do
-        table.insert(bonusOptions, eligibleBonus[i])
+        local option = eligibleBonus[i]
+        local displayData = {
+            id = option.data.id,
+            type = "bonus",
+            name = option.data.name,
+            description = option.isNew and option.data.description or ("Level " .. option.nextLevel),
+            iconPath = option.data.iconPath,
+            isNew = option.isNew,
+            currentLevel = option.currentLevel,
+            nextLevel = option.nextLevel,
+            originalData = option.data
+        }
+
+        -- Add level indicator if upgrading
+        if not option.isNew then
+            displayData.name = displayData.name .. " Lv" .. option.nextLevel
+        end
+
+        table.insert(bonusOptions, displayData)
     end
 
     return toolOptions, bonusOptions
@@ -150,27 +216,35 @@ end
 
 -- Apply a tool selection
 function UpgradeSystem:applyToolSelection(toolData, station)
-    if toolData.isUpgrade then
-        -- Find and upgrade existing tool
-        for _, tool in ipairs(station.tools) do
-            if tool.data.id == toolData.originalData.id then
-                local bonusId = toolData.originalData.pairsWithBonus
-                local bonusData = BonusItemsData.get(bonusId)
-                if bonusData then
-                    tool:upgrade(bonusData)
-                    print("Upgraded tool: " .. tool.data.id .. " to " .. toolData.name)
-                end
-                return true
-            end
-        end
-    else
+    if toolData.isNew then
         -- Attach new tool
         local toolClass = self:getToolClass(toolData.originalData.id)
         if toolClass then
             local newTool = toolClass()
+            newTool.level = 1
+            self.toolLevels[toolData.id] = 1
             station:attachTool(newTool)
-            print("Attached new tool: " .. toolData.name)
+            print("Attached new tool: " .. toolData.name .. " (Lv1)")
             return true
+        end
+    else
+        -- Upgrade existing tool
+        for _, tool in ipairs(station.tools) do
+            if tool.data.id == toolData.originalData.id then
+                tool.level = toolData.nextLevel
+                self.toolLevels[toolData.id] = toolData.nextLevel
+                tool:recalculateStats()
+                print("Upgraded tool: " .. toolData.originalData.id .. " to Lv" .. tool.level)
+
+                -- Check if reached max level with matching bonus
+                if tool.level >= MAX_LEVEL and toolData.originalData.pairsWithBonus then
+                    if self.ownedBonusItems[toolData.originalData.pairsWithBonus] then
+                        tool:evolve(toolData.originalData)
+                    end
+                end
+
+                return true
+            end
         end
     end
     return false
@@ -178,93 +252,204 @@ end
 
 -- Apply a bonus item selection
 function UpgradeSystem:applyBonusSelection(bonusData, station)
-    -- Mark as owned
-    self.ownedBonusItems[bonusData.id] = true
+    local currentLevel = self.ownedBonusItems[bonusData.id] or 0
+    local newLevel = currentLevel + 1
 
-    -- Apply effect to station
-    self:applyBonusEffect(bonusData, station)
+    -- Update level
+    self.ownedBonusItems[bonusData.id] = newLevel
 
-    -- Check if this bonus pairs with any equipped tool for upgrade
-    if bonusData.pairsWithTool then
+    -- Apply effect (with level scaling)
+    self:applyBonusEffect(bonusData, station, newLevel)
+
+    -- Check if this bonus pairs with any equipped tool for evolution
+    if newLevel >= MAX_LEVEL and bonusData.pairsWithTool then
         for _, tool in ipairs(station.tools) do
-            if tool.data.id == bonusData.pairsWithTool and not tool.isUpgraded then
-                tool:upgrade(bonusData)
-                print("Auto-upgraded tool " .. tool.data.id .. " with " .. bonusData.id)
+            if tool.data.id == bonusData.pairsWithTool and tool.level >= MAX_LEVEL and not tool.isEvolved then
+                tool:evolve(tool.data)
+                print("Tool evolved: " .. tool.data.id)
             end
         end
     end
 
-    -- Remove from available pool
-    self:refreshAvailablePools()
-
-    print("Applied bonus item: " .. bonusData.name)
+    print("Applied bonus item: " .. bonusData.name .. " (Lv" .. newLevel .. ")")
     return true
 end
 
--- Apply bonus item effect to station/tools
-function UpgradeSystem:applyBonusEffect(bonusData, station)
+-- Apply bonus item effect to station/tools (with level scaling)
+function UpgradeSystem:applyBonusEffect(bonusData, station, level)
     local effect = bonusData.effect
-    local value = bonusData.effectValue
+    -- Calculate effect value at this level
+    local value = BonusItemsData.getEffectAtLevel(bonusData.id, level)
+    -- For upgrades, we need the incremental value (difference from previous level)
+    local prevValue = level > 1 and BonusItemsData.getEffectAtLevel(bonusData.id, level - 1) or 0
+    local incrementalValue = value - prevValue
+
+    -- On first acquisition, use full value; on upgrade, use incremental
+    local applyValue = level == 1 and value or incrementalValue
 
     if effect == "max_health" then
-        station.maxHealth = station.maxHealth * (1 + value)
-        station.health = station.health * (1 + value)
+        local oldMax = station.maxHealth
+        station.maxHealth = math.floor(station.maxHealth * (1 + applyValue))
+        station.health = station.health + (station.maxHealth - oldMax)
 
     elseif effect == "rotation_speed" then
-        station.rotationBonus = (station.rotationBonus or 0) + value
+        station.rotationBonus = (station.rotationBonus or 0) + applyValue
 
     elseif effect == "fire_rate" then
         -- Apply to all tools
         for _, tool in ipairs(station.tools) do
-            tool.fireRateBonus = (tool.fireRateBonus or 0) + value
+            tool.fireRateBonus = (tool.fireRateBonus or 0) + applyValue
             tool:recalculateStats()
         end
         -- Store for future tools
-        station.globalFireRateBonus = (station.globalFireRateBonus or 0) + value
+        station.globalFireRateBonus = (station.globalFireRateBonus or 0) + applyValue
 
     elseif effect == "sensor_range" then
-        station.sensorRange = (station.sensorRange or 0) + value
+        station.sensorRange = (station.sensorRange or 0) + applyValue
 
     elseif effect == "rp_bonus" then
-        station.rpBonus = (station.rpBonus or 0) + value
+        station.rpBonus = (station.rpBonus or 0) + applyValue
 
     elseif effect == "health_regen" then
-        station.healthRegen = (station.healthRegen or 0) + value
+        station.healthRegen = (station.healthRegen or 0) + applyValue
 
     elseif effect == "accuracy" then
         -- Apply to all tools
         for _, tool in ipairs(station.tools) do
-            tool.accuracyBonus = (tool.accuracyBonus or 0) + value
+            tool.accuracyBonus = (tool.accuracyBonus or 0) + applyValue
         end
-        station.globalAccuracyBonus = (station.globalAccuracyBonus or 0) + value
+        station.globalAccuracyBonus = (station.globalAccuracyBonus or 0) + applyValue
 
     elseif effect == "ram_resistance" then
-        station.ramResistance = (station.ramResistance or 0) + value
+        station.ramResistance = (station.ramResistance or 0) + applyValue
+
+    elseif effect == "projectile_speed" then
+        -- Apply to all tools
+        for _, tool in ipairs(station.tools) do
+            tool.projectileSpeedBonus = (tool.projectileSpeedBonus or 0) + applyValue
+        end
+        station.globalProjectileSpeedBonus = (station.globalProjectileSpeedBonus or 0) + applyValue
+
+    elseif effect == "shield_upgrade" then
+        -- Upgrade station shield
+        if station.upgradeShield then
+            station:upgradeShield()
+        end
+
+    elseif effect == "damage_reduction" then
+        station.damageReduction = (station.damageReduction or 0) + applyValue
+
+    elseif effect == "damage_boost" then
+        -- Apply to all tools
+        for _, tool in ipairs(station.tools) do
+            tool.globalDamageBonus = (tool.globalDamageBonus or 0) + applyValue
+            tool:recalculateStats()
+        end
+        station.globalDamageBonus = (station.globalDamageBonus or 0) + applyValue
 
     -- Tool-specific effects
     elseif effect == "damage_physical" then
-        self:applyDamageBonus(station, "physical", value)
+        self:applyDamageBonus(station, "physical", applyValue)
 
     elseif effect == "damage_frequency" then
-        self:applyDamageBonus(station, "frequency", value)
+        self:applyDamageBonus(station, "frequency", applyValue)
 
     elseif effect == "damage_thermal" then
-        self:applyDamageBonus(station, "thermal", value)
+        self:applyDamageBonus(station, "thermal", applyValue)
 
     elseif effect == "damage_electric" then
-        self:applyDamageBonus(station, "electric", value)
+        self:applyDamageBonus(station, "electric", applyValue)
 
     elseif effect == "tractor_range" then
-        self:applyToolBonus(station, "tractor_pulse", "rangeBonus", value)
+        self:applyToolBonus(station, "tractor_pulse", "rangeBonus", applyValue)
 
     elseif effect == "slow_duration" then
-        self:applyToolBonus(station, "cryo_projector", "slowDurationBonus", value)
+        self:applyToolBonus(station, "cryo_projector", "slowDurationBonus", applyValue)
 
     elseif effect == "extra_probes" then
-        self:applyToolBonus(station, "probe_launcher", "extraProbes", value)
+        self:applyToolBonus(station, "probe_launcher", "extraProbes", applyValue)
 
     elseif effect == "push_force" then
-        self:applyToolBonus(station, "repulsor_field", "pushForceBonus", value)
+        self:applyToolBonus(station, "repulsor_field", "pushForceBonus", applyValue)
+
+    elseif effect == "homing_accuracy" then
+        -- Apply to mapping drone's homing accuracy
+        self:applyToolBonus(station, "modified_mapping_drone", "homingAccuracyBonus", applyValue)
+
+    elseif effect == "brain_buddy" then
+        -- BrainBuddy: Combined accuracy + fire rate bonus
+        -- Apply accuracy to all tools
+        for _, tool in ipairs(station.tools) do
+            tool.accuracyBonus = (tool.accuracyBonus or 0) + applyValue
+        end
+        station.globalAccuracyBonus = (station.globalAccuracyBonus or 0) + applyValue
+
+        -- Also apply 10% fire rate bonus (2/3 of the accuracy value)
+        local fireRateBonus = applyValue * 0.67
+        for _, tool in ipairs(station.tools) do
+            tool.fireRateBonus = (tool.fireRateBonus or 0) + fireRateBonus
+            tool:recalculateStats()
+        end
+        station.globalFireRateBonus = (station.globalFireRateBonus or 0) + fireRateBonus
+
+    -- New tool-pairing effects
+    elseif effect == "orbital_range" then
+        self:applyToolBonus(station, "singularity_core", "orbitalRangeBonus", applyValue)
+
+    elseif effect == "damage_plasma" then
+        self:applyDamageBonus(station, "plasma", applyValue)
+
+    elseif effect == "chain_targets" then
+        self:applyToolBonus(station, "tesla_coil", "extraChainTargets", applyValue)
+
+    elseif effect == "missiles_per_burst" then
+        self:applyToolBonus(station, "micro_missile_pod", "extraMissiles", applyValue)
+
+    elseif effect == "damage_phase" then
+        self:applyDamageBonus(station, "phase", applyValue)
+
+    -- New general passive effects
+    elseif effect == "crit_chance" then
+        -- Critical hit chance - store on station for tools to use
+        station.critChance = (station.critChance or 0) + applyValue
+
+    elseif effect == "auto_collect" then
+        -- Spawn a salvage drone to collect RP
+        if GameplayScene and not GameplayScene.salvageDrone then
+            local drone = SalvageDrone()
+            -- Speed: 4 base + 0.5 per level (level 1: 4.5, level 4: 6)
+            drone.speed = 4.0 + level * 0.5
+            -- Search radius: 200 base + 50 per level (level 1: 250, level 4: 400)
+            drone.searchRadius = 200 + level * 50
+            drone:add()
+            GameplayScene.salvageDrone = drone
+            print("Salvage Drone deployed! Speed: " .. drone.speed .. ", Range: " .. drone.searchRadius)
+        elseif GameplayScene and GameplayScene.salvageDrone then
+            -- Upgrade existing drone
+            GameplayScene.salvageDrone.speed = 4.0 + level * 0.5
+            GameplayScene.salvageDrone.searchRadius = 200 + level * 50
+            print("Salvage Drone upgraded! Speed: " .. GameplayScene.salvageDrone.speed .. ", Range: " .. GameplayScene.salvageDrone.searchRadius)
+        end
+
+    elseif effect == "hp_on_kill" then
+        -- Store kills needed for HP regen (lower is better)
+        station.hpOnKillThreshold = applyValue  -- Overwrites with level-adjusted value
+        station.killCounter = station.killCounter or 0
+
+    elseif effect == "cooldown_on_kill" then
+        -- Store cooldown reduction percentage
+        station.cooldownOnKill = (station.cooldownOnKill or 0) + applyValue
+
+    elseif effect == "damage_per_tool" then
+        -- +damage per tool equipped - recalculate all tools
+        station.damagePerToolBonus = (station.damagePerToolBonus or 0) + applyValue
+        -- Apply to all tools based on tool count
+        local toolCount = #station.tools
+        local totalBonus = station.damagePerToolBonus * toolCount
+        for _, tool in ipairs(station.tools) do
+            tool.multiSpectrumBonus = totalBonus
+            tool:recalculateStats()
+        end
     end
 end
 
@@ -309,6 +494,12 @@ function UpgradeSystem:getToolClass(toolId)
         emp_burst = EMPBurst,
         probe_launcher = ProbeLauncher,
         repulsor_field = RepulsorField,
+        modified_mapping_drone = ModifiedMappingDrone,
+        singularity_core = SingularityCore,
+        plasma_sprayer = PlasmaSprayer,
+        tesla_coil = TeslaCoil,
+        micro_missile_pod = MicroMissilePod,
+        phase_disruptor = PhaseDisruptor,
     }
     return toolClasses[toolId]
 end

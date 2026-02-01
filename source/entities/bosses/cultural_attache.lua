@@ -1,4 +1,4 @@
--- Cultural Attaché Boss (Episode 1)
+-- Cultural Attache Boss (Episode 1)
 -- Large ceremonial vessel that launches drones and demands you accept their poetry
 
 local gfx <const> = playdate.graphics
@@ -7,14 +7,14 @@ class('CulturalAttache').extends(MOB)
 
 CulturalAttache.DATA = {
     id = "cultural_attache",
-    name = "Cultural Attaché",
+    name = "Cultural Attache",
     description = "Demands you accept their poetry",
     imagePath = "images/episodes/ep1/ep1_boss_cultural_attache",
 
-    -- Boss stats (balanced for difficulty)
-    baseHealth = 120,
-    baseSpeed = 0.25,
-    baseDamage = 8,
+    -- Boss stats (Episode 1 - easiest boss)
+    baseHealth = 200,
+    baseSpeed = 0.2,
+    baseDamage = 5,
     rpValue = 100,
 
     -- Collision
@@ -36,6 +36,9 @@ function CulturalAttache:init(x, y)
     -- Bosses don't use wave multipliers
     CulturalAttache.super.init(self, x, y, CulturalAttache.DATA, { health = 1, damage = 1, speed = 1 })
 
+    -- DEBUG: Log boss health
+    print("BOSS INIT: Cultural Attache health = " .. self.health .. " / " .. self.maxHealth)
+
     -- Boss-specific state
     self.phase = CulturalAttache.PHASES.APPROACH
     self.phaseTimer = 0
@@ -50,7 +53,7 @@ function CulturalAttache:init(x, y)
     -- Set Z-index (bosses above normal mobs)
     self:setZIndex(75)
 
-    print("Cultural Attaché boss spawned!")
+    print("Cultural Attache boss spawned!")
 end
 
 function CulturalAttache:update(dt)
@@ -234,7 +237,14 @@ function CulturalAttache:applySlowEffect()
     end
 end
 
+-- Override takeDamage for debug logging
+function CulturalAttache:takeDamage(amount, damageType)
+    print("BOSS DAMAGE: " .. amount .. " -> health now: " .. (self.health - amount) .. "/" .. self.maxHealth)
+    return CulturalAttache.super.takeDamage(self, amount, damageType)
+end
+
 function CulturalAttache:onDestroyed()
+    print("BOSS DESTROYED! Final health was: " .. self.health)
     self.active = false
 
     -- Award RP
@@ -254,33 +264,50 @@ function CulturalAttache:onDestroyed()
     end
 end
 
--- Override health bar for boss (at bottom of screen, above HUD)
+-- Override health bar for boss (compact bar in bottom border area)
 function CulturalAttache:drawHealthBar()
     if not self.active then return end
 
-    -- Boss health bar at bottom of screen (above bottom HUD)
-    local barWidth = 280
-    local barHeight = 10
-    local barX = (Constants.SCREEN_WIDTH - barWidth) / 2
-    local barY = Constants.SCREEN_HEIGHT - 38
+    -- Compact boss health bar in bottom left area
+    local barWidth = 170
+    local barHeight = 14
+    local barX = 6
+    local barY = Constants.SCREEN_HEIGHT - 20
 
-    -- Background box
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(barX - 4, barY - 14, barWidth + 8, barHeight + 18)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.drawRect(barX - 4, barY - 14, barWidth + 8, barHeight + 18)
+    local healthPercent = self.health / self.maxHealth
+    local fillWidth = math.floor(healthPercent * (barWidth - 2))
 
-    -- Boss name
-    gfx.drawTextAligned("*CULTURAL ATTACHÉ*", Constants.SCREEN_WIDTH / 2, barY - 12, kTextAlignment.center)
-
-    -- Health bar border
+    -- Health bar background (black = empty)
     gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(barX, barY, barWidth, barHeight)
 
-    -- Health bar fill
-    local fillWidth = (self.health / self.maxHealth) * (barWidth - 2)
+    -- Health bar fill (white = health remaining)
     gfx.setColor(gfx.kColorWhite)
     gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
+
+    -- Draw boss name inside the bar using smaller font
+    local bossName = "ATTACHE"
+    local textX = barX + barWidth / 2
+    local textY = barY + 2
+
+    -- Use tighter tracking for compact text
+    gfx.setFontTracking(-1)
+
+    -- Use clip rect to draw text in two colors
+    -- First draw white text (for the empty/black portion)
+    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
+
+    -- Then draw black text (for the filled/white portion)
+    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
+    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
+
+    -- Clear clip rect and restore draw mode
+    gfx.clearClipRect()
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    gfx.setFontTracking(0)
 end
 
 return CulturalAttache

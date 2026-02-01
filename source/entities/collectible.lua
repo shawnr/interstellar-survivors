@@ -27,6 +27,7 @@ function Collectible:init(x, y, collectibleType, value)
     -- Movement
     self.speed = 0.5           -- Initial drift speed
     self.maxSpeed = 4          -- Max collection speed
+    self.passiveDrift = 0.08   -- Very slow drift toward station (for RP)
 
     -- Apply collect range bonus from research specs
     local baseCollectRadius = 50
@@ -106,15 +107,18 @@ function Collectible:update(dt)
     local dy = Constants.STATION_CENTER_Y - self.y
     local dist = math.sqrt(dx * dx + dy * dy)
 
-    -- Move toward station if within collect radius
-    if dist < self.collectRadius then
-        -- Accelerate as we get closer
-        local speedMult = 1 + (1 - dist / self.collectRadius) * 3
-        local currentSpeed = math.min(self.speed * speedMult, self.maxSpeed)
-
-        if dist > 1 then
+    -- Move toward station
+    if dist > 1 then
+        if dist < self.collectRadius then
+            -- Within collect radius: accelerate toward station
+            local speedMult = 1 + (1 - dist / self.collectRadius) * 3
+            local currentSpeed = math.min(self.speed * speedMult, self.maxSpeed)
             self.x = self.x + (dx / dist) * currentSpeed
             self.y = self.y + (dy / dist) * currentSpeed
+        elseif self.collectibleType == Collectible.TYPES.RP then
+            -- RP collectibles: very slow passive drift toward station
+            self.x = self.x + (dx / dist) * self.passiveDrift
+            self.y = self.y + (dy / dist) * self.passiveDrift
         end
     end
 

@@ -170,29 +170,86 @@ function GameManager:endEpisode(victory)
     end
 end
 
--- Create a simple title scene for testing
+-- Create title scene with background, rotating taglines, and theme music
 function GameManager:createTitleScene()
     local titleScene = {}
 
-    local logoImage = nil
+    local bgImage = nil
     local blinkTimer = 0
     local showText = true
-    local titleFont = nil
-    local smallFont = nil
+    local taglineTimer = 0
+    local currentTagline = ""
+
+    -- Taglines from design doc
+    local taglines = {
+        "Boldly going to have boldly gone!",
+        "My gosh, it's full of paperwork!",
+        "Intrepid Space Adventurers Wanted",
+        "To probability, and beyond!",
+        "Live long and file reports.",
+        "In space, no one can hear you take notes.",
+        "The spice must document.",
+        "So long, and thanks for all the data.",
+        "Collect knowledge. Avoid death. Repeat.",
+        "The universe is trying to kill you. Write it down.",
+        "Every discovery could be your last. Make it count.",
+        "Curiosity killed the cat. You're not a cat... probably.",
+        "Set phasers to 'document.'",
+        "Tea. Earl Grey. And a comprehensive survey.",
+        "The truth is out there. Go catalog it.",
+        "Warning: May contain trace amounts of existential dread.",
+        "Now with 40% more inexplicable alien artifacts!",
+        "Your sacrifice will be noted. Literally.",
+        "Knowledge is power. Power is survival. Survival is unlikely.",
+        "Maserati sends her regards.",
+        "Do NOT insult the poetry.",
+        "Diplomatic hugs incoming.",
+        "11,000 verses. One fly.",
+        "Please rate your survival experience.",
+        "Synergy. Alignment. Explosion.",
+        "Quarterly targets: survival optional.",
+        "The consultants are here to help.",
+        "The whale seems fine.",
+        "Please file Form 42-B.",
+        "The sofa remains unexplained.",
+        "Reality is more of a suggestion.",
+        "Coincidence rate: Improbable.",
+        "The Chomper remembers.",
+        "Salvage rights: contested.",
+        "Always let the Vorthian win.",
+        "Peer review can be brutal. Literally.",
+        "Attendance is mandatory. Survival is extra credit.",
+        "The Professor has notes.",
+        "A qualified success.",
+    }
+
+    local function pickNewTagline()
+        local newTagline = taglines[math.random(#taglines)]
+        -- Reject if same as current
+        while newTagline == currentTagline and #taglines > 1 do
+            newTagline = taglines[math.random(#taglines)]
+        end
+        currentTagline = newTagline
+    end
 
     function titleScene:enter(params)
         print("Entering title scene")
-        -- Try to load logo
-        logoImage = gfx.image.new("images/ui/logo_title")
 
-        -- Load Crooked Park font for title (white version for dark background)
-        titleFont = gfx.font.new("fonts/font-pixieval-large-white")
-        if not titleFont then
-            print("Warning: Could not load Crooked Park font")
+        -- Load background image
+        bgImage = gfx.image.new("images/ui/title_bg")
+        if not bgImage then
+            print("Warning: Could not load title background")
         end
 
-        -- Load a small font for version number
-        smallFont = gfx.font.new("fonts/font-pixieval-large-white")
+        -- Pick initial tagline
+        pickNewTagline()
+        taglineTimer = 0
+
+        -- Play theme music
+        print("Title scene: Attempting to play music...")
+        print("AudioManager.musicMuted = " .. tostring(AudioManager.musicMuted))
+        print("AudioManager.musicVolume = " .. tostring(AudioManager.musicVolume))
+        AudioManager:playMusic("sounds/music_title_theme", true)
     end
 
     function titleScene:update()
@@ -203,46 +260,64 @@ function GameManager:createTitleScene()
             showText = not showText
         end
 
-        -- Check for A button to go to episode select
-        if InputManager.buttonJustPressed.a then
+        -- Rotate tagline every 20 seconds (600 frames at 30fps)
+        taglineTimer = taglineTimer + 1
+        if taglineTimer >= 600 then
+            taglineTimer = 0
+            pickNewTagline()
+        end
+
+        -- Check for any button to go to episode select
+        if InputManager.buttonJustPressed.a or InputManager.buttonJustPressed.b then
             GameManager:setState(GameManager.states.EPISODE_SELECT)
         end
     end
 
     function titleScene:drawOverlay()
-        gfx.clear(gfx.kColorWhite)
-
-        -- Draw logo box if loaded
-        if logoImage then
-            logoImage:draw(0, 50)
+        -- Draw background image (full screen)
+        if bgImage then
+            bgImage:draw(0, 0)
+        else
+            gfx.clear(gfx.kColorWhite)
         end
 
-        -- Draw title text in white on the dark logo box
-        -- Use FillWhite mode to render text as white pixels
-        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        gfx.drawTextAligned("*INTERSTELLAR*", Constants.SCREEN_WIDTH / 2, 70, kTextAlignment.center)
-        gfx.drawTextAligned("*SURVIVORS*", Constants.SCREEN_WIDTH / 2, 90, kTextAlignment.center)
+        -- Draw tagline in a 145x90 box positioned to bottom-right of rocket
+        -- Text box: 145px wide, 90px tall, top-left at approximately (250, 125)
+        local boxX = 250
+        local boxY = 125
+        local boxWidth = 145
+        local boxHeight = 90
+
+        -- Format tagline with bold markers
+        local taglineText = "*" .. currentTagline .. "*"
+
+        -- Check text length and use smaller font for longer taglines
+        -- Default system font is about 16px tall, we need text to fit in 90px height
+        -- Longer taglines (over ~35 chars) may need wrapping or smaller consideration
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-        -- Draw subtitle (black text below the logo box)
-        gfx.drawTextAligned("A Space Station Defense Game", Constants.SCREEN_WIDTH / 2, 140, kTextAlignment.center)
+        -- Draw text wrapped within the rectangle
+        -- drawTextInRect returns (width, height, textWasTruncated)
+        local _, textHeight, truncated = gfx.getTextSizeForMaxWidth(taglineText, boxWidth)
 
-        -- Draw blinking prompt
+        -- If text would be too tall, we need to handle it
+        -- For now, draw with wrapping enabled
+        gfx.drawTextInRect(taglineText, boxX, boxY, boxWidth, boxHeight, nil, nil, kTextAlignment.left)
+
+        -- Draw blinking prompt at bottom
         if showText then
-            gfx.drawTextAligned("Press A to Start", Constants.SCREEN_WIDTH / 2, 200, kTextAlignment.center)
+            gfx.drawTextAligned("*Press Any Button to Start*", Constants.SCREEN_WIDTH / 2, 210, kTextAlignment.center)
         end
 
-        -- Draw crank indicator
-        local crankAngle = InputManager.crankPosition or 0
-        gfx.drawTextAligned("Crank: " .. math.floor(crankAngle) .. "°", Constants.SCREEN_WIDTH / 2, 220, kTextAlignment.center)
-
-        -- Draw version number in lower left corner (small text)
-        local versionText = "v" .. Constants.VERSION .. " b" .. Constants.BUILD
+        -- Draw version number in lower left corner
+        local versionText = "v" .. Constants.VERSION
         gfx.drawText(versionText, 4, Constants.SCREEN_HEIGHT - 14)
     end
 
     function titleScene:exit()
         print("Exiting title scene")
+        -- Stop theme music when leaving title
+        AudioManager:stopMusic()
     end
 
     return titleScene
@@ -443,11 +518,17 @@ function GameManager:createSettingsScene()
     local selectedIndex = 1
     local confirmingReset = false
     local confirmIndex = 2  -- Default to "No"
+    local patternBg = nil
+    local previousState = nil  -- Track where we came from
 
     function scene:enter(params)
         print("Entering settings scene")
         selectedIndex = 1
         confirmingReset = false
+        -- Track where we came from so we can return there
+        previousState = params and params.fromState or GameManager.states.EPISODE_SELECT
+        -- Load pattern background
+        patternBg = gfx.image.new("images/ui/menu_pattern_bg")
     end
 
     function scene:update()
@@ -526,7 +607,7 @@ function GameManager:createSettingsScene()
         elseif item.type == "action" then
             if InputManager.buttonJustPressed.a then
                 if item.action == "back" then
-                    GameManager:setState(GameManager.states.EPISODE_SELECT)
+                    GameManager:setState(previousState or GameManager.states.EPISODE_SELECT)
                 elseif item.action == "reset" then
                     confirmingReset = true
                     confirmIndex = 2  -- Default to "No"
@@ -536,86 +617,113 @@ function GameManager:createSettingsScene()
 
         -- B button always goes back
         if InputManager.buttonJustPressed.b then
-            GameManager:setState(GameManager.states.EPISODE_SELECT)
+            GameManager:setState(previousState or GameManager.states.EPISODE_SELECT)
         end
     end
 
     function scene:drawOverlay()
-        gfx.clear(gfx.kColorWhite)
+        -- Draw pattern background
+        if patternBg then
+            patternBg:draw(0, 0)
+        else
+            gfx.clear(gfx.kColorWhite)
+        end
 
-        -- Title
-        gfx.drawTextAligned("*SETTINGS*", Constants.SCREEN_WIDTH / 2, 20, kTextAlignment.center)
+        -- Title bar with white background for readability
+        gfx.setColor(gfx.kColorWhite)
+        gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+        gfx.setColor(gfx.kColorBlack)
+        gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
+        gfx.drawTextAligned("*SETTINGS*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
 
         -- Draw menu items
-        local startY = 60
+        local startY = 52
         local itemHeight = 32
 
         for i, item in ipairs(menuItems) do
             local y = startY + (i - 1) * itemHeight
             local isSelected = (i == selectedIndex)
 
-            -- Selection indicator
+            -- Row background for readability
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26)
+
+            -- Selection indicator or border
+            gfx.setColor(gfx.kColorBlack)
             if isSelected then
-                gfx.fillRoundRect(20, y - 5, Constants.SCREEN_WIDTH - 40, 28, 4)
-                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.fillRoundRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26, 4)
+            else
+                gfx.drawRoundRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26, 4)
             end
 
             if item.type == "slider" then
                 local value = SaveManager:getSetting(item.key, 0.7)
                 local percent = math.floor(value * 100)
 
-                -- Label on left
+                -- Label (white if selected, black otherwise)
+                if isSelected then
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                else
+                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                end
                 gfx.drawText(item.label, 30, y)
 
-                -- Value and slider on right
+                -- Slider track
                 local sliderX = 220
                 local sliderWidth = 100
                 local sliderY = y + 4
 
-                -- Draw slider background
+                gfx.setImageDrawMode(gfx.kDrawModeCopy)
                 if isSelected then
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
                     gfx.setColor(gfx.kColorWhite)
                     gfx.fillRect(sliderX, sliderY, sliderWidth, 10)
                     gfx.setColor(gfx.kColorBlack)
                     gfx.drawRect(sliderX, sliderY, sliderWidth, 10)
+                    -- Fill
+                    local fillWidth = math.floor(value * (sliderWidth - 2))
+                    gfx.fillRect(sliderX + 1, sliderY + 1, fillWidth, 8)
                 else
                     gfx.setColor(gfx.kColorBlack)
-                    gfx.fillRect(sliderX, sliderY, sliderWidth, 10)
-                    gfx.setColor(gfx.kColorWhite)
+                    gfx.drawRect(sliderX, sliderY, sliderWidth, 10)
+                    local fillWidth = math.floor(value * (sliderWidth - 2))
+                    gfx.fillRect(sliderX + 1, sliderY + 1, fillWidth, 8)
                 end
 
-                -- Draw slider fill
-                local fillWidth = math.floor(value * (sliderWidth - 2))
-                if isSelected then
-                    gfx.setColor(gfx.kColorBlack)
-                else
-                    gfx.setColor(gfx.kColorWhite)
-                end
-                gfx.fillRect(sliderX + 1, sliderY + 1, fillWidth, 8)
-
-                -- Draw percentage
+                -- Percentage text
                 if isSelected then
                     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                else
+                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
                 end
                 gfx.drawText(percent .. "%", sliderX + sliderWidth + 10, y)
 
             elseif item.type == "toggle" then
                 local value = SaveManager:getSetting(item.key, false)
 
-                -- Label on left
-                gfx.drawText(item.label, 30, y)
+                -- Text mode
+                if isSelected then
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                else
+                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                end
 
-                -- Toggle state on right
+                gfx.drawText(item.label, 30, y)
                 local toggleText = value and "ON" or "OFF"
                 gfx.drawText(toggleText, 320, y)
 
             elseif item.type == "action" then
+                -- Text mode
+                if isSelected then
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                else
+                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                end
+
                 gfx.drawText(item.label, 30, y)
 
                 if item.action == "reset" then
                     gfx.drawText("(press A)", 280, y)
-                elseif item.action == "back" and isSelected then
+                elseif item.action == "back" then
                     gfx.drawText("(press A or B)", 250, y)
                 end
             end
@@ -623,12 +731,15 @@ function GameManager:createSettingsScene()
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
 
-        -- Instructions
-        gfx.drawTextAligned("D-pad to navigate, A to select", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 20, kTextAlignment.center)
+        -- Instructions bar at bottom
+        gfx.setColor(gfx.kColorWhite)
+        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        gfx.setColor(gfx.kColorBlack)
+        gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+        gfx.drawTextAligned("D-pad to navigate, A to select", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
 
         -- Reset confirmation dialog
         if confirmingReset then
-            -- Darken background
             gfx.setColor(gfx.kColorWhite)
             gfx.fillRect(50, 80, 300, 80)
             gfx.setColor(gfx.kColorBlack)
@@ -637,7 +748,6 @@ function GameManager:createSettingsScene()
             gfx.drawTextAligned("Reset all progress?", Constants.SCREEN_WIDTH / 2, 95, kTextAlignment.center)
             gfx.drawTextAligned("This cannot be undone!", Constants.SCREEN_WIDTH / 2, 115, kTextAlignment.center)
 
-            -- Yes/No buttons
             local yesX = 120
             local noX = 230
             local buttonY = 138
