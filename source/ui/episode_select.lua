@@ -68,10 +68,10 @@ end
 function EpisodeSelect:update()
     if not self.isVisible then return end
 
-    -- Handle input - up/down to navigate
-    if InputManager.buttonJustPressed.up then
+    -- Handle input - up/right = up, down/left = down
+    if InputManager.buttonJustPressed.up or InputManager.buttonJustPressed.right then
         self:moveSelection(-1)
-    elseif InputManager.buttonJustPressed.down then
+    elseif InputManager.buttonJustPressed.down or InputManager.buttonJustPressed.left then
         self:moveSelection(1)
     end
 
@@ -187,12 +187,12 @@ function EpisodeSelect:draw()
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
 
-        -- Episode number and title (or locked)
+        -- Episode number and title (or locked) - use bold text
         local titleText
         if isUnlocked then
-            titleText = i .. ". " .. episode.title
+            titleText = "*" .. i .. ". " .. episode.title .. "*"
         else
-            titleText = i .. ". [LOCKED]"
+            titleText = "*" .. i .. ". [LOCKED]*"
         end
 
         gfx.drawText(titleText, 30, y)
@@ -205,7 +205,7 @@ function EpisodeSelect:draw()
     gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
     gfx.setColor(gfx.kColorBlack)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
-    gfx.drawTextAligned("[A] Select   [B] Back   [Settings]",
+    gfx.drawTextAligned("[A] Select   [B] Back",
         Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
 end
 

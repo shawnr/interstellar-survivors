@@ -31,7 +31,8 @@ function Projectile:init()
 end
 
 -- Reset projectile for reuse (object pooling)
-function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing)
+-- options: { inverted = bool, rotationOffset = number }
+function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, options)
     self.x = x
     self.y = y
     self.angle = angle
@@ -42,6 +43,11 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing)
     self.maxHits = self.piercing and 2 or 1
     self.active = true
 
+    -- Parse options
+    options = options or {}
+    local inverted = options.inverted or false
+    local rotationOffset = options.rotationOffset or -90  -- Default: sprites face RIGHT
+
     -- Calculate direction
     self.dx, self.dy = Utils.angleToVector(angle)
 
@@ -49,6 +55,10 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing)
     if imagePath then
         local img = gfx.image.new(imagePath)
         if img then
+            -- Invert image colors if requested (for visibility on dark backgrounds)
+            if inverted then
+                img = img:invertedImage()
+            end
             self:setImage(img)
         end
     end
@@ -56,8 +66,8 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing)
     -- Position and rotate
     self:moveTo(x, y)
     -- Projectile sprites are drawn facing RIGHT, but game uses 0°=UP coordinate system
-    -- Offset by -90° to align sprite with movement direction
-    self:setRotation(angle - 90)
+    -- Use rotationOffset to align sprite with movement direction (default -90°)
+    self:setRotation(angle + rotationOffset)
 
     -- Add to sprite system
     self:add()
@@ -126,7 +136,8 @@ function ProjectilePool:init(initialSize)
 end
 
 -- Get a projectile from the pool
-function ProjectilePool:get(x, y, angle, speed, damage, imagePath, piercing)
+-- options: { inverted = bool, rotationOffset = number }
+function ProjectilePool:get(x, y, angle, speed, damage, imagePath, piercing, options)
     local proj
 
     if #self.pool > 0 then
@@ -139,7 +150,7 @@ function ProjectilePool:get(x, y, angle, speed, damage, imagePath, piercing)
     end
 
     -- Reset and configure
-    proj:reset(x, y, angle, speed, damage, imagePath, piercing)
+    proj:reset(x, y, angle, speed, damage, imagePath, piercing, options)
 
     -- Add to active list
     table.insert(self.active, proj)
@@ -168,7 +179,13 @@ function ProjectilePool:update()
     for i = #self.active, 1, -1 do
         local proj = self.active[i]
         if proj.active then
-            proj:update()
+            local success, err = pcall(function()
+                proj:update()
+            end)
+            if not success then
+                print("ERROR updating projectile " .. i .. ": " .. tostring(err))
+                proj:deactivate()
+            end
         else
             -- Return inactive projectiles to pool
             table.remove(self.active, i)

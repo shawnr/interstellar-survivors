@@ -2,6 +2,8 @@
 -- Manages tool and bonus item selection, application, and multi-level upgrades
 
 local MAX_LEVEL = 4  -- Maximum upgrade level for tools and bonus items
+local MAX_UNIQUE_TOOLS = 8  -- Maximum unique tool types per episode
+local MAX_UNIQUE_ITEMS = 8  -- Maximum unique bonus item types per episode
 
 UpgradeSystem = {
     -- Currently owned bonus items with their levels (by id)
@@ -107,6 +109,15 @@ function UpgradeSystem:getUpgradeOptions(station)
     local toolOptions = {}
     local bonusOptions = {}
 
+    -- Count unique tools owned
+    local uniqueToolsOwned = #station.tools
+
+    -- Count unique bonus items owned
+    local uniqueBonusItemsOwned = 0
+    for _ in pairs(self.ownedBonusItems) do
+        uniqueBonusItemsOwned = uniqueBonusItemsOwned + 1
+    end
+
     -- Get tools: either new tools or upgrades for existing ones
     local eligibleTools = {}
     for _, toolData in ipairs(self.availableTools) do
@@ -122,14 +133,17 @@ function UpgradeSystem:getUpgradeOptions(station)
             end
         end
 
-        -- Can add if station doesn't have it, or upgrade if below max level
+        -- Can add if station doesn't have it (and under limit), or upgrade if below max level
         if not hasTool then
-            table.insert(eligibleTools, {
-                data = toolData,
-                isNew = true,
-                currentLevel = 0,
-                nextLevel = 1
-            })
+            -- Only offer new tools if under the unique limit
+            if uniqueToolsOwned < MAX_UNIQUE_TOOLS then
+                table.insert(eligibleTools, {
+                    data = toolData,
+                    isNew = true,
+                    currentLevel = 0,
+                    nextLevel = 1
+                })
+            end
         elseif currentLevel < MAX_LEVEL then
             table.insert(eligibleTools, {
                 data = toolData,
@@ -178,12 +192,25 @@ function UpgradeSystem:getUpgradeOptions(station)
         local currentLevel = self.ownedBonusItems[bonusData.id] or 0
 
         if currentLevel < MAX_LEVEL then
-            table.insert(eligibleBonus, {
-                data = bonusData,
-                isNew = currentLevel == 0,
-                currentLevel = currentLevel,
-                nextLevel = currentLevel + 1
-            })
+            -- Only offer new bonus items if under the unique limit
+            if currentLevel == 0 then
+                if uniqueBonusItemsOwned < MAX_UNIQUE_ITEMS then
+                    table.insert(eligibleBonus, {
+                        data = bonusData,
+                        isNew = true,
+                        currentLevel = currentLevel,
+                        nextLevel = currentLevel + 1
+                    })
+                end
+            else
+                -- Already owned, can upgrade
+                table.insert(eligibleBonus, {
+                    data = bonusData,
+                    isNew = false,
+                    currentLevel = currentLevel,
+                    nextLevel = currentLevel + 1
+                })
+            end
         end
     end
 
@@ -200,7 +227,8 @@ function UpgradeSystem:getUpgradeOptions(station)
             isNew = option.isNew,
             currentLevel = option.currentLevel,
             nextLevel = option.nextLevel,
-            originalData = option.data
+            originalData = option.data,
+            pairsWithTool = option.data.pairsWithTool  -- For "Helps:" display
         }
 
         -- Add level indicator if upgrading
@@ -224,6 +252,12 @@ function UpgradeSystem:applyToolSelection(toolData, station)
             newTool.level = 1
             self.toolLevels[toolData.id] = 1
             station:attachTool(newTool)
+
+            -- Unlock in database
+            if SaveManager then
+                SaveManager:unlockDatabaseEntry("tools", toolData.id)
+            end
+
             print("Attached new tool: " .. toolData.name .. " (Lv1)")
             return true
         end
@@ -251,27 +285,36 @@ function UpgradeSystem:applyToolSelection(toolData, station)
 end
 
 -- Apply a bonus item selection
+-- Note: bonusData may be a display wrapper with originalData, or the actual bonus data
 function UpgradeSystem:applyBonusSelection(bonusData, station)
-    local currentLevel = self.ownedBonusItems[bonusData.id] or 0
+    -- Get the actual bonus data (might be wrapped in displayData from upgrade selection)
+    local actualBonusData = bonusData.originalData or bonusData
+
+    local currentLevel = self.ownedBonusItems[actualBonusData.id] or 0
     local newLevel = currentLevel + 1
 
+    -- Unlock in database (only on first acquisition)
+    if currentLevel == 0 and SaveManager then
+        SaveManager:unlockDatabaseEntry("bonusItems", actualBonusData.id)
+    end
+
     -- Update level
-    self.ownedBonusItems[bonusData.id] = newLevel
+    self.ownedBonusItems[actualBonusData.id] = newLevel
 
     -- Apply effect (with level scaling)
-    self:applyBonusEffect(bonusData, station, newLevel)
+    self:applyBonusEffect(actualBonusData, station, newLevel)
 
     -- Check if this bonus pairs with any equipped tool for evolution
-    if newLevel >= MAX_LEVEL and bonusData.pairsWithTool then
+    if newLevel >= MAX_LEVEL and actualBonusData.pairsWithTool then
         for _, tool in ipairs(station.tools) do
-            if tool.data.id == bonusData.pairsWithTool and tool.level >= MAX_LEVEL and not tool.isEvolved then
+            if tool.data.id == actualBonusData.pairsWithTool and tool.level >= MAX_LEVEL and not tool.isEvolved then
                 tool:evolve(tool.data)
                 print("Tool evolved: " .. tool.data.id)
             end
         end
     end
 
-    print("Applied bonus item: " .. bonusData.name .. " (Lv" .. newLevel .. ")")
+    print("Applied bonus item: " .. actualBonusData.name .. " (Lv" .. newLevel .. ")")
     return true
 end
 
@@ -290,7 +333,8 @@ function UpgradeSystem:applyBonusEffect(bonusData, station, level)
     if effect == "max_health" then
         local oldMax = station.maxHealth
         station.maxHealth = math.floor(station.maxHealth * (1 + applyValue))
-        station.health = station.health + (station.maxHealth - oldMax)
+        local healthGain = station.maxHealth - oldMax
+        station.health = station.health + healthGain
 
     elseif effect == "rotation_speed" then
         station.rotationBonus = (station.rotationBonus or 0) + applyValue
@@ -304,8 +348,9 @@ function UpgradeSystem:applyBonusEffect(bonusData, station, level)
         -- Store for future tools
         station.globalFireRateBonus = (station.globalFireRateBonus or 0) + applyValue
 
-    elseif effect == "sensor_range" then
-        station.sensorRange = (station.sensorRange or 0) + applyValue
+    elseif effect == "regen_speed" then
+        -- Reduce health regen interval (faster ticks, minimum 1 second)
+        station.healthRegenInterval = math.max(1.0, (station.healthRegenInterval or 5.0) - applyValue)
 
     elseif effect == "rp_bonus" then
         station.rpBonus = (station.rpBonus or 0) + applyValue

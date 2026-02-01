@@ -40,6 +40,66 @@ function GameplayScene:init()
     -- On-screen message system
     self.messages = {}
     self.messageY = 40  -- Y position for messages
+
+    -- Mission intro overlay state
+    self.showingMissionIntro = false
+    self.missionIntroTimer = 0
+    self.missionIntroFadeTimer = 0
+    self.missionText = ""
+
+    -- Crank indicator state
+    self.showCrankIndicator = false
+
+    -- Boss defeat celebration state
+    self.showingBossDefeated = false
+    self.bossDefeatedTimer = 0
+    self.defeatedBossName = ""
+    self.bossDefeatedImage = nil
+    self.bossZoomScale = 1.0
+
+    -- Episode statistics tracking
+    self.stats = {
+        mobKills = {},      -- { mobType = count }
+        toolsObtained = {}, -- { toolId = true }
+        itemsObtained = {}, -- { itemId = true }
+        totalRP = 0,
+    }
+
+    -- Equipment slot icon cache
+    self.toolSlotIcons = {}
+    self.itemSlotIcons = {}
+end
+
+-- Track a mob kill
+function GameplayScene:trackMobKill(mobType)
+    self.stats.mobKills[mobType] = (self.stats.mobKills[mobType] or 0) + 1
+end
+
+-- Track tool obtained
+function GameplayScene:trackToolObtained(toolId)
+    self.stats.toolsObtained[toolId] = true
+end
+
+-- Track bonus item obtained
+function GameplayScene:trackItemObtained(itemId)
+    self.stats.itemsObtained[itemId] = true
+end
+
+-- Track RP gained
+function GameplayScene:trackRP(amount)
+    self.stats.totalRP = self.stats.totalRP + amount
+end
+
+-- Get current episode stats
+function GameplayScene:getStats()
+    return {
+        mobKills = self.stats.mobKills,
+        toolsObtained = self.stats.toolsObtained,
+        itemsObtained = self.stats.itemsObtained,
+        totalRP = self.stats.totalRP,
+        elapsedTime = self.elapsedTime,
+        playerLevel = GameManager.playerLevel,
+    }
 end
 
 -- Show a temporary message on screen
@@ -96,8 +156,199 @@ function GameplayScene:drawMessages()
     end
 end
 
+-- Update mission intro overlay (2 sec visible, 1 sec fade)
+function GameplayScene:updateMissionIntro(dt)
+    if self.missionIntroTimer > 0 then
+        -- Still in visible phase
+        self.missionIntroTimer = self.missionIntroTimer - dt
+    elseif self.missionIntroFadeTimer < 1.0 then
+        -- In fade phase
+        self.missionIntroFadeTimer = self.missionIntroFadeTimer + dt
+        if self.missionIntroFadeTimer >= 1.0 then
+            -- Intro complete, start gameplay
+            self.showingMissionIntro = false
+            self.isPaused = false
+            print("Mission intro complete - starting gameplay")
+
+            -- Check if crank is docked and show indicator if so
+            if playdate.isCrankDocked() and playdate.ui and playdate.ui.crankIndicator then
+                self.showCrankIndicator = true
+                playdate.ui.crankIndicator:start()
+            end
+        end
+    end
+end
+
+-- Draw mission intro overlay
+function GameplayScene:drawMissionIntro()
+    if not self.showingMissionIntro then return end
+
+    -- Calculate alpha (1.0 during visible, fade to 0 during fade)
+    local alpha = 1.0
+    if self.missionIntroTimer <= 0 then
+        alpha = 1.0 - self.missionIntroFadeTimer
+    end
+
+    -- Only draw if visible enough
+    if alpha < 0.1 then return end
+
+    local centerX = Constants.SCREEN_WIDTH / 2
+    local centerY = Constants.SCREEN_HEIGHT / 2
+
+    -- Draw semi-transparent overlay during visible phase (dithered)
+    if alpha > 0.5 then
+        gfx.setColor(gfx.kColorBlack)
+        gfx.setDitherPattern(0.3)
+        gfx.fillRect(0, centerY - 40, Constants.SCREEN_WIDTH, 80)
+        gfx.setDitherPattern(0)
+    end
+
+    -- Draw mission text with larger emphasis
+    local text = "*" .. self.missionText .. "*"  -- Bold
+
+    -- Use dithering for fade effect on text (draw in layers)
+    if alpha > 0.7 then
+        -- Full visibility
+        -- Black stroke
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+        local offsets = { {-2, -2}, {0, -2}, {2, -2}, {-2, 0}, {2, 0}, {-2, 2}, {0, 2}, {2, 2} }
+        for _, offset in ipairs(offsets) do
+            gfx.drawTextAligned(text, centerX + offset[1], centerY - 8 + offset[2], kTextAlignment.center)
+        end
+        -- White text
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawTextAligned(text, centerX, centerY - 8, kTextAlignment.center)
+    elseif alpha > 0.3 then
+        -- Partial fade - use dithering
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.setDitherPattern(1.0 - alpha)
+        gfx.drawTextAligned(text, centerX, centerY - 8, kTextAlignment.center)
+        gfx.setDitherPattern(0)
+    end
+
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+end
+
+-- Called when a boss is defeated (instead of calling GameManager:endEpisode directly)
+function GameplayScene:onBossDefeated(bossName, bossImage)
+    print("Boss defeated! Starting celebration for: " .. bossName)
+
+    -- Play boss defeated sound
+    if AudioManager then
+        AudioManager:playSFX("boss_defeated")
+    end
+
+    -- Store celebration state
+    self.showingBossDefeated = true
+    self.bossDefeatedTimer = 0
+    self.defeatedBossName = bossName
+    self.bossDefeatedImage = bossImage
+    self.bossZoomScale = 1.0
+
+    -- Pause gameplay
+    self.isPaused = true
+end
+
+-- Update boss defeat celebration
+function GameplayScene:updateBossDefeated(dt)
+    self.bossDefeatedTimer = self.bossDefeatedTimer + dt
+
+    -- Zoom effect: scale up over time (pixelation effect)
+    if self.bossDefeatedTimer < 1.5 then
+        -- Zoom in over 1.5 seconds (1.0 -> 8.0)
+        self.bossZoomScale = 1.0 + (self.bossDefeatedTimer / 1.5) * 7.0
+    else
+        self.bossZoomScale = 8.0
+    end
+
+    -- Check for button press to skip (after minimum 1 second)
+    if self.bossDefeatedTimer > 1.0 then
+        if playdate.buttonJustPressed(playdate.kButtonA) or
+           playdate.buttonJustPressed(playdate.kButtonB) then
+            self:endBossCelebration()
+            return
+        end
+    end
+
+    -- Auto-advance after 3 seconds
+    if self.bossDefeatedTimer >= 3.0 then
+        self:endBossCelebration()
+    end
+end
+
+-- End boss celebration and proceed to ending panels
+function GameplayScene:endBossCelebration()
+    print("Boss celebration complete - proceeding to ending")
+    self.showingBossDefeated = false
+    self.isPaused = false
+    GameManager:endEpisode(true)
+end
+
+-- Draw boss defeat celebration
+function GameplayScene:drawBossDefeated()
+    if not self.showingBossDefeated then return end
+
+    local centerX = Constants.SCREEN_WIDTH / 2
+    local centerY = Constants.SCREEN_HEIGHT / 2
+
+    -- Draw darkened background overlay
+    gfx.setColor(gfx.kColorBlack)
+    gfx.setDitherPattern(0.5)
+    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+    gfx.setDitherPattern(0)
+
+    -- Draw zoomed/pixelated boss image
+    if self.bossDefeatedImage then
+        local scale = math.floor(self.bossZoomScale)
+        if scale < 1 then scale = 1 end
+
+        local imgW, imgH = self.bossDefeatedImage:getSize()
+
+        -- For pixelation effect: scale down then up using nearest neighbor
+        -- Create a scaled version
+        local scaledW = imgW * scale
+        local scaledH = imgH * scale
+
+        -- Draw centered
+        local drawX = centerX - scaledW / 2
+        local drawY = centerY - scaledH / 2 - 20  -- Shift up to make room for text
+
+        -- Draw the image scaled (Playdate will use nearest neighbor for pixelated look)
+        self.bossDefeatedImage:drawScaled(drawX, drawY, scale)
+    end
+
+    -- Draw "[BOSS_NAME] defeated!" text
+    local text = "*" .. self.defeatedBossName .. " defeated!*"
+
+    -- Text position below the image
+    local textY = centerY + 50
+
+    -- Draw black stroke
+    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    local offsets = { {-2, -2}, {0, -2}, {2, -2}, {-2, 0}, {2, 0}, {-2, 2}, {0, 2}, {2, 2} }
+    for _, offset in ipairs(offsets) do
+        gfx.drawTextAligned(text, centerX + offset[1], textY + offset[2], kTextAlignment.center)
+    end
+
+    -- Draw white text
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned(text, centerX, textY, kTextAlignment.center)
+
+    -- Draw "Press any button" hint after 1 second
+    if self.bossDefeatedTimer > 1.0 then
+        local hintText = "Press A or B to continue"
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawTextAligned(hintText, centerX, textY + 25, kTextAlignment.center)
+    end
+
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+end
+
 function GameplayScene:enter(params)
-    print("Entering gameplay scene for Episode " .. (GameManager.currentEpisodeId or "nil"))
+    -- Stop title/menu music when starting gameplay
+    if AudioManager then
+        AudioManager:stopMusic()
+    end
 
     -- Clear any existing sprites
     gfx.sprite.removeAll()
@@ -114,6 +365,44 @@ function GameplayScene:enter(params)
     self.boss = nil
     self.bossSpawned = false
     self.salvageDrone = nil
+
+    -- Set wave timing based on debug mode
+    local isDebugMode = SaveManager and SaveManager:getSetting("debugMode", false)
+    if isDebugMode then
+        -- Debug mode: Fast waves for testing (~8 seconds each, boss at ~1 minute)
+        self.waveStartTimes = { 0, 8, 16, 24, 32, 40, 48 }
+    else
+        -- Normal mode: 1 minute per wave (boss at 7 minutes)
+        self.waveStartTimes = { 0, 60, 120, 180, 240, 300, 360 }
+    end
+
+    -- Set initial spawn interval based on episode difficulty
+    -- Episode 1: 1.8s, Episodes 2+: much faster (0.9s, 0.8s, 0.7s, 0.6s)
+    local episodeSpawnIntervals = { 1.8, 0.9, 0.8, 0.7, 0.6 }
+    local episodeId = GameManager.currentEpisodeId or 1
+    self.spawnInterval = episodeSpawnIntervals[episodeId] or 1.5
+
+    -- Reset boss defeat state
+    self.showingBossDefeated = false
+    self.bossDefeatedTimer = 0
+    self.defeatedBossName = ""
+    self.bossDefeatedImage = nil
+    self.bossZoomScale = 1.0
+
+    -- Reset crank indicator state (will be activated after mission intro if needed)
+    self.showCrankIndicator = false
+
+    -- Reset episode statistics
+    self.stats = {
+        mobKills = {},
+        toolsObtained = {},
+        itemsObtained = {},
+        totalRP = 0,
+    }
+
+    -- Clear equipment slot icon caches
+    self.toolSlotIcons = {}
+    self.itemSlotIcons = {}
 
     -- Initialize upgrade system for this episode
     UpgradeSystem:reset()
@@ -137,23 +426,37 @@ function GameplayScene:enter(params)
 
     local bgImage = gfx.image.new(bgPath)
     if bgImage then
-        local w, h = bgImage:getSize()
-        print("Background loaded for Episode " .. episodeId .. ": " .. w .. "x" .. h)
-
         -- Create background sprite at lowest Z-index
         self.backgroundSprite = gfx.sprite.new(bgImage)
         self.backgroundSprite:setCenter(0, 0)  -- Top-left corner
         self.backgroundSprite:moveTo(0, 0)
         self.backgroundSprite:setZIndex(-1000)  -- Behind everything
         self.backgroundSprite:add()
-    else
-        print("WARNING: Background failed to load for Episode " .. episodeId .. "!")
     end
 
-    print("Gameplay scene initialized")
+    -- Set up mission intro overlay
+    self.missionText = episodeData and episodeData.startingMessage or "MISSION START"
+    self.showingMissionIntro = true
+    self.missionIntroTimer = 2.0  -- Show for 2 seconds
+    self.missionIntroFadeTimer = 0
+    self.isPaused = true  -- Pause game during intro
 end
 
 function GameplayScene:update()
+    local dt = 1/30
+
+    -- Update mission intro overlay
+    if self.showingMissionIntro then
+        self:updateMissionIntro(dt)
+        return
+    end
+
+    -- Update boss defeat celebration
+    if self.showingBossDefeated then
+        self:updateBossDefeated(dt)
+        return
+    end
+
     -- Update upgrade selection UI if visible (before early return)
     if self.isLevelingUp and UpgradeSelection.isVisible then
         UpgradeSelection:update()
@@ -164,8 +467,6 @@ function GameplayScene:update()
         return
     end
 
-    local dt = 1/30
-
     -- Update elapsed time
     self.elapsedTime = self.elapsedTime + dt
 
@@ -173,8 +474,13 @@ function GameplayScene:update()
     self.station:update()
 
     -- Update tools
-    for _, tool in ipairs(self.station.tools) do
-        tool:update(dt)
+    for i, tool in ipairs(self.station.tools) do
+        local success, err = pcall(function()
+            tool:update(dt)
+        end)
+        if not success then
+            print("ERROR updating tool " .. i .. " (" .. (tool.data.id or "unknown") .. "): " .. tostring(err))
+        end
     end
 
     -- Update projectiles
@@ -256,10 +562,28 @@ function GameplayScene:onWaveStart(waveNum)
     -- Play wave start sound
     AudioManager:playSFX("wave_start")
 
-    -- Adjust spawn rate based on wave
+    -- Base spawn rates per wave (slightly faster than before for more action)
     -- Earlier waves: slower spawns, later waves: faster spawns
-    local spawnRates = { 2.0, 1.8, 1.5, 1.3, 1.1, 0.9, 0.7 }
-    self.spawnInterval = spawnRates[waveNum] or 0.7
+    local spawnRates = { 1.8, 1.5, 1.2, 1.0, 0.8, 0.6, 0.5 }
+    local baseInterval = spawnRates[waveNum] or 0.5
+
+    -- Episode difficulty multiplier (lower = faster spawns = harder)
+    -- Episode 1: baseline, Episodes 2+: progressively harder
+    local episodeId = GameManager.currentEpisodeId or 1
+    local episodeMultipliers = { 1.0, 0.5, 0.45, 0.4, 0.35 }  -- Ep2+ spawn 2x+ faster
+    local episodeMult = episodeMultipliers[episodeId] or 0.35
+
+    -- Player level scaling (higher level = more mobs)
+    -- Every 3 levels, spawn rate decreases by 10%
+    local playerLevel = GameManager.playerLevel or 1
+    local levelMult = 1.0 - (math.floor((playerLevel - 1) / 3) * 0.1)
+    levelMult = math.max(levelMult, 0.5)  -- Cap at 50% reduction (2x spawn rate)
+
+    -- Calculate final spawn interval
+    self.spawnInterval = baseInterval * episodeMult * levelMult
+    print("Spawn interval: " .. string.format("%.2f", self.spawnInterval) ..
+          " (ep" .. episodeId .. " mult=" .. episodeMult ..
+          ", level " .. playerLevel .. " mult=" .. string.format("%.2f", levelMult) .. ")")
 
     -- Show wave message with MOB types
     local mobTypes = self:getWaveMOBTypes(waveNum)
@@ -321,20 +645,48 @@ function GameplayScene:spawnMOB()
         return
     end
 
-    -- Random spawn position on screen edge
-    local x, y = Utils.randomEdgePoint(30)
+    -- Determine how many mobs to spawn this cycle
+    -- Higher episodes and player levels spawn multiple mobs more often
+    local episodeId = GameManager.currentEpisodeId or 1
+    local playerLevel = GameManager.playerLevel or 1
 
-    -- Wave multipliers (scaling difficulty)
-    local multipliers = {
-        health = 1.0 + (self.currentWave - 1) * 0.15,
-        damage = 1.0 + (self.currentWave - 1) * 0.1,
-        speed = 1.0
-    }
+    -- Base chance to spawn extra mob: 0% ep1, 30% ep2, 45% ep3, 55% ep4, 65% ep5
+    local extraMobChance = (episodeId - 1) * 15
+    -- Add 5% per 2 player levels
+    extraMobChance = extraMobChance + math.floor(playerLevel / 2) * 5
+    extraMobChance = math.min(extraMobChance, 80)  -- Cap at 80%
 
-    -- Choose MOB type based on wave and randomness
-    local mob = self:chooseMOBType(x, y, multipliers)
-    if mob then
-        table.insert(self.mobs, mob)
+    -- Determine spawn count (1-3 mobs)
+    local spawnCount = 1
+    if math.random(100) <= extraMobChance then
+        spawnCount = 2
+        -- Small chance of spawning 3 at once in later episodes
+        if episodeId >= 3 and math.random(100) <= 20 then
+            spawnCount = 3
+        end
+    end
+
+    -- Spawn the mobs
+    for i = 1, spawnCount do
+        if #self.mobs >= Constants.MAX_ACTIVE_MOBS then
+            break
+        end
+
+        -- Random spawn position on screen edge
+        local x, y = Utils.randomEdgePoint(30)
+
+        -- Wave multipliers (scaling difficulty)
+        local multipliers = {
+            health = 1.0 + (self.currentWave - 1) * 0.15,
+            damage = 1.0 + (self.currentWave - 1) * 0.1,
+            speed = 1.0
+        }
+
+        -- Choose MOB type based on wave and randomness
+        local mob = self:chooseMOBType(x, y, multipliers)
+        if mob then
+            table.insert(self.mobs, mob)
+        end
     end
 end
 
@@ -548,9 +900,17 @@ function GameplayScene:checkCollisions()
                     local collisionDist = 12  -- Combined radius estimate
 
                     if dist < collisionDist then
-                        -- Hit!
-                        local killed = mob:takeDamage(proj:getDamage())
-                        proj:onHit(mob)
+                        -- For tick-based projectiles (like orbital), check if damage can be applied
+                        if proj.usesTickDamage then
+                            local canDamage = proj:onHit(mob)
+                            if canDamage then
+                                mob:takeDamage(proj:getDamage())
+                            end
+                        else
+                            -- Normal projectile: apply damage then call onHit
+                            mob:takeDamage(proj:getDamage())
+                            proj:onHit(mob)
+                        end
 
                         if not proj.active then
                             break  -- Projectile used up
@@ -565,13 +925,14 @@ function GameplayScene:checkCollisions()
     for _, mob in ipairs(self.mobs) do
         if mob.active and not mob.emits then
             local dist = Utils.distance(mob.x, mob.y, self.station.x, self.station.y)
-            local collisionDist = Constants.STATION_RADIUS + mob:getRadius()
+            local mobRadius = mob:getRadius()
+            local collisionDist = Constants.STATION_RADIUS + mobRadius
 
             if dist < collisionDist then
                 -- Calculate attack angle (direction MOB approached from)
                 local attackAngle = Utils.vectorToAngle(mob.x - self.station.x, mob.y - self.station.y)
-                -- MOB hit station (pass attack angle for shield check)
-                self.station:takeDamage(mob.damage, attackAngle)
+                -- MOB hit station (ram damage - shield is less effective)
+                self.station:takeDamage(mob.damage, attackAngle, "ram")
                 mob:onDestroyed()
             end
         end
@@ -585,8 +946,8 @@ function GameplayScene:checkCollisions()
             if dist < Constants.STATION_RADIUS + 4 then
                 -- Calculate attack angle for shield check
                 local attackAngle = Utils.vectorToAngle(proj.x - self.station.x, proj.y - self.station.y)
-                -- Hit station!
-                self.station:takeDamage(proj:getDamage(), attackAngle)
+                -- Hit station! (projectile damage - shield is more effective)
+                self.station:takeDamage(proj:getDamage(), attackAngle, "projectile")
 
                 -- Apply special effects
                 local effect = proj:getEffect()
@@ -635,23 +996,18 @@ function GameplayScene:spawnBoss()
     local episodeId = GameManager.currentEpisodeId or 1
 
     if episodeId == 1 then
-        print("BOSS TIME! Spawning Cultural Attache!")
         self:showMessage("BOSS: Cultural Attache!", 3.0)
         self.boss = CulturalAttache(x, y)
     elseif episodeId == 2 then
-        print("BOSS TIME! Spawning Productivity Liaison!")
         self:showMessage("BOSS: Productivity Liaison!", 3.0)
         self.boss = ProductivityLiaison(x, y)
     elseif episodeId == 3 then
-        print("BOSS TIME! Spawning Improbability Engine!")
         self:showMessage("BOSS: Improbability Engine!", 3.0)
         self.boss = ImprobabilityEngine(x, y)
     elseif episodeId == 4 then
-        print("BOSS TIME! Spawning Chomper!")
         self:showMessage("BOSS: Chomper!", 3.0)
         self.boss = Chomper(x, y)
     elseif episodeId == 5 then
-        print("BOSS TIME! Spawning Distinguished Professor!")
         self:showMessage("BOSS: Distinguished Professor!", 3.0)
         self.boss = DistinguishedProfessor(x, y)
     else
@@ -666,8 +1022,9 @@ function GameplayScene:spawnBoss()
 end
 
 -- Called from Tool when it fires
-function GameplayScene:createProjectile(x, y, angle, speed, damage, imagePath, piercing)
-    return self.projectilePool:get(x, y, angle, speed, damage, imagePath, piercing)
+-- options: { inverted = bool, rotationOffset = number }
+function GameplayScene:createProjectile(x, y, angle, speed, damage, imagePath, piercing, options)
+    return self.projectilePool:get(x, y, angle, speed, damage, imagePath, piercing, options)
 end
 
 -- Called from MOBs when they fire at the station
@@ -704,6 +1061,26 @@ function GameplayScene:drawOverlay()
     -- Draw upgrade selection UI if visible (drawn on top of everything)
     if self.isLevelingUp and UpgradeSelection.isVisible then
         UpgradeSelection:draw()
+    end
+
+    -- Draw mission intro overlay (on top of everything)
+    if self.showingMissionIntro then
+        self:drawMissionIntro()
+    end
+
+    -- Draw boss defeat celebration (on top of everything)
+    if self.showingBossDefeated then
+        self:drawBossDefeated()
+    end
+
+    -- Draw crank indicator if crank is docked (on top of everything)
+    if self.showCrankIndicator and playdate.ui and playdate.ui.crankIndicator then
+        if playdate.isCrankDocked() then
+            playdate.ui.crankIndicator:update()
+        else
+            -- Crank was undocked, stop showing indicator
+            self.showCrankIndicator = false
+        end
     end
 end
 
@@ -769,23 +1146,131 @@ function GameplayScene:drawHUD()
     if self.boss and self.boss.active then
         self.boss:drawHealthBar()
     end
+
+    -- Draw equipment slots on sides
+    self:drawEquipmentSlots()
+end
+
+-- Draw tool and item slots on the sides of the screen
+function GameplayScene:drawEquipmentSlots()
+    local slotSize = 15
+    local maxSlots = 8
+    local topY = 24  -- Below top bar
+    local bottomY = Constants.SCREEN_HEIGHT - 22  -- Above bottom bar
+    local availableHeight = bottomY - topY  -- 194px
+    local slotSpacing = availableHeight / maxSlots  -- ~24px per slot position
+
+    -- Left side: Tool slots (X = 0)
+    local leftX = 0
+
+    -- Right side: Item slots (X = screen width - slot size)
+    local rightX = Constants.SCREEN_WIDTH - slotSize
+
+    -- Get equipped tools
+    local equippedTools = self.station and self.station.tools or {}
+
+    -- Get owned bonus items (as a list)
+    local ownedItems = {}
+    if UpgradeSystem and UpgradeSystem.ownedBonusItems then
+        for itemId, level in pairs(UpgradeSystem.ownedBonusItems) do
+            if level > 0 then
+                table.insert(ownedItems, itemId)
+            end
+        end
+    end
+
+    -- Get font for letters
+    local font = gfx.getSystemFont(gfx.font.kVariantBold)
+
+    -- Draw tool slots (left side)
+    for i = 1, maxSlots do
+        local slotY = topY + (i - 1) * slotSpacing + (slotSpacing - slotSize) / 2
+        local tool = equippedTools[i]
+
+        if tool then
+            -- Filled slot: black background with first letter
+            gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(leftX, slotY, slotSize, slotSize)
+
+            -- Get first letter of tool name
+            local toolName = tool.data and tool.data.name or "?"
+            local letter = string.upper(string.sub(toolName, 1, 1))
+
+            -- Draw letter centered in slot (white on black)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.setFont(font)
+            local letterW = font:getTextWidth(letter)
+            local letterH = font:getHeight()
+            local letterX = leftX + (slotSize - letterW) / 2
+            local letterY = slotY + (slotSize - letterH) / 2
+            gfx.drawText(letter, letterX, letterY)
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
+            -- Border
+            gfx.setColor(gfx.kColorWhite)
+            gfx.drawRect(leftX, slotY, slotSize, slotSize)
+        else
+            -- Empty slot: white background with black border
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(leftX, slotY, slotSize, slotSize)
+            gfx.setColor(gfx.kColorBlack)
+            gfx.drawRect(leftX, slotY, slotSize, slotSize)
+        end
+    end
+
+    -- Draw item slots (right side)
+    for i = 1, maxSlots do
+        local slotY = topY + (i - 1) * slotSpacing + (slotSpacing - slotSize) / 2
+        local itemId = ownedItems[i]
+
+        if itemId then
+            -- Filled slot: black background with first letter
+            gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(rightX, slotY, slotSize, slotSize)
+
+            -- Get first letter of item name
+            local itemData = BonusItemsData and BonusItemsData[itemId]
+            local itemName = itemData and itemData.name or "?"
+            local letter = string.upper(string.sub(itemName, 1, 1))
+
+            -- Draw letter centered in slot (white on black)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.setFont(font)
+            local letterW = font:getTextWidth(letter)
+            local letterH = font:getHeight()
+            local letterX = rightX + (slotSize - letterW) / 2
+            local letterY = slotY + (slotSize - letterH) / 2
+            gfx.drawText(letter, letterX, letterY)
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
+            -- Border
+            gfx.setColor(gfx.kColorWhite)
+            gfx.drawRect(rightX, slotY, slotSize, slotSize)
+        else
+            -- Empty slot: white background with black border
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(rightX, slotY, slotSize, slotSize)
+            gfx.setColor(gfx.kColorBlack)
+            gfx.drawRect(rightX, slotY, slotSize, slotSize)
+        end
+    end
 end
 
 function GameplayScene:onLevelUp()
+    -- Always play level up sound
+    AudioManager:playSFX("level_up")
+
     -- Get upgrade options from the upgrade system
     local toolOptions, bonusOptions = UpgradeSystem:getUpgradeOptions(self.station)
 
-    -- If no options available, skip the level up UI
+    -- If no options available, skip the level up UI (sound already played)
     if #toolOptions == 0 and #bonusOptions == 0 then
-        print("Level up! No upgrades available - skipping UI")
+        print("Level up! No upgrades available - skipping UI (8/8 tools and items maxed)")
         return
     end
 
     print("Level up! Showing upgrade selection...")
     self.isLevelingUp = true
-
-    -- Play level up sound
-    AudioManager:playSFX("level_up")
 
     -- Show the upgrade selection UI
     UpgradeSelection:show(toolOptions, bonusOptions, function(selectionType, selectionData)
@@ -800,8 +1285,16 @@ function GameplayScene:onUpgradeSelected(selectionType, selectionData)
 
     if selectionType == "tool" then
         UpgradeSystem:applyToolSelection(selectionData, self.station)
+        -- Track tool for episode stats
+        if selectionData.id then
+            self:trackToolObtained(selectionData.id)
+        end
     else
         UpgradeSystem:applyBonusSelection(selectionData, self.station)
+        -- Track bonus item for episode stats
+        if selectionData.id then
+            self:trackItemObtained(selectionData.id)
+        end
     end
 
     -- Resume gameplay

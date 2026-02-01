@@ -36,9 +36,6 @@ function CulturalAttache:init(x, y)
     -- Bosses don't use wave multipliers
     CulturalAttache.super.init(self, x, y, CulturalAttache.DATA, { health = 1, damage = 1, speed = 1 })
 
-    -- DEBUG: Log boss health
-    print("BOSS INIT: Cultural Attache health = " .. self.health .. " / " .. self.maxHealth)
-
     -- Boss-specific state
     self.phase = CulturalAttache.PHASES.APPROACH
     self.phaseTimer = 0
@@ -53,7 +50,10 @@ function CulturalAttache:init(x, y)
     -- Set Z-index (bosses above normal mobs)
     self:setZIndex(75)
 
-    print("Cultural Attache boss spawned!")
+    -- Unlock in database when encountered
+    if SaveManager then
+        SaveManager:unlockDatabaseEntry("bosses", "cultural_attache")
+    end
 end
 
 function CulturalAttache:update(dt)
@@ -211,8 +211,6 @@ function CulturalAttache:spawnDrone()
 
     local drone = GreetingDrone(spawnX, spawnY, { health = 1, damage = 1, speed = 1 })
     table.insert(GameplayScene.mobs, drone)
-
-    print("Boss spawned drone!")
 end
 
 function CulturalAttache:startPoetryAttack()
@@ -220,8 +218,6 @@ function CulturalAttache:startPoetryAttack()
 
     -- Apply slow to station
     self:applySlowEffect()
-
-    print("Boss: Reciting poetry!")
 end
 
 function CulturalAttache:endPoetryAttack()
@@ -237,14 +233,7 @@ function CulturalAttache:applySlowEffect()
     end
 end
 
--- Override takeDamage for debug logging
-function CulturalAttache:takeDamage(amount, damageType)
-    print("BOSS DAMAGE: " .. amount .. " -> health now: " .. (self.health - amount) .. "/" .. self.maxHealth)
-    return CulturalAttache.super.takeDamage(self, amount, damageType)
-end
-
 function CulturalAttache:onDestroyed()
-    print("BOSS DESTROYED! Final health was: " .. self.health)
     self.active = false
 
     -- Award RP
@@ -252,14 +241,16 @@ function CulturalAttache:onDestroyed()
         GameManager:awardRP(self.rpValue)
     end
 
+    -- Save boss image for celebration before removing
+    local bossImage = self:getImage()
+
     -- Remove sprite
     self:remove()
 
-    -- Show victory message
-    GameplayScene:showMessage("Poetry accepted! Victory!", 3.0)
-
-    -- Trigger victory!
-    if GameManager then
+    -- Trigger boss defeat celebration
+    if GameplayScene and GameplayScene.onBossDefeated then
+        GameplayScene:onBossDefeated("Cultural Attache", bossImage)
+    elseif GameManager then
         GameManager:endEpisode(true)
     end
 end

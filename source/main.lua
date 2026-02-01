@@ -6,6 +6,7 @@ import "CoreLibs/object"
 import "CoreLibs/graphics"
 import "CoreLibs/sprites"
 import "CoreLibs/timer"
+import "CoreLibs/ui"
 
 -- Local references for performance
 local gfx <const> = playdate.graphics
@@ -25,6 +26,7 @@ import "data/tools_data"
 import "data/bonus_items_data"
 import "data/episodes_data"
 import "data/research_specs_data"
+import "data/grant_funding_data"
 
 -- Import systems
 import "systems/upgrade_system"
@@ -34,6 +36,9 @@ import "systems/research_spec_system"
 import "ui/upgrade_selection"
 import "ui/story_panel"
 import "ui/episode_select"
+import "ui/research_specs_screen"
+import "ui/database_screen"
+import "ui/grant_funding_screen"
 
 -- Import entities
 import "entities/entity"
@@ -106,6 +111,9 @@ local function initialize()
     UpgradeSelection:init()
     StoryPanel:init()
     EpisodeSelect:init()
+    ResearchSpecsScreen:init()
+    DatabaseScreen:init()
+    GrantFundingScreen:init()
     ResearchSpecSystem:init()
 
     -- Set up Playdate system menu
@@ -117,6 +125,11 @@ local function initialize()
             GameplayScene:exit()
         end
         GameManager:setState(GameManager.states.EPISODE_SELECT)
+    end)
+
+    menu:addMenuItem("Research", function()
+        -- Show research specs screen
+        GameManager:setState(GameManager.states.RESEARCH_SPECS, { fromState = GameManager.currentState })
     end)
 
     menu:addMenuItem("Settings", function()

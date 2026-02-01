@@ -55,8 +55,6 @@ function AudioManager:init()
         self.musicVolume = SaveManager:getSetting("musicVolume", 0.7)
         self.sfxVolume = SaveManager:getSetting("sfxVolume", 1.0)
     end
-
-    print("AudioManager initialized")
 end
 
 -- Load a sound effect
@@ -85,30 +83,20 @@ end
 
 -- Play music
 function AudioManager:playMusic(path, loop)
-    print("AudioManager:playMusic called with path: " .. path)
-    if self.musicMuted then
-        print("Music is muted, returning")
-        return
-    end
+    if self.musicMuted then return end
 
     -- Stop current music
     self:stopMusic()
 
     -- Load and play new music
-    print("Loading music file...")
     local player = snd.fileplayer.new(path)
     if player then
-        print("Music file loaded successfully")
         player:setVolume(self.musicVolume)
-        print("Volume set to: " .. self.musicVolume)
         if loop ~= false then
             player:setLoopRange(0)  -- Loop entire track
         end
         player:play(loop ~= false and 0 or 1)
         self.currentMusic = player
-        print("Music playback started")
-    else
-        print("WARNING: Failed to load music: " .. path)
     end
 end
 

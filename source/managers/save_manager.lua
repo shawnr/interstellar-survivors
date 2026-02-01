@@ -14,6 +14,21 @@ SaveManager = {
             sfxVolume = 1.0,
             debugMode = false,
         },
+        -- Database unlocks (discovered items)
+        databaseUnlocks = {
+            tools = {},         -- Tool IDs discovered
+            bonusItems = {},    -- Bonus item IDs discovered
+            enemies = {},       -- Enemy IDs defeated
+            bosses = {},        -- Boss IDs encountered
+        },
+        -- Grant Funding (meta-progression currency)
+        grantFunds = 0,
+        grantFundingLevels = {
+            health = 0,     -- 0-4, increases station base health
+            damage = 0,     -- 0-4, increases all damage dealt
+            shields = 0,    -- 0-4, increases shield capacity and reduces cooldown
+            research = 0,   -- 0-4, increases RP earned
+        },
     },
 
     -- Current episode state (deleted on episode end)
@@ -53,6 +68,23 @@ function SaveManager:loadGameData()
             self.gameData.settings.musicVolume = data.settings.musicVolume or 0.7
             self.gameData.settings.sfxVolume = data.settings.sfxVolume or 1.0
             self.gameData.settings.debugMode = data.settings.debugMode or false
+        end
+
+        -- Load database unlocks
+        if data.databaseUnlocks then
+            self.gameData.databaseUnlocks.tools = data.databaseUnlocks.tools or {}
+            self.gameData.databaseUnlocks.bonusItems = data.databaseUnlocks.bonusItems or {}
+            self.gameData.databaseUnlocks.enemies = data.databaseUnlocks.enemies or {}
+            self.gameData.databaseUnlocks.bosses = data.databaseUnlocks.bosses or {}
+        end
+
+        -- Load grant funding data
+        self.gameData.grantFunds = data.grantFunds or 0
+        if data.grantFundingLevels then
+            self.gameData.grantFundingLevels.health = data.grantFundingLevels.health or 0
+            self.gameData.grantFundingLevels.damage = data.grantFundingLevels.damage or 0
+            self.gameData.grantFundingLevels.shields = data.grantFundingLevels.shields or 0
+            self.gameData.grantFundingLevels.research = data.grantFundingLevels.research or 0
         end
 
         print("Game data loaded successfully")
@@ -153,6 +185,64 @@ function SaveManager:getUnlockedResearchSpecs()
 end
 
 -- ============================================
+-- Database Unlocks
+-- ============================================
+
+-- Valid categories for database
+local validCategories = {
+    tools = true,
+    bonusItems = true,
+    enemies = true,
+    bosses = true,
+}
+
+-- Check if a database entry is unlocked
+function SaveManager:isDatabaseEntryUnlocked(category, id)
+    if not validCategories[category] then return false end
+    if not self.gameData.databaseUnlocks[category] then return false end
+
+    for _, unlockedId in ipairs(self.gameData.databaseUnlocks[category]) do
+        if unlockedId == id then
+            return true
+        end
+    end
+    return false
+end
+
+-- Unlock a database entry (returns true if newly unlocked)
+function SaveManager:unlockDatabaseEntry(category, id)
+    if not validCategories[category] then return false end
+
+    -- Ensure category table exists
+    if not self.gameData.databaseUnlocks[category] then
+        self.gameData.databaseUnlocks[category] = {}
+    end
+
+    -- Check if already unlocked
+    if self:isDatabaseEntryUnlocked(category, id) then
+        return false
+    end
+
+    -- Add to unlocked list
+    table.insert(self.gameData.databaseUnlocks[category], id)
+    self:markGameDataDirty()
+    return true
+end
+
+-- Get count of unlocked entries in a category
+function SaveManager:getDatabaseUnlockCount(category)
+    if not validCategories[category] then return 0 end
+    if not self.gameData.databaseUnlocks[category] then return 0 end
+    return #self.gameData.databaseUnlocks[category]
+end
+
+-- Get all unlocked IDs for a category
+function SaveManager:getDatabaseUnlocks(category)
+    if not validCategories[category] then return {} end
+    return self.gameData.databaseUnlocks[category] or {}
+end
+
+-- ============================================
 -- Settings
 -- ============================================
 
@@ -244,10 +334,74 @@ function SaveManager:resetAllData()
             sfxVolume = 1.0,
             debugMode = false,
         },
+        databaseUnlocks = {
+            tools = {},
+            bonusItems = {},
+            enemies = {},
+            bosses = {},
+        },
+        grantFunds = 0,
+        grantFundingLevels = {
+            health = 0,
+            damage = 0,
+            shields = 0,
+            research = 0,
+        },
     }
     playdate.datastore.delete(self.GAME_DATA_FILE)
     playdate.datastore.delete(self.EPISODE_STATE_FILE)
     print("All save data reset")
+end
+
+-- ============================================
+-- Grant Funding
+-- ============================================
+
+-- Add grant funds (called when player loses)
+function SaveManager:addGrantFunds(amount)
+    self.gameData.grantFunds = self.gameData.grantFunds + amount
+    self:markGameDataDirty()
+    print("Added " .. amount .. " grant funds. Total: " .. self.gameData.grantFunds)
+end
+
+-- Spend grant funds (returns true if successful)
+function SaveManager:spendGrantFunds(amount)
+    if self.gameData.grantFunds >= amount then
+        self.gameData.grantFunds = self.gameData.grantFunds - amount
+        self:markGameDataDirty()
+        return true
+    end
+    return false
+end
+
+-- Get current grant funds balance
+function SaveManager:getGrantFunds()
+    return self.gameData.grantFunds or 0
+end
+
+-- Get grant funding level for a stat (health, damage, shields, research)
+function SaveManager:getGrantFundingLevel(stat)
+    if not self.gameData.grantFundingLevels then
+        return 0
+    end
+    return self.gameData.grantFundingLevels[stat] or 0
+end
+
+-- Upgrade a grant funding stat (returns true if successful)
+function SaveManager:upgradeGrantFunding(stat, cost)
+    local currentLevel = self:getGrantFundingLevel(stat)
+    if currentLevel >= 4 then
+        return false  -- Already maxed
+    end
+
+    if not self:spendGrantFunds(cost) then
+        return false  -- Can't afford
+    end
+
+    self.gameData.grantFundingLevels[stat] = currentLevel + 1
+    self:markGameDataDirty()
+    print("Upgraded " .. stat .. " to level " .. (currentLevel + 1))
+    return true
 end
 
 return SaveManager

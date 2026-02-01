@@ -133,15 +133,16 @@ BonusItemsData = {
         unlockCondition = "episode_1",
     },
 
-    extended_sensors = {
-        id = "extended_sensors",
-        name = "Extended Sensors",
-        description = "See collectibles early",
-        iconPath = "images/bonus_items/bonus_extended_sensors",
-        effect = "sensor_range",
-        effectValue = 2,  -- seconds early
+    rapid_repair = {
+        id = "rapid_repair",
+        name = "Rapid Repair",
+        description = "Faster HP regen (-1s tick)",
+        iconPath = "images/bonus_items/bonus_extended_sensors",  -- Reuse icon
+        effect = "regen_speed",
+        effectValue = 1,  -- Seconds to reduce regen interval
         pairsWithTool = nil,
         unlockCondition = "episode_2",
+        effectPerLevel = 0.5,  -- -0.5s per level (5s -> 4s -> 3.5s -> 3s -> 2.5s)
     },
 
     scrap_collector = {
@@ -339,11 +340,11 @@ BonusItemsData = {
         effectPerLevel = 0.08,
     },
 
-    -- Salvage Drone - auto-collect RP
+    -- Salvage Drone - auto-collect RP, converts 25% to health
     salvage_drone = {
         id = "salvage_drone",
         name = "Salvage Drone",
-        description = "Auto-collect RP in 60px",
+        description = "Collects RP, 25% heals ship",
         iconPath = "images/bonus_items/bonus_salvage_drone",
         effect = "auto_collect",
         effectValue = 60,  -- Pixel radius

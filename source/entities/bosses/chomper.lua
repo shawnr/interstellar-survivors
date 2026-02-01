@@ -38,9 +38,6 @@ Chomper.PHASES = {
 function Chomper:init(x, y)
     Chomper.super.init(self, x, y, Chomper.DATA, { health = 1, damage = 1, speed = 1 })
 
-    -- DEBUG: Log boss health
-    print("BOSS INIT: Chomper health = " .. self.health .. " / " .. self.maxHealth)
-
     -- Boss-specific state
     self.phase = Chomper.PHASES.APPROACH
     self.phaseTimer = 0
@@ -56,7 +53,10 @@ function Chomper:init(x, y)
     -- Set Z-index (bosses above normal mobs)
     self:setZIndex(75)
 
-    print("Chomper boss spawned!")
+    -- Unlock in database when encountered
+    if SaveManager then
+        SaveManager:unlockDatabaseEntry("bosses", "chomper")
+    end
 end
 
 function Chomper:update(dt)
@@ -259,7 +259,6 @@ end
 
 -- Override takeDamage to spawn debris in enraged phase
 function Chomper:takeDamage(amount)
-    print("BOSS DAMAGE: Chomper " .. amount .. " -> health now: " .. (self.health - amount) .. "/" .. self.maxHealth)
     local killed = Chomper.super.takeDamage(self, amount)
 
     -- Spawn debris when hit in enraged phase
@@ -282,18 +281,21 @@ function Chomper:spawnDebris()
 end
 
 function Chomper:onDestroyed()
-    print("BOSS DESTROYED! Chomper final health was: " .. self.health)
     self.active = false
 
     if GameManager then
         GameManager:awardRP(self.rpValue)
     end
 
+    -- Save boss image for celebration before removing
+    local bossImage = self:getImage()
+
     self:remove()
 
-    GameplayScene:showMessage("Chomper satisfied!")
-
-    if GameManager then
+    -- Trigger boss defeat celebration
+    if GameplayScene and GameplayScene.onBossDefeated then
+        GameplayScene:onBossDefeated("Chomper", bossImage)
+    elseif GameManager then
         GameManager:endEpisode(true)
     end
 end

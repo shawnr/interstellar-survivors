@@ -24,12 +24,12 @@ This game has two levels of play, being a rogue-like: There is the primary game,
 
 ## The Menus
 
-The game opens to the Main Menu, which offers these choices:
+The game opens to a Title Screen with rotating taglines, then pressing any button opens the Main Menu with these choices:
 
-1. New Episode  
-2. Continue Episode  
-3. Research Specs  
-4. Game Settings
+1. Episodes (select and play Episodes)
+2. Research (submenu with Research Specs and Grant Funding)
+3. Database (encyclopedia of discovered content)
+4. Settings
 
 Note: This game will use the Play.date built in pause menu. It will insert a Main Menu option into the play menu that returns the player to the main game menu.
 
@@ -116,11 +116,22 @@ Each Episode is designed to be a somewhat quick, disposable experience. The game
 
 ## The Meta Gameplay
 
-There is an additional level of gameplay that comes through as Research Specs. Research Specs are items that can be gained by completing different challenges in the game. Unlocking a Research Spec is permanent. Once the challenge related to that Research Spec is complete, that item will always affect the game.
+There are two meta-progression systems in the game:
 
-Players can view a list available from the main menu of their unlocked Research Specs to learn more about them. They are defined in the Research Specs table (see Systems Update tab), and include items like "Ancient Alloys" to increase the health of the Station, or "Optimized Targeting" to make projectiles track more accurately.
+### Research Specs
+Research Specs are items that can be gained by completing Episodes. Unlocking a Research Spec is permanent. Once the Episode related to that Research Spec is completed, that item will always affect the game.
 
-When a new Episode starts, the effects of all unlocked Research Specs are noted and applied to the gameplay session. When a new Research Spec is unlocked, its buffs take effect immediately.
+Players can view a list available from the Research menu of their unlocked Research Specs to learn more about them. They are defined in the Research Specs table (see Systems Update tab), and include items like "Silk Weave Plating" to increase the health of the Station, or "Quantum Flux Capacitor" to provide a dodge chance.
+
+When a new Episode starts, the effects of all unlocked Research Specs are noted and applied to the gameplay session. Each Episode unlocks a specific Research Spec when completed.
+
+### Grant Funding
+Grant Funding provides a way for players to permanently improve their station even when they fail Episodes. When a player loses (station destroyed, Episode not completed), 1% of their earned RP is converted into Grant Funds.
+
+Players can spend Grant Funds in the Research menu under "Grant Funding" to upgrade four stats: Health, Damage, Shields, and Research. Each stat has 4 upgrade levels. Players who are struggling can keep attempting Episodes and gradually build up their station's power until they can overcome the challenge.
+
+### Database
+The Database is an in-game encyclopedia that tracks all discovered content. As players encounter tools, bonus items, enemies (Research Subjects), bosses, and complete Episodes, entries are unlocked in the Database. Players can view detailed information about anything they've discovered. The Database also includes a Gameplay section explaining controls, settings, and station systems.
 
 # Game Data
 
@@ -128,13 +139,51 @@ The following are tables that provide game data to be used during play. For comp
 
 ## General Game Data
 
-1. BOSS\_SPAWN\_TIME=7min  
-2. MAX\_TOOLS\_PER\_EPISODE=6  
-3. MOB\_DAMAGE\_MULTIPLIER=1  
-4. BASE\_XP=100  
-5. BASE\_LEVEL\_EXPONENT=1.2  
-6. STATION\_BASE\_HEALTH=100  
-7. ROTATION\_SPEED=180° per crank revolution
+1. BOSS\_SPAWN\_TIME=7min (2min in debug mode)
+2. MAX\_TOOLS\_PER\_EPISODE=8
+3. MAX\_BONUS\_ITEMS\_PER\_EPISODE=8
+4. MAX\_UPGRADE\_LEVEL=4 (for both tools and bonus items)
+5. MOB\_DAMAGE\_MULTIPLIER=1
+6. BASE\_XP=50
+7. BASE\_LEVEL\_EXPONENT=1.15
+8. STATION\_BASE\_HEALTH=500
+9. ROTATION\_RATIO=1:1 (360° crank = 360° station)
+
+## Grant Funding
+
+Grant Funding is a meta-progression system that allows players to permanently improve their station's capabilities. When a player loses (doesn't complete the Episode), 1% of their earned RP is converted into Grant Funds.
+
+Grant Funds can be spent in the Research menu under "Grant Funding" to upgrade four different stats. Each stat has 4 upgrade levels with increasing costs and benefits:
+
+### Health
+Increases station base health.
+- Level 1: +10% Health (Cost: 100)
+- Level 2: +25% Health (Cost: 300)
+- Level 3: +50% Health (Cost: 900)
+- Level 4: +100% Health (Cost: 2700)
+
+### Damage
+Increases all damage dealt to enemies.
+- Level 1: +10% Damage (Cost: 100)
+- Level 2: +25% Damage (Cost: 300)
+- Level 3: +50% Damage (Cost: 900)
+- Level 4: +100% Damage (Cost: 2700)
+
+### Shields
+Improves shield damage capacity and reduces cooldown.
+- Level 1: +25% Capacity, -15% Cooldown (Cost: 100)
+- Level 2: +50% Capacity, -30% Cooldown (Cost: 300)
+- Level 3: +100% Capacity, -45% Cooldown (Cost: 900)
+- Level 4: +200% Capacity, -60% Cooldown (Cost: 2700)
+
+### Research
+Increases Research Points earned. This upgrade is more expensive because it helps earn more Grant Funds over time.
+- Level 1: +15% RP (Cost: 400)
+- Level 2: +35% RP (Cost: 1200)
+- Level 3: +65% RP (Cost: 3600)
+- Level 4: +100% RP (Cost: 10800)
+
+A player with all Grant Funding upgrades at level 4 should be able to reliably complete any Episode. The system provides a way for players who are struggling to gradually build up power until they can overcome difficult challenges
 
 ## Research Specifications
 
@@ -203,9 +252,9 @@ When a new level is achieved, the amount required to hit the next level will be 
 
 Tools extend the capabilities of the space station. They are, effectively, "weapons", but since this is a research vessel the station only has defensive tools and research tools (which the station can use to defend itself, too).
 
-The station has **8 attachment points** arranged around its perimeter. Tools attach to the next available slot when selected. Maximum **6 Tools** can be attached per Episode. All Tools rotate with the station when the player uses the crank.
+The station has **8 attachment points** arranged around its perimeter. Tools attach to the next available slot when selected. Maximum **8 unique Tools** can be attached per Episode. All Tools rotate with the station when the player uses the crank. Each Tool can be upgraded to level 4, and pairing a max-level Tool with its matching Bonus Item triggers evolution to an upgraded form.
 
-For the complete Tools table (8 Tools with stats, patterns, and upgrade paths), see the **Systems Update** tab.
+For the complete Tools table (14 Tools with stats, patterns, and upgrade paths), see the **Systems Update** tab.
 
 ### Tool Summary
 
@@ -430,7 +479,7 @@ Research Spec Unlock: "Ancient Alloys" — Station hull integrity increased by 1
 
 ## Mission 5: "Academic Standards"
 
-Inspired by Nnedi Okofor's Binti
+Inspired by Nnedi Okorafor's Binti
 
 Location: Interstellar University Station
 

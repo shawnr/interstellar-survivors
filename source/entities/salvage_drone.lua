@@ -8,8 +8,6 @@ class('SalvageDrone').extends(gfx.sprite)
 function SalvageDrone:init()
     SalvageDrone.super.init(self)
 
-    print("SalvageDrone:init() - Creating drone")
-
     -- Create a visible drone sprite (larger, 20x20)
     local img = gfx.image.new(20, 20)
     gfx.pushContext(img)
@@ -48,7 +46,6 @@ function SalvageDrone:init()
     self.searchRadius = 300   -- How far to look for collectibles (larger default)
 
     self.active = true
-    print("SalvageDrone:init() - Drone created at " .. self.x .. ", " .. self.y)
 end
 
 function SalvageDrone:update()
@@ -115,24 +112,46 @@ end
 function SalvageDrone:collectTarget()
     if not self.targetCollectible then return end
 
-    print("SalvageDrone: Collecting RP!")
-
-    -- Get the RP value from the collectible
-    local rpValue = self.targetCollectible.value or 1
-
-    -- Add RP to player
-    if GameManager then
-        GameManager:addRP(rpValue)
-    end
-
-    -- Play collection sound
-    if AudioManager then
-        AudioManager:playSFX("collect_rp", 0.6)
-    end
-
-    -- Deactivate the collectible
-    self.targetCollectible:deactivate()
+    local collectible = self.targetCollectible
     self.targetCollectible = nil
+
+    -- Only do special handling for RP collectibles
+    if collectible.collectibleType == Collectible.TYPES.RP then
+        -- Play collect sound
+        if AudioManager then
+            AudioManager:playSFX("collectible_get", 0.3)
+        end
+
+        local rpValue = collectible.value or 1
+
+        -- Check if station needs health
+        local station = GameplayScene and GameplayScene.station
+        if station and station.health < station.maxHealth then
+            -- Convert 25% of RP to health
+            local healthAmount = math.ceil(rpValue * 0.25)
+            local rpAmount = math.floor(rpValue * 0.75)
+
+            -- Heal station (cap at max health)
+            station:heal(healthAmount)
+
+            -- Award reduced RP
+            if GameManager and rpAmount > 0 then
+                GameManager:awardRP(rpAmount)
+            end
+        else
+            -- Station at full health - award full RP
+            if GameManager then
+                GameManager:awardRP(rpValue)
+            end
+        end
+
+        -- Mark collectible as inactive and remove
+        collectible.active = false
+        collectible:remove()
+    else
+        -- For non-RP collectibles (health, etc.), use normal collection
+        collectible:collect(true)
+    end
 end
 
 function SalvageDrone:orbitStation()

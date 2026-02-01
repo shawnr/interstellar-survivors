@@ -36,9 +36,6 @@ ImprobabilityEngine.PHASES = {
 function ImprobabilityEngine:init(x, y)
     ImprobabilityEngine.super.init(self, x, y, ImprobabilityEngine.DATA, { health = 1, damage = 1, speed = 1 })
 
-    -- DEBUG: Log boss health
-    print("BOSS INIT: Improbability Engine health = " .. self.health .. " / " .. self.maxHealth)
-
     -- Boss-specific state
     self.phase = ImprobabilityEngine.PHASES.APPROACH
     self.phaseTimer = 0
@@ -58,7 +55,10 @@ function ImprobabilityEngine:init(x, y)
     -- Set Z-index (bosses above normal mobs)
     self:setZIndex(75)
 
-    print("Improbability Engine boss spawned!")
+    -- Unlock in database when encountered
+    if SaveManager then
+        SaveManager:unlockDatabaseEntry("bosses", "improbability_engine")
+    end
 end
 
 function ImprobabilityEngine:update(dt)
@@ -261,8 +261,6 @@ function ImprobabilityEngine:teleportRandom()
     GameplayScene:showMessage("*BLINK*", 0.5)
     self.teleportTimer = 0
     self.canTeleport = false
-
-    print("Boss teleported!")
 end
 
 function ImprobabilityEngine:spawnFluctuation()
@@ -322,14 +320,7 @@ function ImprobabilityEngine:applyRealityGlitch()
     end
 end
 
--- Override takeDamage for debug logging
-function ImprobabilityEngine:takeDamage(amount, damageType)
-    print("BOSS DAMAGE: Improbability " .. amount .. " -> health now: " .. (self.health - amount) .. "/" .. self.maxHealth)
-    return ImprobabilityEngine.super.takeDamage(self, amount, damageType)
-end
-
 function ImprobabilityEngine:onDestroyed()
-    print("BOSS DESTROYED! Improbability Engine final health was: " .. self.health)
     self.active = false
 
     -- End any lingering effects
@@ -341,11 +332,15 @@ function ImprobabilityEngine:onDestroyed()
         GameManager:awardRP(self.rpValue)
     end
 
+    -- Save boss image for celebration before removing
+    local bossImage = self:getImage()
+
     self:remove()
 
-    GameplayScene:showMessage("Reality stabilized!")
-
-    if GameManager then
+    -- Trigger boss defeat celebration
+    if GameplayScene and GameplayScene.onBossDefeated then
+        GameplayScene:onBossDefeated("Improbability Engine", bossImage)
+    elseif GameManager then
         GameManager:endEpisode(true)
     end
 end

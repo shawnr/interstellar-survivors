@@ -1,0 +1,3 @@
+loopCount = 0
+frames = 9x5,10x5,11x5,12x5,7x2,13x5,14x5,8x2,14x5,13x5,12x5,8x2,11x5,10x5,7x2
+introFrames = 1,2,3,4,5,6x3

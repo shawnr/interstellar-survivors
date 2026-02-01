@@ -35,9 +35,6 @@ ProductivityLiaison.PHASES = {
 function ProductivityLiaison:init(x, y)
     ProductivityLiaison.super.init(self, x, y, ProductivityLiaison.DATA, { health = 1, damage = 1, speed = 1 })
 
-    -- DEBUG: Log boss health
-    print("BOSS INIT: Productivity Liaison health = " .. self.health .. " / " .. self.maxHealth)
-
     -- Boss-specific state
     self.phase = ProductivityLiaison.PHASES.APPROACH
     self.phaseTimer = 0
@@ -51,7 +48,10 @@ function ProductivityLiaison:init(x, y)
     -- Set Z-index (bosses above normal mobs)
     self:setZIndex(75)
 
-    print("Productivity Liaison boss spawned!")
+    -- Unlock in database when encountered
+    if SaveManager then
+        SaveManager:unlockDatabaseEntry("bosses", "productivity_liaison")
+    end
 end
 
 function ProductivityLiaison:update(dt)
@@ -221,25 +221,22 @@ function ProductivityLiaison:applyFeedbackDebuff()
     end
 end
 
--- Override takeDamage for debug logging
-function ProductivityLiaison:takeDamage(amount, damageType)
-    print("BOSS DAMAGE: Productivity " .. amount .. " -> health now: " .. (self.health - amount) .. "/" .. self.maxHealth)
-    return ProductivityLiaison.super.takeDamage(self, amount, damageType)
-end
-
 function ProductivityLiaison:onDestroyed()
-    print("BOSS DESTROYED! Productivity Liaison final health was: " .. self.health)
     self.active = false
 
     if GameManager then
         GameManager:awardRP(self.rpValue)
     end
 
+    -- Save boss image for celebration before removing
+    local bossImage = self:getImage()
+
     self:remove()
 
-    GameplayScene:showMessage("Performance review: PASSED!")
-
-    if GameManager then
+    -- Trigger boss defeat celebration
+    if GameplayScene and GameplayScene.onBossDefeated then
+        GameplayScene:onBossDefeated("Productivity Liaison", bossImage)
+    elseif GameManager then
         GameManager:endEpisode(true)
     end
 end

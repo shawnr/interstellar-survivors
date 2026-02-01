@@ -52,10 +52,11 @@ end
 function UpgradeSelection:update()
     if not self.isVisible then return end
 
-    if InputManager.buttonJustPressed.up then
+    -- up/right = up, down/left = down
+    if InputManager.buttonJustPressed.up or InputManager.buttonJustPressed.right then
         self.selectedIndex = self.selectedIndex - 1
         if self.selectedIndex < 1 then self.selectedIndex = #self.options end
-    elseif InputManager.buttonJustPressed.down then
+    elseif InputManager.buttonJustPressed.down or InputManager.buttonJustPressed.left then
         self.selectedIndex = self.selectedIndex + 1
         if self.selectedIndex > #self.options then self.selectedIndex = 1 end
     elseif InputManager.buttonJustPressed.a then
@@ -72,6 +73,43 @@ function UpgradeSelection:confirmSelection()
     self:hide()
 end
 
+-- Helper function to draw A button icon (white circle with black A)
+function UpgradeSelection:drawAButtonIcon(x, y, radius)
+    radius = radius or 8
+    -- Draw white filled circle
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillCircleAtPoint(x, y, radius)
+    -- Draw black outline
+    gfx.setColor(gfx.kColorBlack)
+    gfx.drawCircleAtPoint(x, y, radius)
+    -- Draw black "A" centered in circle
+    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    local font = gfx.getSystemFont(gfx.font.kVariantBold)
+    gfx.setFont(font)
+    local textW = font:getTextWidth("A")
+    local textH = font:getHeight()
+    gfx.drawText("A", x - textW/2, y - textH/2)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+end
+
+-- Helper function to get "Helps:" text for a bonus item
+function UpgradeSelection:getHelpsText(bonusData)
+    if not bonusData.pairsWithTool then
+        return "Helps: All"
+    end
+
+    -- Look up the tool name
+    local toolId = bonusData.pairsWithTool
+    local toolData = ToolsData and ToolsData[toolId]
+    if toolData then
+        return "Helps: " .. toolData.name
+    else
+        -- Fallback: format the tool ID nicely
+        local toolName = toolId:gsub("_", " "):gsub("(%a)([%w_']*)", function(a, b) return string.upper(a) .. b end)
+        return "Helps: " .. toolName
+    end
+end
+
 function UpgradeSelection:draw()
     if not self.isVisible then return end
 
@@ -80,15 +118,26 @@ function UpgradeSelection:draw()
     local panelW, panelH = 380, 220
     local headerH = 30
     local footerH = 24
-    local cardH = 50  -- Larger cards for better readability
+    local toolCardH = 50   -- Height for tool cards
+    local bonusCardH = 64  -- Taller cards for bonus items (includes "Helps:" line)
     local cardMargin = 6
     local cardW = panelW - (cardMargin * 2)
     local contentAreaH = panelH - headerH - footerH
 
-    -- Calculate scroll offset to keep selected item visible
-    local maxVisibleCards = math.floor(contentAreaH / cardH)
-    local selectedCardTop = (self.selectedIndex - 1) * cardH
-    local selectedCardBottom = selectedCardTop + cardH
+    -- Calculate total height and card positions based on variable heights
+    local totalHeight = 0
+    local cardPositions = {}
+    for i, option in ipairs(self.options) do
+        cardPositions[i] = totalHeight
+        local cardH = option.type == "bonus" and bonusCardH or toolCardH
+        totalHeight = totalHeight + cardH
+    end
+
+    -- Get selected card bounds
+    local selectedCardTop = cardPositions[self.selectedIndex] or 0
+    local selectedCardH = self.options[self.selectedIndex] and
+        (self.options[self.selectedIndex].type == "bonus" and bonusCardH or toolCardH) or toolCardH
+    local selectedCardBottom = selectedCardTop + selectedCardH
 
     -- Adjust scroll to keep selected in view
     if selectedCardTop < self.scrollOffset then
@@ -127,9 +176,10 @@ function UpgradeSelection:draw()
     local contentY = panelY + headerH + 2
     gfx.setClipRect(panelX + 4, contentY, panelW - 8, contentAreaH - 4)
 
-    -- 6. Draw each card (with scroll offset)
+    -- 6. Draw each card (with scroll offset and variable heights)
     for i, option in ipairs(self.options) do
-        local cardY = contentY + (i - 1) * cardH - self.scrollOffset
+        local cardH = option.type == "bonus" and bonusCardH or toolCardH
+        local cardY = contentY + cardPositions[i] - self.scrollOffset
         local cardX = panelX + cardMargin
         local isSelected = (i == self.selectedIndex)
 
@@ -149,10 +199,10 @@ function UpgradeSelection:draw()
             gfx.drawRoundRect(cardX, cardY, cardW, cardH - 4, 4)
         end
 
-        -- Icon placeholder (left side)
+        -- Icon placeholder (left side) - use fixed size for consistency
         local iconX = cardX + 6
         local iconY = cardY + 4
-        local iconSize = cardH - 12
+        local iconSize = 38  -- Fixed icon size
 
         if option.icon then
             -- Icons are white on transparent - invert when on white background (not selected)
@@ -172,7 +222,7 @@ function UpgradeSelection:draw()
 
         -- Text (right of icon)
         local textX = iconX + iconSize + 10
-        local textY = cardY + 6
+        local textY = cardY + 4
 
         if isSelected then
             gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
@@ -190,7 +240,13 @@ function UpgradeSelection:draw()
 
         -- Description on second line
         local desc = option.data.description or ""
-        gfx.drawText(desc, textX, textY + 18)
+        gfx.drawText(desc, textX, textY + 16)
+
+        -- For bonus items, show "Helps:" line on third row
+        if option.type == "bonus" then
+            local helpsText = self:getHelpsText(option.data)
+            gfx.drawText(helpsText, textX, textY + 32)
+        end
 
         -- Type badge on right
         local badge = option.type == "tool" and "[TOOL]" or "[BONUS]"
@@ -211,9 +267,33 @@ function UpgradeSelection:draw()
     -- 7. Draw instructions at bottom (with padding from edges)
     gfx.setColor(gfx.kColorWhite)
     gfx.fillRect(panelX + 6, panelY + panelH - footerH + 2, panelW - 12, footerH - 6)
+
+    -- Draw footer text with A button icon
+    local footerTextY = panelY + panelH - footerH + 5
+    local footerCenterX = 200
+    local iconRadius = 7
+
+    -- Calculate positions for centered layout: "Up/Down: Select  (A): Confirm"
+    local leftText = "Up/Down: Select   "
+    local rightText = ": Confirm"
+    local font = gfx.getSystemFont()
+    local leftWidth = font:getTextWidth(leftText)
+    local rightWidth = font:getTextWidth(rightText)
+    local totalWidth = leftWidth + (iconRadius * 2) + rightWidth
+
+    local startX = footerCenterX - totalWidth / 2
+
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned("Up/Down: Select   Ⓐ: Confirm",
-        200, panelY + panelH - footerH + 5, kTextAlignment.center)
+    gfx.drawText(leftText, startX, footerTextY)
+
+    -- Draw A button icon
+    local iconX = startX + leftWidth + iconRadius
+    local iconY = footerTextY + font:getHeight() / 2
+    self:drawAButtonIcon(iconX, iconY, iconRadius)
+
+    -- Draw rest of text
+    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    gfx.drawText(rightText, startX + leftWidth + (iconRadius * 2), footerTextY)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 

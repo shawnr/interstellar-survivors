@@ -112,14 +112,21 @@ function SingularityCore:createOrbitalProjectile()
             end
         end
 
-        -- Override onHit to reset damage tick
-        local originalOnHit = proj.onHit
+        -- Override onHit to manage damage tick and prevent constant damage
         proj.onHit = function(self, target)
-            if self.damageTickTimer <= 0 then
-                self.damageTickTimer = self.damageTickInterval
-                -- Don't deactivate - orbital continues
+            -- Only allow damage if tick timer is ready
+            if self.damageTickTimer > 0 then
+                -- Return false to indicate damage should not be applied
+                -- (collision system needs to check this)
+                return false
             end
+            self.damageTickTimer = self.damageTickInterval
+            -- Return true to indicate damage can be applied
+            return true
         end
+
+        -- Store that this projectile uses tick-based damage
+        proj.usesTickDamage = true
     end
 
     return proj

@@ -50,6 +50,23 @@ function TeslaCoil:fire()
     end
 end
 
+-- Override createProjectile to use inverted lightning bolt with correct rotation
+function TeslaCoil:createProjectile(x, y, angle)
+    if GameplayScene and GameplayScene.projectilePool then
+        -- Lightning bolt options: inverted (white on dark), rotation offset 0 (sprite faces UP)
+        local lightningOptions = { inverted = true, rotationOffset = 0 }
+        local projectile = GameplayScene.projectilePool:get(
+            x, y, angle,
+            self.projectileSpeed * (1 + self.projectileSpeedBonus),
+            self.damage,
+            self.data.projectileImage,
+            false,
+            lightningOptions
+        )
+        return projectile
+    end
+end
+
 function TeslaCoil:findNearestEnemy(fromX, fromY, preferredAngle)
     if not GameplayScene or not GameplayScene.mobs then
         return nil
@@ -72,12 +89,15 @@ function TeslaCoil:findNearestEnemy(fromX, fromY, preferredAngle)
 end
 
 function TeslaCoil:createChainProjectile(x, y, angle, target)
+    -- Lightning bolt options: inverted (white on dark), rotation offset 0 (sprite faces UP)
+    local lightningOptions = { inverted = true, rotationOffset = 0 }
     local proj = GameplayScene:createProjectile(
         x, y, angle,
         self.projectileSpeed * (1 + self.projectileSpeedBonus),
         self.damage,
         self.data.projectileImage,
-        false
+        false,
+        lightningOptions
     )
 
     if proj then
@@ -115,12 +135,15 @@ function TeslaCoil:createChainProjectile(x, y, angle, target)
                 if nextTarget then
                     -- Create chain projectile to next target
                     local chainAngle = Utils.vectorToAngle(nextTarget.x - hitTarget.x, nextTarget.y - hitTarget.y)
+                    -- Lightning bolt options: inverted (white on dark), rotation offset 0 (sprite faces UP)
+                    local chainOptions = { inverted = true, rotationOffset = 0 }
                     local chainProj = GameplayScene:createProjectile(
                         hitTarget.x, hitTarget.y, chainAngle,
                         20,  -- Fast chain
                         self.chainDamage * 0.8,  -- Slightly reduced damage per chain
                         "images/tools/tool_lightning_bolt",
-                        false
+                        false,
+                        chainOptions
                     )
 
                     if chainProj then

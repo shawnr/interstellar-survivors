@@ -24,13 +24,7 @@ function Entity:init(x, y, imagePath)
     if imagePath then
         local image = gfx.image.new(imagePath)
         if image then
-            local w, h = image:getSize()
-            -- Debug: Log image details including object identity
-            print("  -> Loaded image: " .. imagePath)
-            print("     Size: " .. w .. "x" .. h .. ", ID: " .. tostring(image))
             self:setImage(image)
-        else
-            print("ERROR: Could not load image: " .. imagePath)
         end
     end
 

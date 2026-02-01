@@ -9,18 +9,27 @@ function Station:init()
     -- Initialize base entity (without position yet)
     Station.super.init(self, 0, 0, "images/shared/station_base")
 
-    -- Calculate max health with research spec bonuses
+    -- Calculate max health with research spec bonuses and grant funding
     local baseHealth = Constants.STATION_BASE_HEALTH
     local healthBonus = 0
     local startingHealthBonus = 0
+    local grantHealthBonus = 0
 
     if ResearchSpecSystem then
         healthBonus = ResearchSpecSystem:getStationHealthBonus()
         startingHealthBonus = ResearchSpecSystem:getStartingHealth()
     end
 
-    -- Apply percentage bonus and flat bonus
-    self.maxHealth = math.floor(baseHealth * (1 + healthBonus)) + startingHealthBonus
+    -- Apply grant funding health bonus
+    if SaveManager and GrantFundingData then
+        local healthLevel = SaveManager:getGrantFundingLevel("health")
+        if healthLevel > 0 then
+            grantHealthBonus = GrantFundingData.getTotalBonus("health", healthLevel)
+        end
+    end
+
+    -- Apply percentage bonuses and flat bonus
+    self.maxHealth = math.floor(baseHealth * (1 + healthBonus + grantHealthBonus)) + startingHealthBonus
     self.health = self.maxHealth
 
     -- Rotation (controlled by crank)
@@ -36,22 +45,34 @@ function Station:init()
     -- Debuff tracking
     self.rotationSlow = 1.0        -- Rotation speed multiplier (1.0 = normal)
     self.rotationSlowTimer = 0     -- Time remaining on slow effect
+    self.fireRateSlow = 1.0        -- Fire rate multiplier (1.0 = normal)
+    self.fireRateSlowTimer = 0     -- Time remaining on fire rate slow
+    self.controlsInverted = false  -- Whether crank controls are inverted
+    self.controlsInvertedTimer = 0 -- Time remaining on inverted controls
 
-    -- Shield system
-    self.shieldLevel = 1           -- Shield upgrade level (1-4)
-    self.shieldHits = 1            -- Current shield hits remaining
-    self.shieldMaxHits = 1         -- Max hits shield can absorb (1 + level bonus)
-    self.shieldCooldown = 0        -- Current cooldown timer
-    self.shieldBaseCooldown = 7.0  -- Base cooldown in seconds (7s at level 1, 1s at level 4)
-    self.shieldCoverage = 0.25     -- Coverage (0.25 = quarter circle at level 1, 0.5 max)
-    self.shieldAngleOffset = 180   -- Shield is opposite the rail driver (slot 0)
-    self.shieldOpacity = 1.0       -- Visual opacity (fades during cooldown)
+    -- Shield system (damage-based absorption)
+    self.shieldLevel = 1                  -- Shield upgrade level (1-4)
+    self.shieldDamageCapacity = 10        -- Max damage shield can absorb before depleting
+    self.shieldCurrentCapacity = 10       -- Current remaining damage capacity
+    self.shieldCooldown = 0               -- Current cooldown timer
+    self.shieldBaseCooldown = 2.0         -- Base cooldown: 2s
+    self.shieldCoverage = 0.25            -- Coverage (0.25 = quarter circle, 90 degrees)
+    self.shieldProjectileBlock = 1.0      -- 100% of projectile damage blocked
+    self.shieldRamBlock = 0.5             -- 50% of ram damage blocked at level 1
+    self.shieldAngleOffset = 180          -- Shield is opposite the rail driver (slot 0)
+    self.shieldOpacity = 1.0              -- Visual opacity (fades during cooldown)
     self:updateShieldStats()
 
     -- Shield flash effect (visual when shield absorbs hit)
     self.shieldFlashTimer = 0      -- Timer for shield activation flash
     self.shieldFlashAngle = 0      -- Angle where the shield was hit
     self.shieldFlashIntensity = 0  -- Intensity of flash (based on level)
+
+    -- Health regeneration system
+    self.healthRegen = 0           -- HP to regen per tick (set by bonus items)
+    self.baseHealthRegen = 2.0     -- Base regen rate: 2 HP per tick
+    self.healthRegenInterval = 4.0 -- Seconds between regen ticks
+    self.healthRegenTimer = 0      -- Timer for next regen
 
     -- Set center point FIRST (0.5, 0.5 = center of sprite)
     self:setCenter(0.5, 0.5)
@@ -74,16 +95,33 @@ function Station:init()
 end
 
 function Station:updateShieldStats()
-    -- Level 1: 1 hit, 25% coverage, 7s cooldown
-    -- Level 2: 1 hit, 33% coverage, 5s cooldown
-    -- Level 3: 2 hits, 42% coverage, 3s cooldown
-    -- Level 4: 2 hits, 50% coverage, 1s cooldown
+    -- Shield stats by level:
+    -- Level 1: 10 dmg capacity, 25% coverage, 2.0s cooldown, 100% projectile, 50% ram
+    -- Level 2: 15 dmg capacity, 33% coverage, 1.6s cooldown, 100% projectile, 60% ram
+    -- Level 3: 20 dmg capacity, 42% coverage, 1.2s cooldown, 100% projectile, 70% ram
+    -- Level 4: 25 dmg capacity, 50% coverage, 0.8s cooldown, 100% projectile, 80% ram
     local level = self.shieldLevel
 
-    self.shieldMaxHits = level >= 3 and 2 or 1
-    self.shieldHits = self.shieldMaxHits
-    self.shieldCoverage = 0.25 + (level - 1) * 0.083  -- 0.25, 0.33, 0.42, 0.50
-    self.shieldBaseCooldown = 7.0 - (level - 1) * 2.0  -- 7.0, 5.0, 3.0, 1.0
+    local baseCapacity = 10 + (level - 1) * 5     -- 10, 15, 20, 25
+    local baseCooldown = 2.0 - (level - 1) * 0.4  -- 2.0, 1.6, 1.2, 0.8
+
+    -- Apply grant funding shield bonuses
+    local capacityBonus = 0
+    local cooldownReduction = 0
+    if SaveManager and GrantFundingData then
+        local shieldLevel = SaveManager:getGrantFundingLevel("shields")
+        if shieldLevel > 0 then
+            capacityBonus = GrantFundingData.getShieldCapacityBonus(shieldLevel)
+            cooldownReduction = GrantFundingData.getShieldCooldownReduction(shieldLevel)
+        end
+    end
+
+    self.shieldDamageCapacity = math.floor(baseCapacity * (1 + capacityBonus))
+    self.shieldCurrentCapacity = self.shieldDamageCapacity
+    self.shieldCoverage = 0.25 + (level - 1) * 0.083     -- 0.25, 0.33, 0.42, 0.50
+    self.shieldBaseCooldown = baseCooldown * (1 - cooldownReduction)
+    self.shieldProjectileBlock = 1.0                      -- Always 100% for projectiles
+    self.shieldRamBlock = 0.5 + (level - 1) * 0.1        -- 0.5, 0.6, 0.7, 0.8
 end
 
 function Station:upgradeShield()
@@ -99,11 +137,27 @@ end
 function Station:update()
     local dt = 1/30
 
-    -- Update slow timer
+    -- Update rotation slow timer
     if self.rotationSlowTimer > 0 then
         self.rotationSlowTimer = self.rotationSlowTimer - dt
         if self.rotationSlowTimer <= 0 then
             self.rotationSlow = 1.0  -- Reset to normal speed
+        end
+    end
+
+    -- Update fire rate slow timer
+    if self.fireRateSlowTimer > 0 then
+        self.fireRateSlowTimer = self.fireRateSlowTimer - dt
+        if self.fireRateSlowTimer <= 0 then
+            self.fireRateSlow = 1.0  -- Reset to normal fire rate
+        end
+    end
+
+    -- Update controls inverted timer
+    if self.controlsInvertedTimer > 0 then
+        self.controlsInvertedTimer = self.controlsInvertedTimer - dt
+        if self.controlsInvertedTimer <= 0 then
+            self.controlsInverted = false  -- Reset to normal controls
         end
     end
 
@@ -114,7 +168,7 @@ function Station:update()
         self.shieldOpacity = 1.0 - (self.shieldCooldown / self.shieldBaseCooldown)
         if self.shieldCooldown <= 0 then
             self.shieldCooldown = 0
-            self.shieldHits = self.shieldMaxHits  -- Regenerate shield
+            self.shieldCurrentCapacity = self.shieldDamageCapacity  -- Regenerate shield
             self.shieldOpacity = 1.0
         end
     else
@@ -126,8 +180,25 @@ function Station:update()
         self.shieldFlashTimer = self.shieldFlashTimer - dt
     end
 
+    -- Health regeneration (base + bonus from items)
+    local totalRegen = self.baseHealthRegen + (self.healthRegen or 0)
+    if totalRegen > 0 and self.health < self.maxHealth then
+        self.healthRegenTimer = self.healthRegenTimer + dt
+        if self.healthRegenTimer >= self.healthRegenInterval then
+            self.healthRegenTimer = 0
+            self:heal(totalRegen)
+        end
+    end
+
     -- Get base rotation from input manager
     local baseRotation = InputManager:getRotation()
+
+    -- Apply controls inverted effect (boss ability)
+    if self.controlsInverted then
+        -- Invert by reflecting around current rotation
+        local diff = baseRotation - self.currentRotation
+        baseRotation = self.currentRotation - diff
+    end
 
     -- Apply slow effect by interpolating slower toward target
     if self.rotationSlow < 1.0 then
@@ -149,7 +220,7 @@ end
 
 -- Check if an attack angle is covered by the shield
 function Station:isShieldCovering(attackAngle)
-    if self.shieldHits <= 0 or self.shieldCooldown > 0 then
+    if self.shieldCurrentCapacity <= 0 or self.shieldCooldown > 0 then
         return false
     end
 
@@ -220,7 +291,10 @@ function Station:getNextAvailableSlot()
 end
 
 -- Take damage (with shield support)
-function Station:takeDamage(amount, attackAngle)
+-- damageType: "projectile" or "ram" (defaults to "ram" for backwards compatibility)
+function Station:takeDamage(amount, attackAngle, damageType)
+    damageType = damageType or "ram"
+
     -- Debug mode: station is invincible
     local debugMode = SaveManager and SaveManager:getSetting("debugMode", false)
     if debugMode then
@@ -231,16 +305,22 @@ function Station:takeDamage(amount, attackAngle)
     if ResearchSpecSystem then
         local dodgeChance = ResearchSpecSystem:getDodgeChance()
         if dodgeChance > 0 and math.random() < dodgeChance then
-            print("Dodged!")
             return false
         end
     end
 
     -- Check shield coverage
+    local shieldCenter = (self.currentRotation + self.shieldAngleOffset) % 360
+
     if attackAngle and self:isShieldCovering(attackAngle) then
-        -- Shield absorbs the hit
-        self.shieldHits = self.shieldHits - 1
-        print("Shield absorbed hit! Hits remaining: " .. self.shieldHits)
+        -- Calculate how much damage the shield blocks based on damage type
+        local blockEffectiveness = damageType == "projectile" and self.shieldProjectileBlock or self.shieldRamBlock
+        local damageToBlock = math.floor(amount * blockEffectiveness)
+        local damageBlocked = math.min(damageToBlock, self.shieldCurrentCapacity)
+        local damagePassthrough = amount - damageBlocked
+
+        -- Reduce shield capacity
+        self.shieldCurrentCapacity = self.shieldCurrentCapacity - damageBlocked
 
         -- Play shield hit sound
         if AudioManager then
@@ -248,20 +328,25 @@ function Station:takeDamage(amount, attackAngle)
         end
 
         -- Trigger shield flash effect (more likely and intense at higher levels)
-        -- Level 1: 30% chance, Level 4: 60% chance
         local flashChance = 0.3 + (self.shieldLevel - 1) * 0.1
         if math.random() < flashChance then
-            self.shieldFlashTimer = 0.15 + (self.shieldLevel * 0.05)  -- Longer flash at higher levels
+            self.shieldFlashTimer = 0.15 + (self.shieldLevel * 0.05)
             self.shieldFlashAngle = attackAngle
-            self.shieldFlashIntensity = self.shieldLevel  -- 1-4 intensity
+            self.shieldFlashIntensity = self.shieldLevel
         end
 
         -- Start cooldown if shield depleted
-        if self.shieldHits <= 0 then
+        if self.shieldCurrentCapacity <= 0 then
             self.shieldCooldown = self.shieldBaseCooldown
         end
 
-        return false
+        -- If no passthrough damage, shield fully absorbed the hit
+        if damagePassthrough <= 0 then
+            return false
+        end
+
+        -- Continue with passthrough damage
+        amount = damagePassthrough
     end
 
     -- Apply damage reduction (from bonus items like Quantum Stabilizer)
@@ -342,12 +427,12 @@ function Station:getShieldPercent()
     if self.shieldCooldown > 0 then
         return 0  -- Shield is recharging
     end
-    return self.shieldHits / self.shieldMaxHits
+    return self.shieldCurrentCapacity / self.shieldDamageCapacity
 end
 
 -- Check if shield is active
 function Station:isShieldActive()
-    return self.shieldHits > 0 and self.shieldCooldown <= 0
+    return self.shieldCurrentCapacity > 0 and self.shieldCooldown <= 0
 end
 
 -- Get shield cooldown percentage (0-1, 0 = ready)
@@ -388,8 +473,8 @@ end
 -- Draw shield effect (called from gameplay scene)
 function Station:drawShield()
     -- Draw shield even during cooldown (with fade effect)
-    -- Only skip if shield has no hits AND is not on cooldown (shouldn't happen normally)
-    if self.shieldMaxHits <= 0 then return end
+    -- Only skip if shield has no capacity (shouldn't happen normally)
+    if self.shieldDamageCapacity <= 0 then return end
 
     local shieldCenter = (self.currentRotation + self.shieldAngleOffset) % 360
     local halfAngle = (self.shieldCoverage * 360) / 2

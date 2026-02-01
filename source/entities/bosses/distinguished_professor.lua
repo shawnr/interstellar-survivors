@@ -40,9 +40,6 @@ DistinguishedProfessor.PHASES = {
 function DistinguishedProfessor:init(x, y)
     DistinguishedProfessor.super.init(self, x, y, DistinguishedProfessor.DATA, { health = 1, damage = 1, speed = 1 })
 
-    -- DEBUG: Log boss health
-    print("BOSS INIT: Distinguished Professor health = " .. self.health .. " / " .. self.maxHealth)
-
     -- Boss-specific state
     self.phase = DistinguishedProfessor.PHASES.APPROACH
     self.phaseTimer = 0
@@ -55,7 +52,10 @@ function DistinguishedProfessor:init(x, y)
     -- Set Z-index
     self:setZIndex(75)
 
-    print("Distinguished Professor boss spawned!")
+    -- Unlock in database when encountered
+    if SaveManager then
+        SaveManager:unlockDatabaseEntry("bosses", "distinguished_professor")
+    end
 end
 
 function DistinguishedProfessor:update(dt)
@@ -247,25 +247,22 @@ function DistinguishedProfessor:spawnDroneSquad()
     GameplayScene:showMessage("Peer review squad!")
 end
 
--- Override takeDamage for debug logging
-function DistinguishedProfessor:takeDamage(amount, damageType)
-    print("BOSS DAMAGE: Professor " .. amount .. " -> health now: " .. (self.health - amount) .. "/" .. self.maxHealth)
-    return DistinguishedProfessor.super.takeDamage(self, amount, damageType)
-end
-
 function DistinguishedProfessor:onDestroyed()
-    print("BOSS DESTROYED! Distinguished Professor final health was: " .. self.health)
     self.active = false
 
     if GameManager then
         GameManager:awardRP(self.rpValue)
     end
 
+    -- Save boss image for celebration before removing
+    local bossImage = self:getImage()
+
     self:remove()
 
-    GameplayScene:showMessage("Research... acceptable.")
-
-    if GameManager then
+    -- Trigger boss defeat celebration
+    if GameplayScene and GameplayScene.onBossDefeated then
+        GameplayScene:onBossDefeated("Distinguished Professor", bossImage)
+    elseif GameManager then
         GameManager:endEpisode(true)
     end
 end

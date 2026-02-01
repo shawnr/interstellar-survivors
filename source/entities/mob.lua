@@ -6,20 +6,7 @@ local gfx <const> = playdate.graphics
 class('MOB').extends(Entity)
 
 function MOB:init(x, y, mobData, waveMultipliers)
-    -- Debug: Log what MOB is being created
-    print("Creating MOB: " .. (mobData.id or "unknown"))
-    print("  Image path: " .. (mobData.imagePath or "nil"))
-
     MOB.super.init(self, x, y, mobData.imagePath)
-
-    -- Debug: Verify the image was set correctly
-    local img = self:getImage()
-    if img then
-        local imgW, imgH = img:getSize()
-        print("  Verified sprite image: " .. imgW .. "x" .. imgH .. ", ID: " .. tostring(img))
-    else
-        print("  WARNING: Sprite has no image after init!")
-    end
 
     -- Store data
     self.data = mobData
@@ -84,9 +71,6 @@ function MOB:loadAnimation(animPath)
         self.currentFrame = 1
         -- Set the first frame
         self:setImage(imageTable:getImage(1))
-        print("  Loaded animation: " .. animPath .. " (" .. self.frameCount .. " frames)")
-    else
-        print("  WARNING: Failed to load animation: " .. animPath)
     end
 end
 
@@ -209,6 +193,16 @@ function MOB:onDestroyed()
     -- Play destroyed sound
     if AudioManager then
         AudioManager:playSFX("mob_destroyed", 0.5)
+    end
+
+    -- Unlock in database
+    if SaveManager and self.data and self.data.id then
+        SaveManager:unlockDatabaseEntry("enemies", self.data.id)
+    end
+
+    -- Track kill for episode stats
+    if GameplayScene and self.data and self.data.id then
+        GameplayScene:trackMobKill(self.data.id)
     end
 
     -- Spawn collectibles

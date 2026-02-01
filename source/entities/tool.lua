@@ -20,7 +20,7 @@ function Tool:init(toolData)
     -- Level system (1-4)
     self.level = 1
 
-    -- Tool stats from data (with research spec bonuses)
+    -- Tool stats from data (with research spec bonuses and grant funding)
     local baseFireRate = toolData.fireRate or 1.0
     local baseDamage = toolData.baseDamage or 1
 
@@ -32,13 +32,19 @@ function Tool:init(toolData)
         damageBonus = ResearchSpecSystem:getDamageBonus()
     end
 
-    self.damage = baseDamage * (1 + damageBonus)
+    -- Apply grant funding damage bonus
+    local grantDamageBonus = 0
+    if SaveManager and GrantFundingData then
+        local damageLevel = SaveManager:getGrantFundingLevel("damage")
+        if damageLevel > 0 then
+            grantDamageBonus = GrantFundingData.getTotalBonus("damage", damageLevel)
+        end
+    end
+
+    self.damage = baseDamage * (1 + damageBonus + grantDamageBonus)
     self.fireRate = baseFireRate * (1 + fireRateBonus)
     self.projectileSpeed = toolData.projectileSpeed or 10
     self.pattern = toolData.pattern or "straight"
-
-    -- DEBUG: Log tool creation
-    print("TOOL INIT: " .. toolData.id .. " | baseDmg=" .. baseDamage .. " specBonus=" .. damageBonus .. " -> damage=" .. self.damage)
 
     -- Firing state
     self.fireCooldown = 0
@@ -106,7 +112,14 @@ function Tool:update(dt)
     -- Fire if ready
     if self.fireCooldown <= 0 then
         self:fire()
-        self.fireCooldown = self.fireInterval
+        -- Apply fire rate slow from station (1.0 = normal, 0.5 = 50% slower so interval is 2x)
+        local fireRateMult = self.station.fireRateSlow or 1.0
+        -- Safety check: fireRateMult must be positive, default to 1.0 if invalid
+        if fireRateMult <= 0 then
+            fireRateMult = 1.0
+            self.station.fireRateSlow = 1.0
+        end
+        self.fireCooldown = self.fireInterval / fireRateMult
     end
 end
 
@@ -168,7 +181,6 @@ function Tool:evolve(toolData)
     -- Recalculate with new base stats
     self:recalculateStats()
 
-    print("Tool evolved: " .. self.data.name .. " -> " .. (toolData.upgradedName or "Evolved"))
     return true
 end
 
@@ -198,6 +210,15 @@ function Tool:recalculateStats()
         specDamageBonus = ResearchSpecSystem:getDamageBonus()
     end
 
+    -- Get grant funding damage bonus
+    local grantDamageBonus = 0
+    if SaveManager and GrantFundingData then
+        local damageLevel = SaveManager:getGrantFundingLevel("damage")
+        if damageLevel > 0 then
+            grantDamageBonus = GrantFundingData.getTotalBonus("damage", damageLevel)
+        end
+    end
+
     -- Get level-scaled stats from data
     local levelStats = ToolsData.getStatsAtLevel(self.data.id, self.level)
     if levelStats then
@@ -211,13 +232,8 @@ function Tool:recalculateStats()
             baseRate = levelStats.fireRate
         end
 
-        -- Apply all bonuses: level + item bonus + spec bonus + global bonus
-        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus)
-
-        -- DEBUG: Log damage calculation
-        print("TOOL STATS: " .. self.data.id .. " Lv" .. self.level .. " | baseDmg=" .. baseDamage ..
-              " itemBonus=" .. self.damageBonus .. " specBonus=" .. specDamageBonus ..
-              " globalBonus=" .. self.globalDamageBonus .. " -> damage=" .. self.damage)
+        -- Apply all bonuses: level + item bonus + spec bonus + global bonus + grant funding
+        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus + grantDamageBonus)
 
         -- Fire rate with bonuses
         self.fireRate = baseRate * (1 + self.fireRateBonus + specFireRateBonus)
@@ -228,7 +244,7 @@ function Tool:recalculateStats()
     else
         -- Fallback to base calculation
         local baseDamage = self.isEvolved and (self.data.upgradedDamage or self.data.baseDamage) or self.data.baseDamage
-        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus)
+        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus + grantDamageBonus)
 
         local baseRate = self.isEvolved and (self.data.upgradedFireRate or self.data.fireRate) or self.data.fireRate
         self.fireRate = baseRate * (1 + self.fireRateBonus + specFireRateBonus)

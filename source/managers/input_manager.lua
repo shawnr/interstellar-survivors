@@ -81,6 +81,18 @@ function InputManager:update()
     -- Apply rotation ratio (360 crank = 180 station)
     self.targetRotation = self.targetRotation + (self.crankDelta * Constants.ROTATION_RATIO)
 
+    -- D-pad rotation (for gameplay only, checked by GameManager state)
+    -- Up/Right = clockwise, Down/Left = counter-clockwise
+    local dpadRotationSpeed = 4.0  -- Degrees per frame
+    if GameManager and GameManager.currentState == GameManager.states.GAMEPLAY then
+        if playdate.buttonIsPressed(playdate.kButtonRight) or playdate.buttonIsPressed(playdate.kButtonUp) then
+            self.targetRotation = self.targetRotation + dpadRotationSpeed
+        end
+        if playdate.buttonIsPressed(playdate.kButtonLeft) or playdate.buttonIsPressed(playdate.kButtonDown) then
+            self.targetRotation = self.targetRotation - dpadRotationSpeed
+        end
+    end
+
     -- Smooth interpolation
     self.currentRotation = Utils.lerp(
         self.currentRotation,
