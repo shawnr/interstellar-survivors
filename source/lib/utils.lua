@@ -4,6 +4,20 @@ local gfx <const> = playdate.graphics
 
 Utils = {}
 
+-- Image cache for performance (avoid repeated disk I/O)
+Utils.imageCache = {}
+
+function Utils.getCachedImage(path)
+    if not Utils.imageCache[path] then
+        Utils.imageCache[path] = gfx.image.new(path)
+    end
+    return Utils.imageCache[path]
+end
+
+function Utils.clearImageCache()
+    Utils.imageCache = {}
+end
+
 -- Linear interpolation
 function Utils.lerp(a, b, t)
     return a + (b - a) * t

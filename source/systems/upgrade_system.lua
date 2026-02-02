@@ -80,6 +80,11 @@ end
 
 -- Check if an unlock condition is met
 function UpgradeSystem:isUnlocked(condition)
+    -- Debug mode: unlock all equipment
+    if SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllEquipment") then
+        return true
+    end
+
     if condition == "start" then
         return true
     elseif condition == "episode_1" then

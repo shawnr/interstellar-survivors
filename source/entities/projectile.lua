@@ -51,14 +51,18 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
     -- Calculate direction
     self.dx, self.dy = Utils.angleToVector(angle)
 
-    -- Load image
+    -- Load image (cached for performance)
     if imagePath then
-        local img = gfx.image.new(imagePath)
-        if img then
-            -- Invert image colors if requested (for visibility on dark backgrounds)
-            if inverted then
+        local cacheKey = imagePath .. (inverted and "_inv" or "")
+        local img = Utils.imageCache[cacheKey]
+        if not img then
+            img = gfx.image.new(imagePath)
+            if img and inverted then
                 img = img:invertedImage()
             end
+            Utils.imageCache[cacheKey] = img
+        end
+        if img then
             self:setImage(img)
         end
     end
@@ -179,13 +183,8 @@ function ProjectilePool:update()
     for i = #self.active, 1, -1 do
         local proj = self.active[i]
         if proj.active then
-            local success, err = pcall(function()
-                proj:update()
-            end)
-            if not success then
-                print("ERROR updating projectile " .. i .. ": " .. tostring(err))
-                proj:deactivate()
-            end
+            -- Direct call without pcall (performance optimization)
+            proj:update()
         else
             -- Return inactive projectiles to pool
             table.remove(self.active, i)
@@ -256,9 +255,9 @@ function EnemyProjectile:reset(x, y, angle, speed, damage, imagePath, effect)
     -- Calculate direction
     self.dx, self.dy = Utils.angleToVector(angle)
 
-    -- Load image
+    -- Load image (cached for performance)
     if imagePath then
-        local img = gfx.image.new(imagePath)
+        local img = Utils.getCachedImage(imagePath)
         if img then
             self:setImage(img)
         end

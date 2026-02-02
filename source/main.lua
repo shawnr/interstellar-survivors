@@ -40,6 +40,7 @@ import "ui/research_specs_screen"
 import "ui/database_screen"
 import "ui/grant_funding_screen"
 import "ui/tool_select"
+import "ui/debug_options_screen"
 
 -- Import entities
 import "entities/entity"
@@ -116,6 +117,7 @@ local function initialize()
     DatabaseScreen:init()
     GrantFundingScreen:init()
     ResearchSpecSystem:init()
+    DebugOptionsScreen:init()
 
     -- Set up Playdate system menu
     local menu = playdate.getSystemMenu()

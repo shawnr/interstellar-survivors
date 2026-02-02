@@ -24,8 +24,8 @@ function EpisodeSelect:refreshEpisodes()
     self.episodes = {}
     self.unlockedEpisodes = {}
 
-    -- Check if debug mode is enabled
-    local debugMode = SaveManager and SaveManager:getSetting("debugMode", false)
+    -- Check if debug mode unlock all episodes is enabled
+    local unlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllEpisodes")
 
     -- Get all episodes
     for i = 1, Constants.TOTAL_EPISODES do
@@ -34,7 +34,7 @@ function EpisodeSelect:refreshEpisodes()
             table.insert(self.episodes, data)
 
             -- Check if unlocked using SaveManager (or debug mode)
-            local isUnlocked = debugMode or SaveManager:isEpisodeUnlocked(i)
+            local isUnlocked = unlockAll or SaveManager:isEpisodeUnlocked(i)
             self.unlockedEpisodes[i] = isUnlocked
         end
     end

@@ -55,6 +55,10 @@ function MOB:init(x, y, mobData, waveMultipliers)
     -- Z-index (mobs behind projectiles)
     self:setZIndex(50)
 
+    -- Cache radius for collision checks (performance optimization)
+    local spriteW, spriteH = self:getSize()
+    self.cachedRadius = math.max(spriteW, spriteH) / 2
+
     -- Now position properly
     self:moveTo(x, y)
 
@@ -287,10 +291,9 @@ function MOB:drawDebugLabel()
     gfx.drawTextAligned(label, self.x, labelY, kTextAlignment.center)
 end
 
--- Get radius for collision
+-- Get radius for collision (cached for performance)
 function MOB:getRadius()
-    local w, h = self:getSize()
-    return math.max(w, h) / 2
+    return self.cachedRadius or 8
 end
 
 -- Check if MOB has reached the station

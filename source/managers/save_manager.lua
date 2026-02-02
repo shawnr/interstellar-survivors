@@ -14,6 +14,16 @@ SaveManager = {
             sfxVolume = 1.0,
             debugMode = false,
         },
+        -- Debug mode sub-settings (used when debugMode is true)
+        debugSettings = {
+            episodeLength = 60,         -- Episode length in seconds (default: 1 min for debug)
+            waveLength = 8,             -- Wave length in seconds (default: ~8s for debug)
+            stationInvincible = true,   -- Station takes no damage
+            unlockAllEquipment = true,  -- All tools and items available in upgrades
+            unlockAllEpisodes = true,   -- All episodes selectable
+            unlockAllDatabase = true,   -- All database entries visible
+            unlockAllResearchSpecs = true,  -- All research specs available
+        },
         -- Database unlocks (discovered items)
         databaseUnlocks = {
             tools = {},         -- Tool IDs discovered
@@ -68,6 +78,17 @@ function SaveManager:loadGameData()
             self.gameData.settings.musicVolume = data.settings.musicVolume or 0.7
             self.gameData.settings.sfxVolume = data.settings.sfxVolume or 1.0
             self.gameData.settings.debugMode = data.settings.debugMode or false
+        end
+
+        -- Load debug settings
+        if data.debugSettings then
+            self.gameData.debugSettings.episodeLength = data.debugSettings.episodeLength or 60
+            self.gameData.debugSettings.waveLength = data.debugSettings.waveLength or 8
+            self.gameData.debugSettings.stationInvincible = data.debugSettings.stationInvincible ~= false
+            self.gameData.debugSettings.unlockAllEquipment = data.debugSettings.unlockAllEquipment ~= false
+            self.gameData.debugSettings.unlockAllEpisodes = data.debugSettings.unlockAllEpisodes ~= false
+            self.gameData.debugSettings.unlockAllDatabase = data.debugSettings.unlockAllDatabase ~= false
+            self.gameData.debugSettings.unlockAllResearchSpecs = data.debugSettings.unlockAllResearchSpecs ~= false
         end
 
         -- Load database unlocks
@@ -258,6 +279,40 @@ function SaveManager:getSetting(key, default)
 end
 
 -- ============================================
+-- Debug Settings
+-- ============================================
+
+function SaveManager:setDebugSetting(key, value)
+    if not self.gameData.debugSettings then
+        self.gameData.debugSettings = {}
+    end
+    if self.gameData.debugSettings[key] ~= value then
+        self.gameData.debugSettings[key] = value
+        self:markGameDataDirty()
+    end
+end
+
+function SaveManager:getDebugSetting(key, default)
+    if not self.gameData.debugSettings then
+        return default
+    end
+    local value = self.gameData.debugSettings[key]
+    if value == nil then
+        return default
+    end
+    return value
+end
+
+-- Check if debug mode is enabled and a specific debug setting is active
+function SaveManager:isDebugFeatureEnabled(feature)
+    local debugMode = self:getSetting("debugMode", false)
+    if not debugMode then
+        return false
+    end
+    return self:getDebugSetting(feature, true)
+end
+
+-- ============================================
 -- Statistics
 -- ============================================
 
@@ -333,6 +388,15 @@ function SaveManager:resetAllData()
             musicVolume = 0.7,
             sfxVolume = 1.0,
             debugMode = false,
+        },
+        debugSettings = {
+            episodeLength = 60,
+            waveLength = 8,
+            stationInvincible = true,
+            unlockAllEquipment = true,
+            unlockAllEpisodes = true,
+            unlockAllDatabase = true,
+            unlockAllResearchSpecs = true,
         },
         databaseUnlocks = {
             tools = {},

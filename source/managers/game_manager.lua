@@ -15,6 +15,7 @@ GameManager = {
         GRANT_FUNDING = "grant_funding",
         DATABASE = "database",
         SETTINGS = "settings",
+        DEBUG_OPTIONS = "debug_options",
         EPISODE_TITLE = "episode_title",
         STORY_INTRO = "story_intro",
         GAMEPLAY = "gameplay",
@@ -71,6 +72,9 @@ function GameManager:init()
 
     -- Create settings scene
     self.scenes[self.states.SETTINGS] = self:createSettingsScene()
+
+    -- Create debug options scene
+    self.scenes[self.states.DEBUG_OPTIONS] = self:createDebugOptionsScene()
 
     -- Create research menu scene
     self.scenes[self.states.RESEARCH_MENU] = self:createResearchMenuScene()
@@ -1341,10 +1345,13 @@ function GameManager:createSettingsScene()
     local menuItems = {
         { label = "Music Volume", type = "slider", key = "musicVolume", min = 0, max = 1, step = 0.1 },
         { label = "SFX Volume", type = "slider", key = "sfxVolume", min = 0, max = 1, step = 0.1 },
-        { label = "Debug Mode", type = "toggle", key = "debugMode" },
+        { label = "Debug Mode", type = "debug_toggle", key = "debugMode" },  -- Special type with gear icon
         { label = "Reset All Data", type = "action", action = "reset" },
         { label = "Back", type = "action", action = "back" },
     }
+
+    -- Track if user is hovering the gear icon (sub-selection within debug row)
+    local debugGearSelected = false
 
     local selectedIndex = 1
     local confirmingReset = false
@@ -1390,11 +1397,13 @@ function GameManager:createSettingsScene()
             if selectedIndex < 1 then
                 selectedIndex = #menuItems
             end
+            debugGearSelected = false  -- Reset gear selection when changing rows
         elseif InputManager.buttonJustPressed.down then
             selectedIndex = selectedIndex + 1
             if selectedIndex > #menuItems then
                 selectedIndex = 1
             end
+            debugGearSelected = false  -- Reset gear selection when changing rows
         end
 
         -- Handle selected item
@@ -1433,6 +1442,47 @@ function GameManager:createSettingsScene()
                 -- Refresh episode select when debug mode changes
                 if item.key == "debugMode" and EpisodeSelect then
                     EpisodeSelect:refreshEpisodes()
+                end
+            end
+        elseif item.type == "debug_toggle" then
+            -- Special handling for debug mode with gear icon
+            if InputManager.buttonJustPressed.left then
+                -- Move to toggle (if on gear)
+                if debugGearSelected then
+                    debugGearSelected = false
+                else
+                    -- Toggle debug mode off when pressing left
+                    local currentValue = SaveManager:getSetting(item.key, false)
+                    if currentValue then
+                        SaveManager:setSetting(item.key, false)
+                        SaveManager:flush()
+                        if EpisodeSelect then EpisodeSelect:refreshEpisodes() end
+                    end
+                end
+            elseif InputManager.buttonJustPressed.right then
+                -- Move to gear (if on toggle) or toggle on
+                if not debugGearSelected then
+                    local currentValue = SaveManager:getSetting(item.key, false)
+                    if currentValue then
+                        -- Already on, move to gear
+                        debugGearSelected = true
+                    else
+                        -- Turn on debug mode
+                        SaveManager:setSetting(item.key, true)
+                        SaveManager:flush()
+                        if EpisodeSelect then EpisodeSelect:refreshEpisodes() end
+                    end
+                end
+            elseif InputManager.buttonJustPressed.a then
+                if debugGearSelected then
+                    -- Open debug options
+                    GameManager:setState(GameManager.states.DEBUG_OPTIONS, { fromState = GameManager.states.SETTINGS })
+                else
+                    -- Toggle debug mode
+                    local currentValue = SaveManager:getSetting(item.key, false)
+                    SaveManager:setSetting(item.key, not currentValue)
+                    SaveManager:flush()
+                    if EpisodeSelect then EpisodeSelect:refreshEpisodes() end
                 end
             end
         elseif item.type == "action" then
@@ -1547,6 +1597,71 @@ function GameManager:createSettingsScene()
                 gfx.drawText(item.label, 30, y)
                 local toggleText = value and "ON" or "OFF"
                 gfx.drawText(toggleText, 320, y)
+
+            elseif item.type == "debug_toggle" then
+                local value = SaveManager:getSetting(item.key, false)
+
+                -- Text mode for label
+                if isSelected then
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                else
+                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                end
+
+                gfx.drawText(item.label, 30, y)
+
+                -- Draw ON/OFF toggle
+                local toggleText = value and "ON" or "OFF"
+                local toggleX = 280
+
+                -- Highlight toggle if selected and not on gear
+                if isSelected and not debugGearSelected then
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                    -- Draw selection box around toggle
+                    gfx.setColor(gfx.kColorWhite)
+                    gfx.drawRoundRect(toggleX - 4, y - 2, 40, 18, 2)
+                elseif isSelected then
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                else
+                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                end
+                gfx.drawText(toggleText, toggleX, y)
+
+                -- Draw gear icon (only visible when debug is ON)
+                if value then
+                    local gearX = 340
+                    local gearY = y + 2
+                    local gearSize = 14
+
+                    -- Draw gear selection highlight if selected
+                    if isSelected and debugGearSelected then
+                        gfx.setColor(gfx.kColorWhite)
+                        gfx.fillCircleAtPoint(gearX + gearSize/2, gearY + gearSize/2, gearSize/2 + 3)
+                    end
+
+                    -- Draw gear icon (simple representation)
+                    gfx.setColor(isSelected and gfx.kColorWhite or gfx.kColorBlack)
+                    local cx = gearX + gearSize/2
+                    local cy = gearY + gearSize/2
+                    local outerR = gearSize/2
+                    local innerR = gearSize/4
+
+                    -- Draw outer circle
+                    gfx.drawCircleAtPoint(cx, cy, outerR)
+                    -- Draw inner circle (filled)
+                    gfx.fillCircleAtPoint(cx, cy, innerR)
+                    -- Draw gear teeth (8 lines)
+                    for angle = 0, 315, 45 do
+                        local rad = math.rad(angle)
+                        local x1 = cx + math.cos(rad) * innerR
+                        local y1 = cy + math.sin(rad) * innerR
+                        local x2 = cx + math.cos(rad) * (outerR + 2)
+                        local y2 = cy + math.sin(rad) * (outerR + 2)
+                        gfx.drawLine(x1, y1, x2, y2)
+                    end
+                end
+
+                gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
             elseif item.type == "action" then
                 -- Text mode
@@ -1766,6 +1881,30 @@ function GameManager:createResearchMenuScene()
 
     function scene:exit()
         patternBg = nil
+    end
+
+    return scene
+end
+
+-- Create debug options scene
+function GameManager:createDebugOptionsScene()
+    local scene = {}
+
+    function scene:enter(params)
+        local fromState = params and params.fromState or GameManager.states.SETTINGS
+        DebugOptionsScreen:show(fromState)
+    end
+
+    function scene:update()
+        DebugOptionsScreen:update()
+    end
+
+    function scene:drawOverlay()
+        DebugOptionsScreen:draw()
+    end
+
+    function scene:exit()
+        DebugOptionsScreen:hide()
     end
 
     return scene

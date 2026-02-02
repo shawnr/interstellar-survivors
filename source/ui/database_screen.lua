@@ -179,10 +179,12 @@ function DatabaseScreen:loadToolEntries()
         "singularity_core", "tesla_coil", "phase_disruptor"
     }
 
+    local debugUnlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllDatabase")
+
     for _, id in ipairs(toolIds) do
         local data = ToolsData[id]
         if data then
-            local unlocked = SaveManager:isDatabaseEntryUnlocked("tools", id)
+            local unlocked = debugUnlockAll or SaveManager:isDatabaseEntryUnlocked("tools", id)
             table.insert(self.entries, {
                 id = id,
                 data = data,
@@ -209,10 +211,12 @@ function DatabaseScreen:loadBonusItemEntries()
         "guidance_module", "phase_modulators", "graviton_lens"
     }
 
+    local debugUnlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllDatabase")
+
     for _, id in ipairs(itemIds) do
         local data = BonusItemsData[id]
         if data then
-            local unlocked = SaveManager:isDatabaseEntryUnlocked("bonusItems", id)
+            local unlocked = debugUnlockAll or SaveManager:isDatabaseEntryUnlocked("bonusItems", id)
             table.insert(self.entries, {
                 id = id,
                 data = data,
@@ -240,8 +244,10 @@ function DatabaseScreen:loadEnemyEntries()
         { id = "citation_platform", name = "Citation Platform", episode = 5, iconPath = "images/episodes/ep5/ep5_citation_platform", health = 16, damage = 7, speed = "Slow", behavior = "Academic references hurt" },
     }
 
+    local debugUnlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllDatabase")
+
     for _, def in ipairs(enemyDefs) do
-        local unlocked = SaveManager:isDatabaseEntryUnlocked("enemies", def.id)
+        local unlocked = debugUnlockAll or SaveManager:isDatabaseEntryUnlocked("enemies", def.id)
         table.insert(self.entries, {
             id = def.id,
             data = def,
@@ -261,8 +267,10 @@ function DatabaseScreen:loadBossEntries()
         { id = "distinguished_professor", name = "Distinguished Professor", episode = 5, iconPath = "images/episodes/ep5/ep5_boss_professor", health = 600, damage = 8, tagline = "Your research is... derivative.", phases = {"Lecturing", "Summoning", "Enraged"} },
     }
 
+    local debugUnlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllDatabase")
+
     for _, def in ipairs(bossDefs) do
-        local unlocked = SaveManager:isDatabaseEntryUnlocked("bosses", def.id)
+        local unlocked = debugUnlockAll or SaveManager:isDatabaseEntryUnlocked("bosses", def.id)
         table.insert(self.entries, {
             id = def.id,
             data = def,
@@ -274,11 +282,13 @@ function DatabaseScreen:loadBossEntries()
 end
 
 function DatabaseScreen:loadEpisodeEntries()
+    local debugUnlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllDatabase")
+
     for i = 1, 5 do
         local epData = EpisodesData.get(i)
         if epData then
             -- Episodes unlock when available (not just completed)
-            local unlocked = SaveManager:isEpisodeUnlocked(i) or SaveManager:getSetting("debugMode", false)
+            local unlocked = debugUnlockAll or SaveManager:isEpisodeUnlocked(i)
             local completed = SaveManager:isEpisodeCompleted(i)
             table.insert(self.entries, {
                 id = i,
@@ -478,8 +488,9 @@ function DatabaseScreen:drawCategoryMenu()
             unlockCount = 3
         elseif cat.id == "episodes" then
             -- Count unlocked episodes
+            local debugUnlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllDatabase")
             for ep = 1, 5 do
-                if SaveManager:isEpisodeUnlocked(ep) or SaveManager:getSetting("debugMode", false) then
+                if debugUnlockAll or SaveManager:isEpisodeUnlocked(ep) then
                     unlockCount = unlockCount + 1
                 end
             end

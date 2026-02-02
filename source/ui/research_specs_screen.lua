@@ -32,8 +32,10 @@ function ResearchSpecsScreen:refreshSpecs()
     end)
 
     -- Build specs list with unlock status
+    local debugUnlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllResearchSpecs")
+
     for _, specData in ipairs(allSpecs) do
-        local isUnlocked = SaveManager and SaveManager:isResearchSpecUnlocked(specData.id)
+        local isUnlocked = debugUnlockAll or (SaveManager and SaveManager:isResearchSpecUnlocked(specData.id))
         table.insert(self.specs, {
             data = specData,
             unlocked = isUnlocked

@@ -295,9 +295,8 @@ end
 function Station:takeDamage(amount, attackAngle, damageType)
     damageType = damageType or "ram"
 
-    -- Debug mode: station is invincible
-    local debugMode = SaveManager and SaveManager:getSetting("debugMode", false)
-    if debugMode then
+    -- Debug mode: station is invincible (check specific setting)
+    if SaveManager and SaveManager:isDebugFeatureEnabled("stationInvincible") then
         return false
     end
 

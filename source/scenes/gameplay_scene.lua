@@ -370,14 +370,25 @@ function GameplayScene:enter(params)
     self.bossSpawned = false
     self.salvageDrone = nil
 
-    -- Set wave timing based on debug mode
+    -- Set wave timing based on debug mode and settings
     local isDebugMode = SaveManager and SaveManager:getSetting("debugMode", false)
     if isDebugMode then
-        -- Debug mode: Fast waves for testing (~8 seconds each, boss at ~1 minute)
-        self.waveStartTimes = { 0, 8, 16, 24, 32, 40, 48 }
+        -- Debug mode: Use configurable wave length
+        local waveLength = SaveManager:getDebugSetting("waveLength", 8)
+        self.waveStartTimes = {}
+        for i = 1, 7 do
+            self.waveStartTimes[i] = (i - 1) * waveLength
+        end
+        -- Store episode length for boss spawn
+        self.episodeLength = SaveManager:getDebugSetting("episodeLength", 60)
     else
-        -- Normal mode: 1 minute per wave (boss at 7 minutes)
-        self.waveStartTimes = { 0, 60, 120, 180, 240, 300, 360 }
+        -- Normal mode: 20 seconds per wave, 3 minute episode (180s)
+        local waveLength = 20
+        self.waveStartTimes = {}
+        for i = 1, 7 do
+            self.waveStartTimes[i] = (i - 1) * waveLength
+        end
+        self.episodeLength = 180  -- 3 minutes for normal mode
     end
 
     -- Set initial spawn interval based on episode difficulty
@@ -502,14 +513,9 @@ function GameplayScene:update()
     -- Update station
     self.station:update()
 
-    -- Update tools
-    for i, tool in ipairs(self.station.tools) do
-        local success, err = pcall(function()
-            tool:update(dt)
-        end)
-        if not success then
-            print("ERROR updating tool " .. i .. " (" .. (tool.data.id or "unknown") .. "): " .. tostring(err))
-        end
+    -- Update tools (direct call without pcall for performance)
+    for _, tool in ipairs(self.station.tools) do
+        tool:update(dt)
     end
 
     -- Update projectiles
@@ -539,23 +545,39 @@ function GameplayScene:update()
 end
 
 function GameplayScene:updateMOBs(dt)
-    for i = #self.mobs, 1, -1 do
-        local mob = self.mobs[i]
+    -- Swap-and-pop removal for O(1) performance instead of O(n) table.remove
+    local mobs = self.mobs
+    local n = #mobs
+    local i = 1
+    while i <= n do
+        local mob = mobs[i]
         if mob.active then
             mob:update(dt)
+            i = i + 1
         else
-            table.remove(self.mobs, i)
+            -- Swap with last element and remove
+            mobs[i] = mobs[n]
+            mobs[n] = nil
+            n = n - 1
         end
     end
 end
 
 function GameplayScene:updateCollectibles(dt)
-    for i = #self.collectibles, 1, -1 do
-        local collectible = self.collectibles[i]
+    -- Swap-and-pop removal for O(1) performance instead of O(n) table.remove
+    local collectibles = self.collectibles
+    local n = #collectibles
+    local i = 1
+    while i <= n do
+        local collectible = collectibles[i]
         if collectible.active then
             collectible:update(dt)
+            i = i + 1
         else
-            table.remove(self.collectibles, i)
+            -- Swap with last element and remove
+            collectibles[i] = collectibles[n]
+            collectibles[n] = nil
+            n = n - 1
         end
     end
 
@@ -927,11 +949,11 @@ function GameplayScene:checkCollisions()
         if proj.active then
             for _, mob in ipairs(self.mobs) do
                 if mob.active then
-                    -- Simple distance check
-                    local dist = Utils.distance(proj.x, proj.y, mob.x, mob.y)
-                    local collisionDist = 12  -- Combined radius estimate
+                    -- Simple distance check (squared to avoid sqrt)
+                    local distSq = Utils.distanceSquared(proj.x, proj.y, mob.x, mob.y)
+                    local collisionDistSq = 144  -- 12² = 144
 
-                    if dist < collisionDist then
+                    if distSq < collisionDistSq then
                         -- For tick-based projectiles (like orbital), check if damage can be applied
                         if proj.usesTickDamage then
                             local canDamage = proj:onHit(mob)
@@ -953,14 +975,15 @@ function GameplayScene:checkCollisions()
         end
     end
 
-    -- MOBs vs Station (circular collision)
+    -- MOBs vs Station (circular collision, squared to avoid sqrt)
     for _, mob in ipairs(self.mobs) do
         if mob.active and not mob.emits then
-            local dist = Utils.distance(mob.x, mob.y, self.station.x, self.station.y)
+            local distSq = Utils.distanceSquared(mob.x, mob.y, self.station.x, self.station.y)
             local mobRadius = mob:getRadius()
             local collisionDist = Constants.STATION_RADIUS + mobRadius
+            local collisionDistSq = collisionDist * collisionDist
 
-            if dist < collisionDist then
+            if distSq < collisionDistSq then
                 -- Calculate attack angle (direction MOB approached from)
                 local attackAngle = Utils.vectorToAngle(mob.x - self.station.x, mob.y - self.station.y)
                 -- MOB hit station (ram damage - shield is less effective)
@@ -970,12 +993,13 @@ function GameplayScene:checkCollisions()
         end
     end
 
-    -- Enemy Projectiles vs Station
+    -- Enemy Projectiles vs Station (squared to avoid sqrt)
     local enemyProjectiles = self.enemyProjectilePool:getActive()
+    local stationCollisionDistSq = (Constants.STATION_RADIUS + 4) * (Constants.STATION_RADIUS + 4)
     for _, proj in ipairs(enemyProjectiles) do
         if proj.active then
-            local dist = Utils.distance(proj.x, proj.y, self.station.x, self.station.y)
-            if dist < Constants.STATION_RADIUS + 4 then
+            local distSq = Utils.distanceSquared(proj.x, proj.y, self.station.x, self.station.y)
+            if distSq < stationCollisionDistSq then
                 -- Calculate attack angle for shield check
                 local attackAngle = Utils.vectorToAngle(proj.x - self.station.x, proj.y - self.station.y)
                 -- Hit station! (projectile damage - shield is more effective)
@@ -1000,10 +1024,8 @@ function GameplayScene:checkGameConditions()
         GameManager:endEpisode(false)
     end
 
-    -- Check for boss spawn
-    -- Debug mode: 1 minute, Normal mode: 7 minutes
-    local debugMode = SaveManager and SaveManager:getSetting("debugMode", false)
-    local bossSpawnTime = debugMode and 60 or 420
+    -- Check for boss spawn (use episode length set during enter)
+    local bossSpawnTime = self.episodeLength or 180
 
     if self.elapsedTime >= bossSpawnTime and not self.bossSpawned then
         self:spawnBoss()
@@ -1295,10 +1317,10 @@ function GameplayScene:drawEquipmentSlots()
     local function drawScaledIcon(iconPath, slotX, slotY, fallbackLetter)
         local icon = nil
         if iconPath then
-            -- Convert to pre-processed icon on black background
+            -- Convert to pre-processed icon on black background (use cache for performance)
             local filename = iconPath:match("([^/]+)$")  -- Get filename from path
             local onBlackPath = "images/icons_on_black/" .. filename
-            icon = gfx.image.new(onBlackPath)
+            icon = Utils.getCachedImage(onBlackPath)
         end
 
         if icon then
