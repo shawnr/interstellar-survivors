@@ -24,19 +24,33 @@ function UpgradeSelection:show(tools, bonusItems, callback)
 
     -- Add tools (up to 2)
     for i = 1, math.min(2, #tools) do
+        local iconOnBlack, iconOnWhite = nil, nil
+        if tools[i].iconPath then
+            local filename = tools[i].iconPath:match("([^/]+)$")
+            iconOnBlack = gfx.image.new("images/icons_on_black/" .. filename)
+            iconOnWhite = gfx.image.new("images/icons_on_white/" .. filename)
+        end
         table.insert(self.options, {
             type = "tool",
             data = tools[i],
-            icon = tools[i].iconPath and gfx.image.new(tools[i].iconPath) or nil
+            iconOnBlack = iconOnBlack,
+            iconOnWhite = iconOnWhite
         })
     end
 
     -- Add bonus items (up to 2)
     for i = 1, math.min(2, #bonusItems) do
+        local iconOnBlack, iconOnWhite = nil, nil
+        if bonusItems[i].iconPath then
+            local filename = bonusItems[i].iconPath:match("([^/]+)$")
+            iconOnBlack = gfx.image.new("images/icons_on_black/" .. filename)
+            iconOnWhite = gfx.image.new("images/icons_on_white/" .. filename)
+        end
         table.insert(self.options, {
             type = "bonus",
             data = bonusItems[i],
-            icon = bonusItems[i].iconPath and gfx.image.new(bonusItems[i].iconPath) or nil
+            iconOnBlack = iconOnBlack,
+            iconOnWhite = iconOnWhite
         })
     end
 
@@ -204,13 +218,11 @@ function UpgradeSelection:draw()
         local iconY = cardY + 4
         local iconSize = 38  -- Fixed icon size
 
-        if option.icon then
-            -- Icons are white on transparent - invert when on white background (not selected)
-            if not isSelected then
-                gfx.setImageDrawMode(gfx.kDrawModeInverted)
-            end
-            option.icon:drawScaled(iconX, iconY, iconSize / 32)
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+        -- Use pre-processed icons: on_black for selected (black bg), on_white for unselected (white bg)
+        local icon = isSelected and option.iconOnBlack or option.iconOnWhite
+        if icon then
+            -- Pre-processed icons are ready to use directly
+            icon:drawScaled(iconX, iconY, iconSize / 32)
         else
             if isSelected then
                 gfx.setColor(gfx.kColorWhite)
@@ -249,7 +261,7 @@ function UpgradeSelection:draw()
         end
 
         -- Type badge on right
-        local badge = option.type == "tool" and "[TOOL]" or "[BONUS]"
+        local badge = option.type == "tool" and "[TOOL]" or "[ITEM]"
         gfx.drawTextAligned(badge, cardX + cardW - 10, textY, kTextAlignment.right)
 
         gfx.setImageDrawMode(gfx.kDrawModeCopy)

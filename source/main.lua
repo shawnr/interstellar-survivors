@@ -39,6 +39,7 @@ import "ui/episode_select"
 import "ui/research_specs_screen"
 import "ui/database_screen"
 import "ui/grant_funding_screen"
+import "ui/tool_select"
 
 -- Import entities
 import "entities/entity"

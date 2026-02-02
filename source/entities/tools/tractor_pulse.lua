@@ -35,8 +35,20 @@ function TractorPulse:fire()
     -- Pull collectibles
     local pulled = self:pullCollectibles(firingAngle)
 
-    -- Play sound if we pulled something
-    if pulled and AudioManager then
+    -- Create visual effect: ring expanding outward to show pull range
+    local range = self.pullRange * (1 + self.rangeBonus)
+    if GameplayScene and GameplayScene.createPulseEffect then
+        GameplayScene:createPulseEffect(
+            Constants.STATION_CENTER_X,
+            Constants.STATION_CENTER_Y,
+            range,
+            0.3,  -- Duration in seconds
+            "tractor"  -- Effect type
+        )
+    end
+
+    -- Play sound (always play to show it fired)
+    if AudioManager then
         AudioManager:playSFX("tool_tractor_pulse", 0.4)
     end
 end

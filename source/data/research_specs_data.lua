@@ -98,6 +98,18 @@ ResearchSpecsData = {
             value = 2,
         },
     },
+
+    tool_mastery = {
+        id = "tool_mastery",
+        name = "Tool Mastery",
+        description = "Choose starting tool",
+        episodeSource = nil,
+        unlockCondition = "all_episodes_complete",
+        effect = {
+            type = "starting_tool_select",
+            value = true,
+        },
+    },
 }
 
 -- Get spec by ID

@@ -182,8 +182,8 @@ function GrantFundingScreen:draw()
     gfx.drawTextAligned("*Funds: " .. funds .. "*", Constants.SCREEN_WIDTH / 2, 22, kTextAlignment.center)
 
     -- Draw stats list
-    local startY = 48
-    local itemHeight = 44
+    local startY = 46
+    local itemHeight = 46  -- Increased for better spacing between items
 
     for i, stat in ipairs(self.stats) do
         local y = startY + (i - 1) * itemHeight
@@ -207,7 +207,9 @@ end
 
 function GrantFundingScreen:drawStatItem(stat, y, isSelected, funds)
     local itemWidth = Constants.SCREEN_WIDTH - 40
-    local rowHeight = 38
+    local rowHeight = 42  -- Increased height for better margins
+    local leftPadding = 32  -- More padding inside box
+    local rightPadding = 32
 
     -- Row background for readability
     gfx.setColor(gfx.kColorWhite)
@@ -228,14 +230,14 @@ function GrantFundingScreen:drawStatItem(stat, y, isSelected, funds)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
-    -- Stat name and level
+    -- Stat name and level (first line with more top margin)
     local levelText = "Lv " .. stat.currentLevel .. "/4"
-    gfx.drawText("*" .. stat.data.name .. "*", 28, y + 4)
-    gfx.drawTextAligned("*" .. levelText .. "*", Constants.SCREEN_WIDTH - 28, y + 4, kTextAlignment.right)
+    gfx.drawText("*" .. stat.data.name .. "*", leftPadding, y + 6)
+    gfx.drawTextAligned("*" .. levelText .. "*", Constants.SCREEN_WIDTH - rightPadding, y + 6, kTextAlignment.right)
 
-    -- Second line: next upgrade info or MAXED
+    -- Second line: next upgrade info or MAXED (more spacing between lines)
     if stat.maxed then
-        gfx.drawText("*MAXED OUT*", 28, y + 20)
+        gfx.drawText("*MAXED OUT*", leftPadding, y + 24)
     else
         -- Show next upgrade and cost
         local costText = "Cost: " .. stat.cost
@@ -243,22 +245,17 @@ function GrantFundingScreen:drawStatItem(stat, y, isSelected, funds)
 
         -- Show abbreviated next label
         local shortLabel = stat.nextLabel
-        if #shortLabel > 25 then
-            shortLabel = shortLabel:sub(1, 22) .. "..."
+        if #shortLabel > 22 then
+            shortLabel = shortLabel:sub(1, 19) .. "..."
         end
 
-        gfx.drawText(shortLabel, 28, y + 20)
+        gfx.drawText(shortLabel, leftPadding, y + 24)
 
         -- Cost on right side
         if canAfford then
-            gfx.drawTextAligned("*" .. costText .. "*", Constants.SCREEN_WIDTH - 28, y + 20, kTextAlignment.right)
+            gfx.drawTextAligned("*" .. costText .. "*", Constants.SCREEN_WIDTH - rightPadding, y + 24, kTextAlignment.right)
         else
-            -- Show in different style when can't afford (just without bold when not selected)
-            if isSelected then
-                gfx.drawTextAligned(costText, Constants.SCREEN_WIDTH - 28, y + 20, kTextAlignment.right)
-            else
-                gfx.drawTextAligned(costText, Constants.SCREEN_WIDTH - 28, y + 20, kTextAlignment.right)
-            end
+            gfx.drawTextAligned(costText, Constants.SCREEN_WIDTH - rightPadding, y + 24, kTextAlignment.right)
         end
     end
 

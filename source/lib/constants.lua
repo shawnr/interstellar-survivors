@@ -3,8 +3,8 @@
 
 Constants = {
     -- Version info (keep in sync with pdxinfo)
-    VERSION = "0.1.101",
-    BUILD = 102,
+    VERSION = "0.1.113",
+    BUILD = 114,
 
     -- Screen dimensions
     SCREEN_WIDTH = 400,
@@ -25,7 +25,7 @@ Constants = {
     -- Gameplay
     -- Boss spawn time is controlled by debug mode setting:
     -- Debug ON: 120 seconds (2 min), Debug OFF: 420 seconds (7 min)
-    MAX_TOOLS_PER_EPISODE = 8,
+    MAX_EQUIPMENT = 8,  -- Combined limit for tools + bonus items
 
     -- XP/Leveling (lower values = faster early leveling)
     BASE_XP = 50,

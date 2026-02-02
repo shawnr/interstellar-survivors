@@ -254,7 +254,7 @@ function Station:attachTool(tool, slotIndex)
         return false
     end
 
-    if #self.tools >= Constants.MAX_TOOLS_PER_EPISODE then
+    if #self.tools >= Constants.MAX_EQUIPMENT then
         print("Maximum tools reached!")
         return false
     end

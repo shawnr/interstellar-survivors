@@ -18,7 +18,7 @@ DatabaseScreen = {
     categories = {
         { id = "gameplay", name = "Gameplay", total = 3 },
         { id = "tools", name = "Tools", total = 14 },
-        { id = "bonusItems", name = "Bonus Items", total = 31 },
+        { id = "bonusItems", name = "Items", total = 31 },
         { id = "enemies", name = "Research Subjects", total = 11 },
         { id = "bosses", name = "Bosses", total = 5 },
         { id = "episodes", name = "Episodes", total = 5 },
@@ -361,9 +361,11 @@ function DatabaseScreen:openDetailView(entry)
     self.gameplayScrollOffset = 0
     self.gameplayMaxScroll = 0
 
-    -- Load sprite
+    -- Load sprite (use pre-processed icon on black background)
     if entry.iconPath then
-        self.currentSprite = gfx.image.new(entry.iconPath)
+        local filename = entry.iconPath:match("([^/]+)$")  -- Get filename from path
+        local onBlackPath = "images/icons_on_black/" .. filename
+        self.currentSprite = gfx.image.new(onBlackPath)
     else
         self.currentSprite = nil
     end
@@ -562,27 +564,28 @@ function DatabaseScreen:drawEntryList()
         if entry.unlocked then
             -- Draw sprite thumbnail if available
             if entry.iconPath then
-                local icon = gfx.image.new(entry.iconPath)
+                -- Convert to pre-processed icon on black background
+                local filename = entry.iconPath:match("([^/]+)$")  -- Get filename from path
+                local onBlackPath = "images/icons_on_black/" .. filename
+                local icon = gfx.image.new(onBlackPath)
                 if icon then
                     local iconW, iconH = icon:getSize()
                     local scale = math.min(24 / iconW, 24 / iconH)
-                    -- Draw white background for icon so it stays visible on highlighted rows
-                    gfx.setColor(gfx.kColorWhite)
+                    local scaledW = iconW * scale
+                    local scaledH = iconH * scale
+                    local iconX = 27 + (26 - scaledW) / 2
+                    local iconY = y - 1 + (26 - scaledH) / 2
+
+                    -- Draw BLACK background for icon (consistent with equipment bar)
+                    gfx.setColor(gfx.kColorBlack)
                     gfx.fillRect(26, y - 1, 28, 26)
                     -- Draw border around icon area
-                    gfx.setColor(gfx.kColorBlack)
+                    gfx.setColor(gfx.kColorWhite)
                     gfx.drawRect(26, y - 1, 28, 26)
-                    -- Draw icon - use inverted image to handle white-on-black source images
-                    -- This ensures icons show as black on white background
+
+                    -- Reset draw mode for pre-processed icons (they're ready to use directly)
                     gfx.setImageDrawMode(gfx.kDrawModeCopy)
-                    local iconToDraw = icon:invertedImage()
-                    -- Check if inverted looks better (more black pixels = original was white)
-                    -- Simple heuristic: use inverted if icon is larger (newer icons are 32x32)
-                    if iconW > 20 then
-                        iconToDraw:drawScaled(28, y, scale)
-                    else
-                        icon:drawScaled(28, y, scale)
-                    end
+                    icon:drawScaled(iconX, iconY, scale)
                 end
             end
 
@@ -675,14 +678,29 @@ function DatabaseScreen:drawDetailView()
 end
 
 function DatabaseScreen:drawToolDetail(data)
-    local spriteX = 30
-    local spriteY = 70
+    local spriteX = 25
+    local spriteY = 58
+    local spriteBoxSize = 56
     local textX = 100
     local y = 58
 
-    -- Draw sprite (scaled up)
+    -- Draw sprite in black background box (scaled up)
     if self.currentSprite then
-        self.currentSprite:drawScaled(spriteX, spriteY, 2)
+        local iconW, iconH = self.currentSprite:getSize()
+        local scale = math.min((spriteBoxSize - 8) / iconW, (spriteBoxSize - 8) / iconH)
+        local scaledW = iconW * scale
+        local scaledH = iconH * scale
+        local iconX = spriteX + (spriteBoxSize - scaledW) / 2
+        local iconY = spriteY + (spriteBoxSize - scaledH) / 2
+
+        -- Black background with white border
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(spriteX, spriteY, spriteBoxSize, spriteBoxSize)
+        gfx.setColor(gfx.kColorWhite)
+        gfx.drawRect(spriteX, spriteY, spriteBoxSize, spriteBoxSize)
+
+        -- Pre-processed icons are already white on black, just draw them
+        self.currentSprite:drawScaled(iconX, iconY, scale)
     end
 
     -- Description (bold)
@@ -712,14 +730,29 @@ function DatabaseScreen:drawToolDetail(data)
 end
 
 function DatabaseScreen:drawBonusItemDetail(data)
-    local spriteX = 30
-    local spriteY = 70
+    local spriteX = 25
+    local spriteY = 58
+    local spriteBoxSize = 56
     local textX = 100
     local y = 58
 
-    -- Draw sprite (scaled up)
+    -- Draw sprite in black background box (scaled up)
     if self.currentSprite then
-        self.currentSprite:drawScaled(spriteX, spriteY, 2)
+        local iconW, iconH = self.currentSprite:getSize()
+        local scale = math.min((spriteBoxSize - 8) / iconW, (spriteBoxSize - 8) / iconH)
+        local scaledW = iconW * scale
+        local scaledH = iconH * scale
+        local iconX = spriteX + (spriteBoxSize - scaledW) / 2
+        local iconY = spriteY + (spriteBoxSize - scaledH) / 2
+
+        -- Black background with white border
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(spriteX, spriteY, spriteBoxSize, spriteBoxSize)
+        gfx.setColor(gfx.kColorWhite)
+        gfx.drawRect(spriteX, spriteY, spriteBoxSize, spriteBoxSize)
+
+        -- Pre-processed icons are already white on black, just draw them
+        self.currentSprite:drawScaled(iconX, iconY, scale)
     end
 
     -- Effect (bold)

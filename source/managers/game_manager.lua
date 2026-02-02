@@ -42,6 +42,9 @@ GameManager = {
     playerLevel = 1,
     currentRP = 0,
     rpToNextLevel = 0,
+
+    -- Selected starting tool (from Tool Mastery research spec)
+    selectedStartingTool = nil,  -- nil means use default (Rail Driver)
 }
 
 function GameManager:init()
@@ -489,19 +492,21 @@ function GameManager:createGameOverScene()
         -- Load pattern background
         patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 
-        -- Pre-load tool icons
+        -- Pre-load tool icons (use pre-processed icons on black background)
         for toolId, _ in pairs(stats.toolsObtained or {}) do
             local toolData = ToolsData and ToolsData[toolId]
             if toolData and toolData.iconPath then
-                toolIcons[toolId] = gfx.image.new(toolData.iconPath)
+                local filename = toolData.iconPath:match("([^/]+)$")
+                toolIcons[toolId] = gfx.image.new("images/icons_on_black/" .. filename)
             end
         end
 
-        -- Pre-load bonus item icons
+        -- Pre-load bonus item icons (use pre-processed icons on black background)
         for itemId, _ in pairs(stats.itemsObtained or {}) do
             local itemData = BonusItemsData and BonusItemsData[itemId]
             if itemData and itemData.iconPath then
-                itemIcons[itemId] = gfx.image.new(itemData.iconPath)
+                local filename = itemData.iconPath:match("([^/]+)$")
+                itemIcons[itemId] = gfx.image.new("images/icons_on_black/" .. filename)
             end
         end
     end
@@ -631,12 +636,17 @@ function GameManager:createGameOverScene()
             for toolId, _ in pairs(stats.toolsObtained or {}) do
                 local toolData = ToolsData and ToolsData[toolId]
                 local toolName = toolData and toolData.name or toolId
-                -- Draw tool icon (white on transparent, need to invert for black background)
+                -- Draw tool icon with black background box
                 local icon = toolIcons[toolId]
                 if icon then
-                    gfx.setImageDrawMode(gfx.kDrawModeInverted)
-                    icon:drawScaled(boxMargin + boxPadding, itemY, iconSize / 32)
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                    local iconBoxX = boxMargin + boxPadding
+                    local iconBoxY = itemY
+                    local iconBoxSize = iconSize + 2
+
+                    -- Pre-processed icons are already white on black, just draw them
+                    local iconW, iconH = icon:getSize()
+                    local scale = iconSize / math.max(iconW, iconH)
+                    icon:drawScaled(iconBoxX + 1, iconBoxY + 1, scale)
                 else
                     -- Fallback bullet
                     local bulletRadius = 4
@@ -670,12 +680,17 @@ function GameManager:createGameOverScene()
             for itemId, _ in pairs(stats.itemsObtained or {}) do
                 local itemData = BonusItemsData and BonusItemsData[itemId]
                 local itemName = itemData and itemData.name or itemId
-                -- Draw bonus item icon (white on transparent, need to invert for black background)
+                -- Draw bonus item icon with black background box
                 local icon = itemIcons[itemId]
                 if icon then
-                    gfx.setImageDrawMode(gfx.kDrawModeInverted)
-                    icon:drawScaled(boxMargin + boxPadding, itemY, iconSize / 32)
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                    local iconBoxX = boxMargin + boxPadding
+                    local iconBoxY = itemY
+                    local iconBoxSize = iconSize + 2
+
+                    -- Pre-processed icons are already white on black, just draw them
+                    local iconW, iconH = icon:getSize()
+                    local scale = iconSize / math.max(iconW, iconH)
+                    icon:drawScaled(iconBoxX + 1, iconBoxY + 1, scale)
                 else
                     -- Fallback bullet
                     local bulletRadius = 4
@@ -957,9 +972,28 @@ end
 -- Create story intro scene
 function GameManager:createStoryIntroScene()
     local scene = {}
+    local showingToolSelect = false
+
+    -- Helper to transition to gameplay (potentially after tool select)
+    local function goToGameplay()
+        -- Check if player can select starting tool (Tool Mastery research spec)
+        if ResearchSpecSystem and ResearchSpecSystem:canSelectStartingTool() then
+            showingToolSelect = true
+            ToolSelect:show(function(selectedToolId)
+                GameManager.selectedStartingTool = selectedToolId
+                showingToolSelect = false
+                GameManager:setState(GameManager.states.GAMEPLAY)
+            end)
+        else
+            -- No tool selection, use default
+            GameManager.selectedStartingTool = nil
+            GameManager:setState(GameManager.states.GAMEPLAY)
+        end
+    end
 
     function scene:enter(params)
         print("Entering story intro scene")
+        showingToolSelect = false
 
         -- Stop title theme music when starting an episode
         if AudioManager then
@@ -972,25 +1006,34 @@ function GameManager:createStoryIntroScene()
         if episodeData and episodeData.introPanels and #episodeData.introPanels > 0 then
             -- Show intro panels
             StoryPanel:show(episodeData.introPanels, function()
-                -- When done, transition to gameplay
-                GameManager:setState(GameManager.states.GAMEPLAY)
+                -- When done, check for tool selection
+                goToGameplay()
             end)
         else
-            -- No intro panels, go straight to gameplay
-            GameManager:setState(GameManager.states.GAMEPLAY)
+            -- No intro panels, check for tool selection
+            goToGameplay()
         end
     end
 
     function scene:update()
-        StoryPanel:update()
+        if showingToolSelect then
+            ToolSelect:update()
+        else
+            StoryPanel:update()
+        end
     end
 
     function scene:drawOverlay()
-        StoryPanel:draw()
+        if showingToolSelect then
+            ToolSelect:draw()
+        else
+            StoryPanel:draw()
+        end
     end
 
     function scene:exit()
         print("Exiting story intro scene")
+        showingToolSelect = false
     end
 
     return scene
@@ -1026,19 +1069,21 @@ function GameManager:createVictoryScene()
         -- Load pattern background
         patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 
-        -- Pre-load tool icons
+        -- Pre-load tool icons (use pre-processed icons on black background)
         for toolId, _ in pairs(stats.toolsObtained or {}) do
             local toolData = ToolsData and ToolsData[toolId]
             if toolData and toolData.iconPath then
-                toolIcons[toolId] = gfx.image.new(toolData.iconPath)
+                local filename = toolData.iconPath:match("([^/]+)$")
+                toolIcons[toolId] = gfx.image.new("images/icons_on_black/" .. filename)
             end
         end
 
-        -- Pre-load bonus item icons
+        -- Pre-load bonus item icons (use pre-processed icons on black background)
         for itemId, _ in pairs(stats.itemsObtained or {}) do
             local itemData = BonusItemsData and BonusItemsData[itemId]
             if itemData and itemData.iconPath then
-                itemIcons[itemId] = gfx.image.new(itemData.iconPath)
+                local filename = itemData.iconPath:match("([^/]+)$")
+                itemIcons[itemId] = gfx.image.new("images/icons_on_black/" .. filename)
             end
         end
 
@@ -1196,12 +1241,17 @@ function GameManager:createVictoryScene()
                 for toolId, _ in pairs(stats.toolsObtained or {}) do
                     local toolData = ToolsData and ToolsData[toolId]
                     local toolName = toolData and toolData.name or toolId
-                    -- Draw tool icon
+                    -- Draw tool icon with black background box
                     local icon = toolIcons[toolId]
                     if icon then
-                        gfx.setImageDrawMode(gfx.kDrawModeInverted)
-                        icon:drawScaled(18, toolY, iconSize / 32)
-                        gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                        local iconBoxX = 18
+                        local iconBoxY = toolY
+                        local iconBoxSize = iconSize + 2
+
+                        -- Pre-processed icons are already white on black, just draw them
+                        local iconW, iconH = icon:getSize()
+                        local scale = iconSize / math.max(iconW, iconH)
+                        icon:drawScaled(iconBoxX + 1, iconBoxY + 1, scale)
                     else
                         -- Fallback bullet
                         local bulletRadius = 4
@@ -1233,12 +1283,17 @@ function GameManager:createVictoryScene()
                 for itemId, _ in pairs(stats.itemsObtained or {}) do
                     local itemData = BonusItemsData and BonusItemsData[itemId]
                     local itemName = itemData and itemData.name or itemId
-                    -- Draw bonus item icon
+                    -- Draw bonus item icon with black background box
                     local icon = itemIcons[itemId]
                     if icon then
-                        gfx.setImageDrawMode(gfx.kDrawModeInverted)
-                        icon:drawScaled(18, itemY, iconSize / 32)
-                        gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                        local iconBoxX = 18
+                        local iconBoxY = itemY
+                        local iconBoxSize = iconSize + 2
+
+                        -- Pre-processed icons are already white on black, just draw them
+                        local iconW, iconH = icon:getSize()
+                        local scale = iconSize / math.max(iconW, iconH)
+                        icon:drawScaled(iconBoxX + 1, iconBoxY + 1, scale)
                     else
                         -- Fallback bullet
                         local bulletRadius = 4

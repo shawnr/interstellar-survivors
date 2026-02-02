@@ -2,8 +2,7 @@
 -- Manages tool and bonus item selection, application, and multi-level upgrades
 
 local MAX_LEVEL = 4  -- Maximum upgrade level for tools and bonus items
-local MAX_UNIQUE_TOOLS = 8  -- Maximum unique tool types per episode
-local MAX_UNIQUE_ITEMS = 8  -- Maximum unique bonus item types per episode
+local MAX_EQUIPMENT = 8  -- Combined limit for tools + bonus items (can have any mix)
 
 UpgradeSystem = {
     -- Currently owned bonus items with their levels (by id)
@@ -13,6 +12,10 @@ UpgradeSystem = {
     -- Tool levels (tracked separately, tools are on station)
     -- Format: { tool_id = level }
     toolLevels = {},
+
+    -- Ordered list of equipment (tools and items in acquisition order)
+    -- Format: { {type="tool", id="rail_driver"}, {type="item", id="alloy_gears"}, ... }
+    equipmentOrder = {},
 
     -- Available pools for selection
     availableTools = {},
@@ -29,6 +32,7 @@ end
 function UpgradeSystem:reset()
     self.ownedBonusItems = {}
     self.toolLevels = {}
+    self.equipmentOrder = {}
     self:refreshAvailablePools()
 end
 
@@ -118,6 +122,9 @@ function UpgradeSystem:getUpgradeOptions(station)
         uniqueBonusItemsOwned = uniqueBonusItemsOwned + 1
     end
 
+    -- Combined equipment count (tools + items share the same 8 slots)
+    local totalEquipment = uniqueToolsOwned + uniqueBonusItemsOwned
+
     -- Get tools: either new tools or upgrades for existing ones
     local eligibleTools = {}
     for _, toolData in ipairs(self.availableTools) do
@@ -133,10 +140,10 @@ function UpgradeSystem:getUpgradeOptions(station)
             end
         end
 
-        -- Can add if station doesn't have it (and under limit), or upgrade if below max level
+        -- Can add if station doesn't have it (and under combined limit), or upgrade if below max level
         if not hasTool then
-            -- Only offer new tools if under the unique limit
-            if uniqueToolsOwned < MAX_UNIQUE_TOOLS then
+            -- Only offer new tools if under the combined equipment limit
+            if totalEquipment < MAX_EQUIPMENT then
                 table.insert(eligibleTools, {
                     data = toolData,
                     isNew = true,
@@ -192,9 +199,9 @@ function UpgradeSystem:getUpgradeOptions(station)
         local currentLevel = self.ownedBonusItems[bonusData.id] or 0
 
         if currentLevel < MAX_LEVEL then
-            -- Only offer new bonus items if under the unique limit
+            -- Only offer new bonus items if under the combined equipment limit
             if currentLevel == 0 then
-                if uniqueBonusItemsOwned < MAX_UNIQUE_ITEMS then
+                if totalEquipment < MAX_EQUIPMENT then
                     table.insert(eligibleBonus, {
                         data = bonusData,
                         isNew = true,
@@ -253,6 +260,9 @@ function UpgradeSystem:applyToolSelection(toolData, station)
             self.toolLevels[toolData.id] = 1
             station:attachTool(newTool)
 
+            -- Track acquisition order
+            table.insert(self.equipmentOrder, {type = "tool", id = toolData.id})
+
             -- Unlock in database
             if SaveManager then
                 SaveManager:unlockDatabaseEntry("tools", toolData.id)
@@ -294,8 +304,13 @@ function UpgradeSystem:applyBonusSelection(bonusData, station)
     local newLevel = currentLevel + 1
 
     -- Unlock in database (only on first acquisition)
-    if currentLevel == 0 and SaveManager then
-        SaveManager:unlockDatabaseEntry("bonusItems", actualBonusData.id)
+    if currentLevel == 0 then
+        -- Track acquisition order
+        table.insert(self.equipmentOrder, {type = "item", id = actualBonusData.id})
+
+        if SaveManager then
+            SaveManager:unlockDatabaseEntry("bonusItems", actualBonusData.id)
+        end
     end
 
     -- Update level

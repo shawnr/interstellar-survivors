@@ -16,6 +16,7 @@ ResearchSpecSystem = {
         startingHealth = 0,     -- Flat bonus
         collectRange = 0,       -- Percentage bonus
         startingLevel = 1,      -- Starting level
+        startingToolSelect = false,  -- Can select starting tool
     },
 }
 
@@ -53,6 +54,7 @@ function ResearchSpecSystem:recalculateBonuses()
         startingHealth = 0,
         collectRange = 0,
         startingLevel = 1,
+        startingToolSelect = false,
     }
 
     -- Apply each equipped spec
@@ -83,6 +85,8 @@ function ResearchSpecSystem:applyEffect(effect)
         self.bonuses.collectRange = self.bonuses.collectRange + effect.value
     elseif effect.type == "starting_level" then
         self.bonuses.startingLevel = math.max(self.bonuses.startingLevel, effect.value)
+    elseif effect.type == "starting_tool_select" then
+        self.bonuses.startingToolSelect = true
     end
 end
 
@@ -176,6 +180,10 @@ end
 
 function ResearchSpecSystem:getStartingLevel()
     return self.bonuses.startingLevel
+end
+
+function ResearchSpecSystem:canSelectStartingTool()
+    return self.bonuses.startingToolSelect
 end
 
 return ResearchSpecSystem

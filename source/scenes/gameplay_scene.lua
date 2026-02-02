@@ -68,6 +68,9 @@ function GameplayScene:init()
     -- Equipment slot icon cache
     self.toolSlotIcons = {}
     self.itemSlotIcons = {}
+
+    -- Visual pulse effects (expanding rings for tools like Tractor Pulse)
+    self.pulseEffects = {}
 end
 
 -- Track a mob kill
@@ -362,6 +365,7 @@ function GameplayScene:enter(params)
     self.mobs = {}
     self.collectibles = {}
     self.messages = {}
+    self.pulseEffects = {}
     self.boss = nil
     self.bossSpawned = false
     self.salvageDrone = nil
@@ -415,9 +419,34 @@ function GameplayScene:enter(params)
     -- Create station
     self.station = Station()
 
-    -- Give station a starting tool (Rail Driver)
-    local railDriver = RailDriver()
-    self.station:attachTool(railDriver)
+    -- Give station a starting tool (use selected tool if available, otherwise Rail Driver)
+    local startingToolId = GameManager.selectedStartingTool or "rail_driver"
+    local startingTool = nil
+
+    -- Get the tool class from UpgradeSystem
+    if UpgradeSystem then
+        local toolClass = UpgradeSystem:getToolClass(startingToolId)
+        if toolClass then
+            startingTool = toolClass()
+        end
+    end
+
+    -- Fallback to Rail Driver if tool class not found
+    if not startingTool then
+        startingTool = RailDriver()
+        startingToolId = "rail_driver"
+    end
+
+    self.station:attachTool(startingTool)
+
+    -- Track starting tool in equipment order
+    if UpgradeSystem then
+        table.insert(UpgradeSystem.equipmentOrder, {type = "tool", id = startingToolId})
+        UpgradeSystem.toolLevels[startingToolId] = 1
+    end
+
+    -- Clear the selected starting tool for next run
+    GameManager.selectedStartingTool = nil
 
     -- Load background based on current episode
     local episodeId = GameManager.currentEpisodeId or 1
@@ -492,6 +521,9 @@ function GameplayScene:update()
 
     -- Update collectibles
     self:updateCollectibles(dt)
+
+    -- Update visual pulse effects
+    self:updatePulseEffects(dt)
 
     -- Spawn new MOBs
     self:updateSpawning(dt)
@@ -1032,6 +1064,68 @@ function GameplayScene:createEnemyProjectile(x, y, angle, speed, damage, imagePa
     return self.enemyProjectilePool:get(x, y, angle, speed, damage, imagePath, effect)
 end
 
+-- Create a visual pulse effect (expanding ring)
+function GameplayScene:createPulseEffect(x, y, maxRadius, duration, effectType)
+    table.insert(self.pulseEffects, {
+        x = x,
+        y = y,
+        maxRadius = maxRadius,
+        duration = duration,
+        elapsed = 0,
+        effectType = effectType or "default"
+    })
+end
+
+-- Update pulse effects
+function GameplayScene:updatePulseEffects(dt)
+    for i = #self.pulseEffects, 1, -1 do
+        local effect = self.pulseEffects[i]
+        effect.elapsed = effect.elapsed + dt
+
+        if effect.elapsed >= effect.duration then
+            table.remove(self.pulseEffects, i)
+        end
+    end
+end
+
+-- Draw pulse effects
+function GameplayScene:drawPulseEffects()
+    for _, effect in ipairs(self.pulseEffects) do
+        local progress = effect.elapsed / effect.duration
+        local currentRadius = effect.maxRadius * progress
+
+        -- Fade out as the ring expands
+        local alpha = 1 - progress
+
+        -- Set line width based on effect type
+        local lineWidth = 2
+        if effect.effectType == "tractor" then
+            lineWidth = 3
+        end
+
+        gfx.setLineWidth(lineWidth)
+
+        -- Draw dashed circle pattern for visual interest
+        if effect.effectType == "tractor" then
+            -- Tractor: dashed white ring
+            gfx.setColor(gfx.kColorWhite)
+            local dashCount = 16
+            local dashAngle = 360 / dashCount
+            for i = 0, dashCount - 1, 2 do
+                local startAngle = i * dashAngle
+                local endAngle = startAngle + dashAngle
+                gfx.drawArc(effect.x, effect.y, currentRadius, startAngle, endAngle)
+            end
+        else
+            -- Default: solid white ring
+            gfx.setColor(gfx.kColorWhite)
+            gfx.drawCircleAtPoint(effect.x, effect.y, currentRadius)
+        end
+
+        gfx.setLineWidth(1)
+    end
+end
+
 -- Draw background (called before sprite.update)
 function GameplayScene:drawBackground()
     -- Background is now a sprite, so nothing to do here
@@ -1048,6 +1142,9 @@ function GameplayScene:drawOverlay()
             mob:drawDebugLabel()
         end
     end
+
+    -- Draw pulse effects (expanding rings for tools like Tractor Pulse)
+    self:drawPulseEffects()
 
     -- Draw shield effect (before HUD so it's behind UI elements)
     self.station:drawShield()
@@ -1151,107 +1248,130 @@ function GameplayScene:drawHUD()
     self:drawEquipmentSlots()
 end
 
--- Draw tool and item slots on the sides of the screen
+-- Draw equipment slots (tools and items combined) in a vertical column on the left
 function GameplayScene:drawEquipmentSlots()
-    local slotSize = 15
     local maxSlots = 8
+    local slotSize = 24
     local topY = 24  -- Below top bar
-    local bottomY = Constants.SCREEN_HEIGHT - 22  -- Above bottom bar
-    local availableHeight = bottomY - topY  -- 194px
-    local slotSpacing = availableHeight / maxSlots  -- ~24px per slot position
-
-    -- Left side: Tool slots (X = 0)
     local leftX = 0
 
-    -- Right side: Item slots (X = screen width - slot size)
-    local rightX = Constants.SCREEN_WIDTH - slotSize
+    -- Use equipment order from UpgradeSystem (maintains acquisition order)
+    local equipmentOrder = UpgradeSystem and UpgradeSystem.equipmentOrder or {}
 
-    -- Get equipped tools
-    local equippedTools = self.station and self.station.tools or {}
-
-    -- Get owned bonus items (as a list)
-    local ownedItems = {}
-    if UpgradeSystem and UpgradeSystem.ownedBonusItems then
-        for itemId, level in pairs(UpgradeSystem.ownedBonusItems) do
-            if level > 0 then
-                table.insert(ownedItems, itemId)
+    -- Helper function to get equipment data by type and id
+    local function getEquipmentData(equipEntry)
+        if equipEntry.type == "tool" then
+            -- Find tool in station
+            local tools = self.station and self.station.tools or {}
+            for _, tool in ipairs(tools) do
+                if tool.data and tool.data.id == equipEntry.id then
+                    return {
+                        iconPath = tool.data.iconPath or tool.data.imagePath,
+                        name = tool.data.name or "?"
+                    }
+                end
+            end
+            -- Fallback: look up in ToolsData
+            local toolData = ToolsData and ToolsData[equipEntry.id]
+            if toolData then
+                return {
+                    iconPath = toolData.iconPath or toolData.imagePath,
+                    name = toolData.name or "?"
+                }
+            end
+        elseif equipEntry.type == "item" then
+            local itemData = BonusItemsData and BonusItemsData[equipEntry.id]
+            if itemData then
+                return {
+                    iconPath = itemData.iconPath,
+                    name = itemData.name or "?"
+                }
             end
         end
+        return nil
     end
 
-    -- Get font for letters
-    local font = gfx.getSystemFont(gfx.font.kVariantBold)
+    -- Helper function to draw a scaled icon centered in a slot (white on black)
+    local function drawScaledIcon(iconPath, slotX, slotY, fallbackLetter)
+        local icon = nil
+        if iconPath then
+            -- Convert to pre-processed icon on black background
+            local filename = iconPath:match("([^/]+)$")  -- Get filename from path
+            local onBlackPath = "images/icons_on_black/" .. filename
+            icon = gfx.image.new(onBlackPath)
+        end
 
-    -- Draw tool slots (left side)
-    for i = 1, maxSlots do
-        local slotY = topY + (i - 1) * slotSpacing + (slotSpacing - slotSize) / 2
-        local tool = equippedTools[i]
+        if icon then
+            -- Get icon dimensions and calculate scale to fit slot (with small padding)
+            local iconW, iconH = icon:getSize()
+            local padding = 4
+            local targetSize = slotSize - padding
+            local scale = math.min(targetSize / iconW, targetSize / iconH)
 
-        if tool then
-            -- Filled slot: black background with first letter
-            gfx.setColor(gfx.kColorBlack)
-            gfx.fillRect(leftX, slotY, slotSize, slotSize)
+            -- Calculate centered position
+            local scaledW = iconW * scale
+            local scaledH = iconH * scale
+            local drawX = slotX + (slotSize - scaledW) / 2
+            local drawY = slotY + (slotSize - scaledH) / 2
 
-            -- Get first letter of tool name
-            local toolName = tool.data and tool.data.name or "?"
-            local letter = string.upper(string.sub(toolName, 1, 1))
-
-            -- Draw letter centered in slot (white on black)
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-            gfx.setFont(font)
-            local letterW = font:getTextWidth(letter)
-            local letterH = font:getHeight()
-            local letterX = leftX + (slotSize - letterW) / 2
-            local letterY = slotY + (slotSize - letterH) / 2
-            gfx.drawText(letter, letterX, letterY)
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
-
-            -- Border
-            gfx.setColor(gfx.kColorWhite)
-            gfx.drawRect(leftX, slotY, slotSize, slotSize)
+            -- Pre-processed icons are already white on black, just draw them
+            icon:drawScaled(drawX, drawY, scale)
         else
-            -- Empty slot: white background with black border
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(leftX, slotY, slotSize, slotSize)
-            gfx.setColor(gfx.kColorBlack)
-            gfx.drawRect(leftX, slotY, slotSize, slotSize)
+            -- Fallback: draw first letter if no icon
+            local boldFont = gfx.getSystemFont(gfx.font.kVariantBold)
+            local letter = fallbackLetter or "?"
+
+            -- Create letter image
+            local fullW = boldFont:getTextWidth(letter)
+            local fullH = boldFont:getHeight()
+            local letterImg = gfx.image.new(fullW, fullH)
+            gfx.pushContext(letterImg)
+            gfx.setFont(boldFont)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.drawText(letter, 0, 0)
+            gfx.popContext()
+
+            -- Scale to fit slot
+            local padding = 4
+            local targetSize = slotSize - padding
+            local scale = math.min(targetSize / fullW, targetSize / fullH)
+            local scaledW = fullW * scale
+            local scaledH = fullH * scale
+            local drawX = slotX + (slotSize - scaledW) / 2
+            local drawY = slotY + (slotSize - scaledH) / 2
+
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            letterImg:drawScaled(drawX, drawY, scale)
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
     end
 
-    -- Draw item slots (right side)
+    -- Draw all 8 slots in a vertical column
     for i = 1, maxSlots do
-        local slotY = topY + (i - 1) * slotSpacing + (slotSpacing - slotSize) / 2
-        local itemId = ownedItems[i]
+        local slotY = topY + (i - 1) * slotSize
+        local equipEntry = equipmentOrder[i]
+        local equip = equipEntry and getEquipmentData(equipEntry)
 
-        if itemId then
-            -- Filled slot: black background with first letter
+        if equip then
+            -- Filled slot: black background with inverted icon
             gfx.setColor(gfx.kColorBlack)
-            gfx.fillRect(rightX, slotY, slotSize, slotSize)
+            gfx.fillRect(leftX, slotY, slotSize, slotSize)
 
-            -- Get first letter of item name
-            local itemData = BonusItemsData and BonusItemsData[itemId]
-            local itemName = itemData and itemData.name or "?"
-            local letter = string.upper(string.sub(itemName, 1, 1))
+            -- Get fallback letter
+            local fallbackLetter = string.upper(string.sub(equip.name, 1, 1))
 
-            -- Draw letter centered in slot (white on black)
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-            gfx.setFont(font)
-            local letterW = font:getTextWidth(letter)
-            local letterH = font:getHeight()
-            local letterX = rightX + (slotSize - letterW) / 2
-            local letterY = slotY + (slotSize - letterH) / 2
-            gfx.drawText(letter, letterX, letterY)
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+            -- Draw icon (inverted for white on black)
+            drawScaledIcon(equip.iconPath, leftX, slotY, fallbackLetter)
 
             -- Border
             gfx.setColor(gfx.kColorWhite)
-            gfx.drawRect(rightX, slotY, slotSize, slotSize)
+            gfx.drawRect(leftX, slotY, slotSize, slotSize)
         else
             -- Empty slot: white background with black border
             gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(rightX, slotY, slotSize, slotSize)
+            gfx.fillRect(leftX, slotY, slotSize, slotSize)
             gfx.setColor(gfx.kColorBlack)
-            gfx.drawRect(rightX, slotY, slotSize, slotSize)
+            gfx.drawRect(leftX, slotY, slotSize, slotSize)
         end
     end
 end
