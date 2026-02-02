@@ -382,13 +382,13 @@ function GameplayScene:enter(params)
         -- Store episode length for boss spawn
         self.episodeLength = SaveManager:getDebugSetting("episodeLength", 60)
     else
-        -- Normal mode: 20 seconds per wave, 3 minute episode (180s)
+        -- Normal mode: 20 seconds per wave, 2:30 episode (150s)
         local waveLength = 20
         self.waveStartTimes = {}
         for i = 1, 7 do
             self.waveStartTimes[i] = (i - 1) * waveLength
         end
-        self.episodeLength = 180  -- 3 minutes for normal mode
+        self.episodeLength = 150  -- 2 minutes 30 seconds for normal mode
     end
 
     -- Set initial spawn interval based on episode difficulty

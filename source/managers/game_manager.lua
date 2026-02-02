@@ -750,7 +750,7 @@ function GameManager:createEpisodeTitleScene()
     local fadeAlpha = 0
     local inputDelayTime = 1.0      -- 1 second before input accepted
     local autoAdvanceTime = 3.0     -- Auto-advance after 3 seconds
-    local fadeDuration = 1.5        -- 1.5 second fade
+    local fadeDuration = 0.5        -- 0.5 second fade
     local isFading = false
     local fadeComplete = false
 
@@ -1197,60 +1197,74 @@ function GameManager:createVictoryScene()
             local lineHeight = 20
             local iconSize = 14
             local textIndent = iconSize + 4
+            local boxPadding = 6
+            local boxMargin = 10
+
+            -- Calculate Grant Funds earned
+            local grantFundsEarned = math.floor((stats.totalRP or 0) / 100)
+
+            -- Grant Funds Earned (new section)
+            if grantFundsEarned > 0 then
+                local grantBoxHeight = 22
+                gfx.setColor(gfx.kColorWhite)
+                gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, grantBoxHeight)
+                gfx.setColor(gfx.kColorBlack)
+                gfx.drawRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, grantBoxHeight)
+                gfx.drawTextAligned("*+" .. grantFundsEarned .. " Grant Funds earned*", Constants.SCREEN_WIDTH / 2, contentY + boxPadding, kTextAlignment.center)
+                contentY = contentY + grantBoxHeight + 8
+            end
 
             -- Research Subjects (mob kills)
-            gfx.drawText("*Research Subjects:*", 14, contentY)
-            contentY = contentY + 18
-
             local mobCount = 0
             for mobType, count in pairs(stats.mobKills or {}) do
                 mobCount = mobCount + 1
             end
 
+            local mobBoxHeight = boxPadding + 16 + (mobCount > 0 and mobCount * lineHeight or lineHeight) + boxPadding
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, mobBoxHeight)
+            gfx.setColor(gfx.kColorBlack)
+            gfx.drawRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, mobBoxHeight)
+            gfx.drawText("*Research Subjects:*", boxMargin + boxPadding, contentY + boxPadding)
+
             if mobCount > 0 then
-                gfx.setColor(gfx.kColorWhite)
-                gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, mobCount * lineHeight + 4)
-                gfx.setColor(gfx.kColorBlack)
-                gfx.drawRect(10, contentY, Constants.SCREEN_WIDTH - 20, mobCount * lineHeight + 4)
-                local mobY = contentY + 2
+                local mobY = contentY + boxPadding + 16
                 for mobType, count in pairs(stats.mobKills or {}) do
                     -- Get display name
                     local displayName = mobType:gsub("_", " "):gsub("(%a)([%w_']*)", function(a, b) return string.upper(a) .. b end)
                     -- Draw bullet dot
                     local bulletRadius = 4
                     gfx.setColor(gfx.kColorBlack)
-                    gfx.fillCircleAtPoint(18 + bulletRadius, mobY + 8, bulletRadius)
-                    gfx.drawText(displayName .. ": " .. count, 18 + textIndent, mobY)
+                    gfx.fillCircleAtPoint(boxMargin + boxPadding + bulletRadius, mobY + 8, bulletRadius)
+                    gfx.drawText(displayName .. ": " .. count, boxMargin + boxPadding + textIndent, mobY)
                     mobY = mobY + lineHeight
                 end
-                contentY = contentY + mobCount * lineHeight + 12
             else
-                gfx.drawText("  None", 18 + textIndent, contentY)
-                contentY = contentY + 20
+                gfx.drawText("None", boxMargin + boxPadding + textIndent, contentY + boxPadding + 16)
             end
+            contentY = contentY + mobBoxHeight + 8
 
             -- Tools Obtained
-            gfx.drawText("*Tools Obtained:*", 14, contentY)
-            contentY = contentY + 18
-
             local toolCount = 0
             for _ in pairs(stats.toolsObtained or {}) do toolCount = toolCount + 1 end
 
+            local toolBoxHeight = boxPadding + 16 + (toolCount > 0 and toolCount * lineHeight or lineHeight) + boxPadding
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, toolBoxHeight)
+            gfx.setColor(gfx.kColorBlack)
+            gfx.drawRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, toolBoxHeight)
+            gfx.drawText("*Tools Obtained:*", boxMargin + boxPadding, contentY + boxPadding)
+
             if toolCount > 0 then
-                gfx.setColor(gfx.kColorWhite)
-                gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, toolCount * lineHeight + 4)
-                gfx.setColor(gfx.kColorBlack)
-                gfx.drawRect(10, contentY, Constants.SCREEN_WIDTH - 20, toolCount * lineHeight + 4)
-                local toolY = contentY + 2
+                local toolY = contentY + boxPadding + 16
                 for toolId, _ in pairs(stats.toolsObtained or {}) do
                     local toolData = ToolsData and ToolsData[toolId]
                     local toolName = toolData and toolData.name or toolId
                     -- Draw tool icon with black background box
                     local icon = toolIcons[toolId]
                     if icon then
-                        local iconBoxX = 18
+                        local iconBoxX = boxMargin + boxPadding
                         local iconBoxY = toolY
-                        local iconBoxSize = iconSize + 2
 
                         -- Pre-processed icons are already white on black, just draw them
                         local iconW, iconH = icon:getSize()
@@ -1260,39 +1274,37 @@ function GameManager:createVictoryScene()
                         -- Fallback bullet
                         local bulletRadius = 4
                         gfx.setColor(gfx.kColorBlack)
-                        gfx.fillCircleAtPoint(18 + bulletRadius, toolY + 8, bulletRadius)
+                        gfx.fillCircleAtPoint(boxMargin + boxPadding + bulletRadius, toolY + 8, bulletRadius)
                     end
-                    gfx.drawText(toolName, 18 + textIndent, toolY)
+                    gfx.drawText(toolName, boxMargin + boxPadding + textIndent, toolY)
                     toolY = toolY + lineHeight
                 end
-                contentY = contentY + toolCount * lineHeight + 12
             else
-                gfx.drawText("  None", 18 + textIndent, contentY)
-                contentY = contentY + 20
+                gfx.drawText("None", boxMargin + boxPadding + textIndent, contentY + boxPadding + 16)
             end
+            contentY = contentY + toolBoxHeight + 8
 
             -- Bonus Items Obtained
-            gfx.drawText("*Bonus Items Obtained:*", 14, contentY)
-            contentY = contentY + 18
-
             local itemCount = 0
             for _ in pairs(stats.itemsObtained or {}) do itemCount = itemCount + 1 end
 
+            local itemBoxHeight = boxPadding + 16 + (itemCount > 0 and itemCount * lineHeight or lineHeight) + boxPadding
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, itemBoxHeight)
+            gfx.setColor(gfx.kColorBlack)
+            gfx.drawRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, itemBoxHeight)
+            gfx.drawText("*Bonus Items Obtained:*", boxMargin + boxPadding, contentY + boxPadding)
+
             if itemCount > 0 then
-                gfx.setColor(gfx.kColorWhite)
-                gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, itemCount * lineHeight + 4)
-                gfx.setColor(gfx.kColorBlack)
-                gfx.drawRect(10, contentY, Constants.SCREEN_WIDTH - 20, itemCount * lineHeight + 4)
-                local itemY = contentY + 2
+                local itemY = contentY + boxPadding + 16
                 for itemId, _ in pairs(stats.itemsObtained or {}) do
                     local itemData = BonusItemsData and BonusItemsData[itemId]
                     local itemName = itemData and itemData.name or itemId
                     -- Draw bonus item icon with black background box
                     local icon = itemIcons[itemId]
                     if icon then
-                        local iconBoxX = 18
+                        local iconBoxX = boxMargin + boxPadding
                         local iconBoxY = itemY
-                        local iconBoxSize = iconSize + 2
 
                         -- Pre-processed icons are already white on black, just draw them
                         local iconW, iconH = icon:getSize()
@@ -1302,16 +1314,15 @@ function GameManager:createVictoryScene()
                         -- Fallback bullet
                         local bulletRadius = 4
                         gfx.setColor(gfx.kColorBlack)
-                        gfx.fillCircleAtPoint(18 + bulletRadius, itemY + 8, bulletRadius)
+                        gfx.fillCircleAtPoint(boxMargin + boxPadding + bulletRadius, itemY + 8, bulletRadius)
                     end
-                    gfx.drawText(itemName, 18 + textIndent, itemY)
+                    gfx.drawText(itemName, boxMargin + boxPadding + textIndent, itemY)
                     itemY = itemY + lineHeight
                 end
-                contentY = contentY + itemCount * lineHeight + 12
             else
-                gfx.drawText("  None", 18 + textIndent, contentY)
-                contentY = contentY + 20
+                gfx.drawText("None", boxMargin + boxPadding + textIndent, contentY + boxPadding + 16)
             end
+            contentY = contentY + itemBoxHeight + 8
 
             -- Calculate max scroll
             maxScroll = math.max(0, contentY + scrollOffset - Constants.SCREEN_HEIGHT + 80)
