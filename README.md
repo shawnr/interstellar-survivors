@@ -1,12 +1,12 @@
 # Interstellar Survivors
 
-A Vampire Survivors-style auto-shooter roguelike for **Playdate**.
+A Vampire Survivors-style auto-shooter roguelike for **Play.date**.
 
 **Status: In Development (Beta)**
 
 ## About
 
-Interstellar Survivors is a sci-fi comedy auto-shooter where you control a spinning space station under siege. Use the crank to rotate your station and aim your arsenal of auto-firing weapons at waves of increasingly absurd enemies.
+Interstellar Survivors is a sci-fi comedy auto-shooter where you control a spinning space station under siege. Use the crank to rotate your station and aim your arsenal of auto-firing research tools at waves of increasingly absurd enemies.
 
 - **5 Episodes** with unique enemies, story, and bosses
 - **8 Tools** (weapons) that can be upgraded and evolved
@@ -16,22 +16,22 @@ Interstellar Survivors is a sci-fi comedy auto-shooter where you control a spinn
 
 ## Platform
 
-**Playdate** - the handheld game console with a crank by Panic
+**Play.date** - the handheld game console with a crank by Panic
 
 ## Beta Testing
 
-Want to try the game? Download and sideload it on your Playdate:
+Want to try the game? Download and sideload it on your Play.date:
 
 1. Download `InterstellarSurvivors.pdx.zip` from the releases
 2. **Option A (Easiest):** Upload the .zip file to your [Playdate account](https://play.date/account/sideload/) and it will sync to your device
-3. **Option B:** Unzip the file, connect your Playdate to your computer, and drag `InterstellarSurvivors.pdx` to your device
+3. **Option B:** Unzip the file, connect your Play.date to your computer, and drag `InterstellarSurvivors.pdx` to your device
 4. Play!
 
 **Note:** This game is still in active development. Expect bugs, balance changes, and missing features. Feedback welcome!
 
 ## Building from Source
 
-Requires the [Playdate SDK](https://play.date/dev/).
+Requires the [Play.date SDK](https://play.date/dev/).
 
 ```bash
 pdc source InterstellarSurvivors.pdx
