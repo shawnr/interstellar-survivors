@@ -6,6 +6,8 @@ local gfx <const> = playdate.graphics
 GrantFundingScreen = {
     isVisible = false,
     selectedIndex = 1,
+    scrollOffset = 0,
+    maxVisibleItems = 3,  -- Fits 3 items at 46px each in available space
     stats = {},  -- Display data for each stat
     fromState = nil,
     patternBg = nil,
@@ -20,6 +22,7 @@ end
 function GrantFundingScreen:show(fromState)
     self.isVisible = true
     self.selectedIndex = 1
+    self.scrollOffset = 0
     self.fromState = fromState or GameManager.states.TITLE
     self.confirmingPurchase = false
     self:refreshStats()
@@ -136,12 +139,23 @@ function GrantFundingScreen:moveSelection(direction)
 
     if newIndex < 1 then
         newIndex = #self.stats
+        -- Jump to bottom
+        self.scrollOffset = math.max(0, #self.stats - self.maxVisibleItems)
     elseif newIndex > #self.stats then
         newIndex = 1
+        self.scrollOffset = 0
     end
 
     if newIndex ~= self.selectedIndex then
         self.selectedIndex = newIndex
+
+        -- Adjust scroll to keep selection visible
+        if self.selectedIndex < self.scrollOffset + 1 then
+            self.scrollOffset = self.selectedIndex - 1
+        elseif self.selectedIndex > self.scrollOffset + self.maxVisibleItems then
+            self.scrollOffset = self.selectedIndex - self.maxVisibleItems
+        end
+
         if AudioManager then
             AudioManager:playSFX("menu_move", 0.3)
         end
@@ -181,15 +195,31 @@ function GrantFundingScreen:draw()
     local funds = SaveManager:getGrantFunds()
     gfx.drawTextAligned("*Funds: " .. funds .. "*", Constants.SCREEN_WIDTH / 2, 22, kTextAlignment.center)
 
-    -- Draw stats list
+    -- Draw stats list with scrolling
     local startY = 46
     local itemHeight = 46  -- Increased for better spacing between items
 
-    for i, stat in ipairs(self.stats) do
-        local y = startY + (i - 1) * itemHeight
+    local startIdx = self.scrollOffset + 1
+    local endIdx = math.min(startIdx + self.maxVisibleItems - 1, #self.stats)
+
+    for i = startIdx, endIdx do
+        local stat = self.stats[i]
+        local displayIdx = i - self.scrollOffset
+        local y = startY + (displayIdx - 1) * itemHeight
         local isSelected = (i == self.selectedIndex)
 
         self:drawStatItem(stat, y, isSelected, funds)
+    end
+
+    -- Scroll indicators
+    if self.scrollOffset > 0 then
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillTriangle(Constants.SCREEN_WIDTH - 25, 50, Constants.SCREEN_WIDTH - 20, 44, Constants.SCREEN_WIDTH - 15, 50)
+    end
+    if self.scrollOffset + self.maxVisibleItems < #self.stats then
+        local arrowY = startY + self.maxVisibleItems * itemHeight - 8
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillTriangle(Constants.SCREEN_WIDTH - 25, arrowY, Constants.SCREEN_WIDTH - 20, arrowY + 6, Constants.SCREEN_WIDTH - 15, arrowY)
     end
 
     -- Draw instructions at bottom

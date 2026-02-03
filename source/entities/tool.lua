@@ -77,10 +77,9 @@ end
 function Tool:updatePosition(stationRotation)
     if not self.station or not self.slotData then return end
 
-    -- Calculate rotated offset
-    local angle = Utils.degToRad(stationRotation)
-    local cos = math.cos(angle)
-    local sin = math.sin(angle)
+    -- Use station's cached trig values (calculated once per frame, shared by all tools)
+    local cos = self.station.cachedCos or math.cos(Utils.degToRad(stationRotation))
+    local sin = self.station.cachedSin or math.sin(Utils.degToRad(stationRotation))
 
     local baseX = self.slotData.x
     local baseY = self.slotData.y

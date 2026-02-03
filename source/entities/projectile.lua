@@ -178,17 +178,24 @@ function ProjectilePool:release(proj)
     table.insert(self.pool, proj)
 end
 
--- Update all active projectiles
+-- Update all active projectiles (swap-and-pop for O(1) removal)
 function ProjectilePool:update()
-    for i = #self.active, 1, -1 do
-        local proj = self.active[i]
+    local active = self.active
+    local pool = self.pool
+    local n = #active
+    local i = 1
+
+    while i <= n do
+        local proj = active[i]
         if proj.active then
-            -- Direct call without pcall (performance optimization)
             proj:update()
+            i = i + 1
         else
-            -- Return inactive projectiles to pool
-            table.remove(self.active, i)
-            table.insert(self.pool, proj)
+            -- Swap-and-pop: O(1) removal instead of O(n) table.remove
+            active[i] = active[n]
+            active[n] = nil
+            n = n - 1
+            pool[#pool + 1] = proj
         end
     end
 end
@@ -340,13 +347,22 @@ function EnemyProjectilePool:get(x, y, angle, speed, damage, imagePath, effect)
 end
 
 function EnemyProjectilePool:update()
-    for i = #self.active, 1, -1 do
-        local proj = self.active[i]
+    local active = self.active
+    local pool = self.pool
+    local n = #active
+    local i = 1
+
+    while i <= n do
+        local proj = active[i]
         if proj.active then
             proj:update()
+            i = i + 1
         else
-            table.remove(self.active, i)
-            table.insert(self.pool, proj)
+            -- Swap-and-pop: O(1) removal
+            active[i] = active[n]
+            active[n] = nil
+            n = n - 1
+            pool[#pool + 1] = proj
         end
     end
 end

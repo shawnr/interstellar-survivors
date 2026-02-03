@@ -56,24 +56,30 @@ function SalvageDrone:update()
         return
     end
 
-    -- Find a target if we don't have one
+    -- Find a target if we don't have one (throttled search - every 5 frames)
     if not self.targetCollectible or not self.targetCollectible.active then
-        self.targetCollectible = self:findClosestCollectible()
+        self.searchCooldown = (self.searchCooldown or 0) - 1
+        if self.searchCooldown <= 0 then
+            self.targetCollectible = self:findClosestCollectible()
+            self.searchCooldown = 5  -- Only search every 5 frames
+        end
     end
 
     if self.targetCollectible and self.targetCollectible.active then
         -- Move toward target
         local dx = self.targetCollectible.x - self.x
         local dy = self.targetCollectible.y - self.y
-        local dist = math.sqrt(dx * dx + dy * dy)
+        local distSq = dx * dx + dy * dy
+        local collectRadiusSq = self.collectRadius * self.collectRadius
 
-        if dist < self.collectRadius then
+        if distSq < collectRadiusSq then
             -- Collect it!
             self:collectTarget()
-        elseif dist > 0 then
-            -- Move toward target
-            local moveX = (dx / dist) * self.speed
-            local moveY = (dy / dist) * self.speed
+        elseif distSq > 0 then
+            -- Move toward target (only calculate sqrt when needed)
+            local invDist = 1 / math.sqrt(distSq)
+            local moveX = dx * invDist * self.speed
+            local moveY = dy * invDist * self.speed
             self.x = self.x + moveX
             self.y = self.y + moveY
             self:moveTo(self.x, self.y)
@@ -94,13 +100,13 @@ function SalvageDrone:findClosestCollectible()
     end
 
     local closest = nil
-    local closestDist = self.searchRadius
+    local closestDistSq = self.searchRadius * self.searchRadius  -- Use squared distance
 
     for _, collectible in ipairs(GameplayScene.collectibles) do
         if collectible.active then
-            local dist = Utils.distance(self.x, self.y, collectible.x, collectible.y)
-            if dist < closestDist then
-                closestDist = dist
+            local distSq = Utils.distanceSquared(self.x, self.y, collectible.x, collectible.y)
+            if distSq < closestDistSq then
+                closestDistSq = distSq
                 closest = collectible
             end
         end

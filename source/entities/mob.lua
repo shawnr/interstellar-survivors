@@ -127,12 +127,13 @@ end
 function MOB:updateRammerMovement(dt)
     local dx = self.targetX - self.x
     local dy = self.targetY - self.y
-    local dist = math.sqrt(dx * dx + dy * dy)
+    local distSq = dx * dx + dy * dy
 
-    if dist > 1 then
-        -- Normalize and apply speed
-        local moveX = (dx / dist) * self.speed
-        local moveY = (dy / dist) * self.speed
+    if distSq > 1 then
+        -- Normalize and apply speed (only sqrt when moving)
+        local invDist = 1 / math.sqrt(distSq)
+        local moveX = dx * invDist * self.speed
+        local moveY = dy * invDist * self.speed
 
         self.x = self.x + moveX
         self.y = self.y + moveY
@@ -148,12 +149,14 @@ end
 function MOB:updateShooterMovement(dt)
     local dx = self.targetX - self.x
     local dy = self.targetY - self.y
-    local dist = math.sqrt(dx * dx + dy * dy)
+    local distSq = dx * dx + dy * dy
+    local rangeSq = self.range * self.range
 
-    if dist > self.range then
-        -- Move closer
-        local moveX = (dx / dist) * self.speed
-        local moveY = (dy / dist) * self.speed
+    if distSq > rangeSq then
+        -- Move closer (only sqrt when needed)
+        local invDist = 1 / math.sqrt(distSq)
+        local moveX = dx * invDist * self.speed
+        local moveY = dy * invDist * self.speed
 
         self.x = self.x + moveX
         self.y = self.y + moveY
@@ -218,7 +221,7 @@ end
 
 -- Spawn collectibles at death location
 function MOB:spawnCollectibles()
-    if not GameplayScene then return end
+    if not GameplayScene or not GameplayScene.collectiblePool then return end
 
     -- Spawn RP orbs based on rpValue
     -- Split into multiple smaller orbs for better feel
@@ -230,25 +233,23 @@ function MOB:spawnCollectibles()
         local offsetX = (math.random() - 0.5) * 16
         local offsetY = (math.random() - 0.5) * 16
 
-        local collectible = Collectible(
+        -- Use collectible pool instead of creating new instances
+        GameplayScene.collectiblePool:get(
             self.x + offsetX,
             self.y + offsetY,
             Collectible.TYPES.RP,
             valuePerOrb
         )
-
-        table.insert(GameplayScene.collectibles, collectible)
     end
 
     -- Small chance to drop health
     if math.random(100) <= 5 then  -- 5% chance
-        local healthOrb = Collectible(
+        GameplayScene.collectiblePool:get(
             self.x,
             self.y,
             Collectible.TYPES.HEALTH,
             5  -- Heal 5 HP
         )
-        table.insert(GameplayScene.collectibles, healthOrb)
     end
 end
 

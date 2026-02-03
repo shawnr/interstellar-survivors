@@ -3,6 +3,13 @@
 
 local gfx <const> = playdate.graphics
 
+-- Pre-computed text outline offsets (performance: avoid table creation every frame)
+local TEXT_OUTLINE_OFFSETS_1PX = { {-1,-1}, {0,-1}, {1,-1}, {-1,0}, {1,0}, {-1,1}, {0,1}, {1,1} }
+local TEXT_OUTLINE_OFFSETS_2PX = { {-2,-2}, {0,-2}, {2,-2}, {-2,0}, {2,0}, {-2,2}, {0,2}, {2,2} }
+
+-- Cache for fallback letter images in equipment slots (performance: avoid image creation every frame)
+local letterImageCache = {}
+
 -- Global reference for entities to access
 GameplayScene = {}
 
@@ -20,6 +27,7 @@ function GameplayScene:init()
     -- Object pools
     self.projectilePool = nil
     self.enemyProjectilePool = nil
+    self.collectiblePool = nil
 
     -- Wave management (7 waves over 1 minute for testing)
     self.currentWave = 1
@@ -142,8 +150,7 @@ function GameplayScene:drawMessages()
 
             -- Draw black stroke (outline) by drawing text offset in all directions
             gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-            local offsets = { {-1, -1}, {0, -1}, {1, -1}, {-1, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1} }
-            for _, offset in ipairs(offsets) do
+            for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_1PX) do
                 gfx.drawTextAligned(msg.text, centerX + offset[1], y + offset[2], kTextAlignment.center)
             end
 
@@ -214,8 +221,7 @@ function GameplayScene:drawMissionIntro()
         -- Full visibility
         -- Black stroke
         gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-        local offsets = { {-2, -2}, {0, -2}, {2, -2}, {-2, 0}, {2, 0}, {-2, 2}, {0, 2}, {2, 2} }
-        for _, offset in ipairs(offsets) do
+        for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_2PX) do
             gfx.drawTextAligned(text, centerX + offset[1], centerY - 8 + offset[2], kTextAlignment.center)
         end
         -- White text
@@ -328,8 +334,7 @@ function GameplayScene:drawBossDefeated()
 
     -- Draw black stroke
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    local offsets = { {-2, -2}, {0, -2}, {2, -2}, {-2, 0}, {2, 0}, {-2, 2}, {0, 2}, {2, 2} }
-    for _, offset in ipairs(offsets) do
+    for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_2PX) do
         gfx.drawTextAligned(text, centerX + offset[1], textY + offset[2], kTextAlignment.center)
     end
 
@@ -423,9 +428,13 @@ function GameplayScene:enter(params)
     UpgradeSystem:reset()
     UpgradeSystem:setEpisode(GameManager.currentEpisodeId or 1)
 
-    -- Create projectile pools
+    -- Create object pools
     self.projectilePool = ProjectilePool(50)
     self.enemyProjectilePool = EnemyProjectilePool(30)
+    self.collectiblePool = CollectiblePool(100)
+
+    -- Point collectibles to pool's active list for backwards compatibility
+    self.collectibles = self.collectiblePool:getActive()
 
     -- Create station
     self.station = Station()
@@ -564,21 +573,9 @@ function GameplayScene:updateMOBs(dt)
 end
 
 function GameplayScene:updateCollectibles(dt)
-    -- Swap-and-pop removal for O(1) performance instead of O(n) table.remove
-    local collectibles = self.collectibles
-    local n = #collectibles
-    local i = 1
-    while i <= n do
-        local collectible = collectibles[i]
-        if collectible.active then
-            collectible:update(dt)
-            i = i + 1
-        else
-            -- Swap with last element and remove
-            collectibles[i] = collectibles[n]
-            collectibles[n] = nil
-            n = n - 1
-        end
+    -- Use pool's update method (handles swap-and-pop and returns to pool)
+    if self.collectiblePool then
+        self.collectiblePool:update(dt)
     end
 
     -- Update salvage drone (if present)
@@ -1339,21 +1336,27 @@ function GameplayScene:drawEquipmentSlots()
             -- Pre-processed icons are already white on black, just draw them
             icon:drawScaled(drawX, drawY, scale)
         else
-            -- Fallback: draw first letter if no icon
-            local boldFont = gfx.getSystemFont(gfx.font.kVariantBold)
+            -- Fallback: draw first letter if no icon (cached for performance)
             local letter = fallbackLetter or "?"
 
-            -- Create letter image
-            local fullW = boldFont:getTextWidth(letter)
-            local fullH = boldFont:getHeight()
-            local letterImg = gfx.image.new(fullW, fullH)
-            gfx.pushContext(letterImg)
-            gfx.setFont(boldFont)
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-            gfx.drawText(letter, 0, 0)
-            gfx.popContext()
+            -- Check cache first
+            local letterImg = letterImageCache[letter]
+            if not letterImg then
+                -- Create and cache letter image
+                local boldFont = gfx.getSystemFont(gfx.font.kVariantBold)
+                local fullW = boldFont:getTextWidth(letter)
+                local fullH = boldFont:getHeight()
+                letterImg = gfx.image.new(fullW, fullH)
+                gfx.pushContext(letterImg)
+                gfx.setFont(boldFont)
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.drawText(letter, 0, 0)
+                gfx.popContext()
+                letterImageCache[letter] = letterImg
+            end
 
             -- Scale to fit slot
+            local fullW, fullH = letterImg:getSize()
             local padding = 4
             local targetSize = slotSize - padding
             local scale = math.min(targetSize / fullW, targetSize / fullH)
@@ -1446,9 +1449,12 @@ end
 function GameplayScene:exit()
     print("Exiting gameplay scene")
 
-    -- Clean up
+    -- Clean up pools
     self.projectilePool:releaseAll()
     self.enemyProjectilePool:releaseAll()
+    if self.collectiblePool then
+        self.collectiblePool:releaseAll()
+    end
     gfx.sprite.removeAll()
 end
 

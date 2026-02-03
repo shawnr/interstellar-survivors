@@ -102,23 +102,28 @@ function Collectible:update(dt)
         return
     end
 
-    -- Calculate distance to station
+    -- Calculate distance to station (use squared for comparisons)
     local dx = Constants.STATION_CENTER_X - self.x
     local dy = Constants.STATION_CENTER_Y - self.y
-    local dist = math.sqrt(dx * dx + dy * dy)
+    local distSq = dx * dx + dy * dy
+    local collectRadiusSq = self.collectRadius * self.collectRadius
+    local pickupRadiusSq = self.pickupRadius * self.pickupRadius
 
     -- Move toward station
-    if dist > 1 then
-        if dist < self.collectRadius then
+    if distSq > 1 then
+        if distSq < collectRadiusSq then
             -- Within collect radius: accelerate toward station
+            local dist = math.sqrt(distSq)  -- Only sqrt when needed
             local speedMult = 1 + (1 - dist / self.collectRadius) * 3
             local currentSpeed = math.min(self.speed * speedMult, self.maxSpeed)
-            self.x = self.x + (dx / dist) * currentSpeed
-            self.y = self.y + (dy / dist) * currentSpeed
+            local invDist = 1 / dist
+            self.x = self.x + dx * invDist * currentSpeed
+            self.y = self.y + dy * invDist * currentSpeed
         elseif self.collectibleType == Collectible.TYPES.RP then
             -- RP collectibles: very slow passive drift toward station
-            self.x = self.x + (dx / dist) * self.passiveDrift
-            self.y = self.y + (dy / dist) * self.passiveDrift
+            local invDist = 1 / math.sqrt(distSq)  -- Only sqrt when needed
+            self.x = self.x + dx * invDist * self.passiveDrift
+            self.y = self.y + dy * invDist * self.passiveDrift
         end
     end
 
@@ -127,7 +132,7 @@ function Collectible:update(dt)
     self:moveTo(self.x, self.y + bob)
 
     -- Check for pickup
-    if dist < self.pickupRadius then
+    if distSq < pickupRadiusSq then
         self:collect(true)
     end
 
@@ -185,6 +190,144 @@ function Collectible:pullToward(targetX, targetY, strength)
         self.x = self.x + (dx / dist) * strength
         self.y = self.y + (dy / dist) * strength
     end
+end
+
+-- Reset collectible for reuse (object pooling)
+function Collectible:reset(x, y, collectibleType, value)
+    -- Properties
+    self.collectibleType = collectibleType or Collectible.TYPES.RP
+    self.value = value or 1
+    self.active = true
+
+    -- Position
+    self.x = x
+    self.y = y
+
+    -- Movement
+    self.speed = 0.5
+    self.maxSpeed = 4
+    self.passiveDrift = 0.08
+
+    -- Apply collect range bonus from research specs
+    local baseCollectRadius = 50
+    local rangeBonus = 0
+    if ResearchSpecSystem then
+        rangeBonus = ResearchSpecSystem:getCollectRangeBonus()
+    end
+    self.collectRadius = baseCollectRadius * (1 + rangeBonus)
+    self.pickupRadius = 20
+
+    -- Animation
+    self.bobOffset = math.random() * math.pi * 2
+    self.bobSpeed = 5
+    self.bobAmount = 2
+
+    -- Lifetime
+    self.lifetime = 15
+    self.age = 0
+
+    -- Update visual
+    self:createVisual()
+
+    -- Position and show
+    self:moveTo(x, y)
+    self:setVisible(true)
+    self:add()
+end
+
+-- Deactivate for pooling
+function Collectible:deactivate()
+    self.active = false
+    self:remove()
+end
+
+
+-- ============================================
+-- Collectible Pool (Object Pooling)
+-- ============================================
+
+class('CollectiblePool').extends()
+
+function CollectiblePool:init(initialSize)
+    self.pool = {}      -- Inactive collectibles
+    self.active = {}    -- Active collectibles
+
+    -- Pre-allocate collectibles
+    initialSize = initialSize or 100
+    for i = 1, initialSize do
+        local c = Collectible(0, 0, Collectible.TYPES.RP, 1)
+        c.active = false
+        c:remove()  -- Remove from sprite system initially
+        table.insert(self.pool, c)
+    end
+
+    print("CollectiblePool initialized with " .. initialSize .. " collectibles")
+end
+
+-- Get a collectible from the pool
+function CollectiblePool:get(x, y, collectibleType, value)
+    local c
+
+    if #self.pool > 0 then
+        -- Reuse from pool
+        c = table.remove(self.pool)
+    else
+        -- Create new if pool empty
+        c = Collectible(0, 0, Collectible.TYPES.RP, 1)
+        c.active = false
+        c:remove()
+        print("CollectiblePool: Created new collectible (pool exhausted)")
+    end
+
+    -- Reset and configure
+    c:reset(x, y, collectibleType, value)
+
+    -- Add to active list
+    table.insert(self.active, c)
+
+    return c
+end
+
+-- Update all active collectibles (swap-and-pop for O(1) removal)
+function CollectiblePool:update(dt)
+    local active = self.active
+    local pool = self.pool
+    local n = #active
+    local i = 1
+
+    while i <= n do
+        local c = active[i]
+        if c.active then
+            c:update(dt)
+            i = i + 1
+        else
+            -- Swap-and-pop: O(1) removal instead of O(n) table.remove
+            active[i] = active[n]
+            active[n] = nil
+            n = n - 1
+            pool[#pool + 1] = c
+        end
+    end
+end
+
+-- Get all active collectibles
+function CollectiblePool:getActive()
+    return self.active
+end
+
+-- Get count of active collectibles
+function CollectiblePool:getActiveCount()
+    return #self.active
+end
+
+-- Release all collectibles
+function CollectiblePool:releaseAll()
+    for i = #self.active, 1, -1 do
+        local c = self.active[i]
+        c:deactivate()
+        table.insert(self.pool, c)
+    end
+    self.active = {}
 end
 
 return Collectible

@@ -8,11 +8,13 @@ DebugOptionsScreen = {
     selectedIndex = 1,
     fromState = nil,
     patternBg = nil,
+    scrollOffset = 0,
 }
 
 function DebugOptionsScreen:init()
     self.isVisible = false
     self.selectedIndex = 1
+    self.scrollOffset = 0
 end
 
 -- Menu items configuration
@@ -30,6 +32,7 @@ DebugOptionsScreen.menuItems = {
 function DebugOptionsScreen:show(fromState)
     self.isVisible = true
     self.selectedIndex = 1
+    self.scrollOffset = 0
     self.fromState = fromState or GameManager.states.SETTINGS
     self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 end
@@ -41,6 +44,12 @@ end
 
 function DebugOptionsScreen:update()
     if not self.isVisible then return end
+
+    -- Layout constants
+    local startY = 48
+    local itemHeight = 24
+    local contentTop = 48
+    local contentBottom = Constants.SCREEN_HEIGHT - 22 - itemHeight  -- Leave room for one item above footer
 
     -- Navigation
     if InputManager.buttonJustPressed.up then
@@ -56,6 +65,15 @@ function DebugOptionsScreen:update()
         end
         if AudioManager then AudioManager:playSFX("menu_select", 0.3) end
     end
+
+    -- Auto-scroll to keep selected item visible
+    local selectedY = startY + (self.selectedIndex - 1) * itemHeight - self.scrollOffset
+    if selectedY < contentTop then
+        self.scrollOffset = self.scrollOffset - (contentTop - selectedY)
+    elseif selectedY > contentBottom then
+        self.scrollOffset = self.scrollOffset + (selectedY - contentBottom)
+    end
+    self.scrollOffset = math.max(0, self.scrollOffset)
 
     -- Handle selected item
     local item = self.menuItems[self.selectedIndex]
@@ -114,53 +132,63 @@ function DebugOptionsScreen:draw()
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
     gfx.drawTextAligned("*DEBUG OPTIONS*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
 
-    -- Draw menu items
+    -- Draw menu items with scrolling
     local startY = 48
     local itemHeight = 24
+    local contentTop = 48
+    local contentBottom = Constants.SCREEN_HEIGHT - 22
+
+    -- Set clip rect to content area (between title and footer)
+    gfx.setClipRect(0, contentTop, Constants.SCREEN_WIDTH, contentBottom - contentTop)
 
     for i, item in ipairs(self.menuItems) do
-        local y = startY + (i - 1) * itemHeight
+        local y = startY + (i - 1) * itemHeight - self.scrollOffset
         local isSelected = (i == self.selectedIndex)
 
-        -- Row background
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20)
+        -- Skip if off-screen
+        if y + 20 >= contentTop and y - 2 < contentBottom then
+            -- Row background
+            gfx.setColor(gfx.kColorWhite)
+            gfx.fillRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20)
 
-        -- Selection indicator or border
-        gfx.setColor(gfx.kColorBlack)
-        if isSelected then
-            gfx.fillRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20, 3)
-        else
-            gfx.drawRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20, 3)
-        end
+            -- Selection indicator or border
+            gfx.setColor(gfx.kColorBlack)
+            if isSelected then
+                gfx.fillRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20, 3)
+            else
+                gfx.drawRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20, 3)
+            end
 
-        -- Set text mode
-        if isSelected then
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        else
+            -- Set text mode
+            if isSelected then
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            else
+                gfx.setImageDrawMode(gfx.kDrawModeCopy)
+            end
+
+            if item.type == "time" then
+                local value = SaveManager:getDebugSetting(item.key, item.min)
+                local timeStr = self:formatTime(value)
+
+                gfx.drawText(item.label, 30, y)
+                gfx.drawTextAligned("< " .. timeStr .. " >", Constants.SCREEN_WIDTH - 30, y, kTextAlignment.right)
+
+            elseif item.type == "toggle" then
+                local value = SaveManager:getDebugSetting(item.key, true)
+                local toggleText = value and "ON" or "OFF"
+
+                gfx.drawText(item.label, 30, y)
+                gfx.drawTextAligned(toggleText, Constants.SCREEN_WIDTH - 30, y, kTextAlignment.right)
+
+            elseif item.type == "action" then
+                gfx.drawTextAligned("*" .. item.label .. "*", Constants.SCREEN_WIDTH / 2, y, kTextAlignment.center)
+            end
+
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
-
-        if item.type == "time" then
-            local value = SaveManager:getDebugSetting(item.key, item.min)
-            local timeStr = self:formatTime(value)
-
-            gfx.drawText(item.label, 30, y)
-            gfx.drawTextAligned("< " .. timeStr .. " >", Constants.SCREEN_WIDTH - 30, y, kTextAlignment.right)
-
-        elseif item.type == "toggle" then
-            local value = SaveManager:getDebugSetting(item.key, true)
-            local toggleText = value and "ON" or "OFF"
-
-            gfx.drawText(item.label, 30, y)
-            gfx.drawTextAligned(toggleText, Constants.SCREEN_WIDTH - 30, y, kTextAlignment.right)
-
-        elseif item.type == "action" then
-            gfx.drawTextAligned("*" .. item.label .. "*", Constants.SCREEN_WIDTH / 2, y, kTextAlignment.center)
-        end
-
-        gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
+
+    gfx.clearClipRect()
 
     -- Instructions bar at bottom
     gfx.setColor(gfx.kColorWhite)

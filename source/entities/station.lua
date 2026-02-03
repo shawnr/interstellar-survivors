@@ -3,6 +3,18 @@
 
 local gfx <const> = playdate.graphics
 
+-- Pre-computed unit circle points for shield arc (performance optimization)
+-- 25 points for 24 segments, representing normalized positions from 0 to 1
+local SHIELD_UNIT_CIRCLE = {}
+local SHIELD_SEGMENTS = 24
+for i = 0, SHIELD_SEGMENTS do
+    local t = i / SHIELD_SEGMENTS  -- 0 to 1
+    SHIELD_UNIT_CIRCLE[i] = {
+        cos = math.cos(t * math.pi),  -- Coverage is typically pi radians (half circle)
+        sin = math.sin(t * math.pi)
+    }
+end
+
 class('Station').extends(Entity)
 
 function Station:init()
@@ -212,6 +224,11 @@ function Station:update()
     -- Apply rotation to sprite
     self:setRotation(self.currentRotation)
 
+    -- Cache trig values for tool position updates (optimization - calculate once, use for all 8 tools)
+    local angle = Utils.degToRad(self.currentRotation)
+    self.cachedCos = math.cos(angle)
+    self.cachedSin = math.sin(angle)
+
     -- Update all attached tools
     for _, tool in ipairs(self.tools) do
         tool:updatePosition(self.currentRotation)
@@ -364,11 +381,11 @@ function Station:takeDamage(amount, attackAngle, damageType)
 
     if healthPercent <= 0.33 and self.damageState ~= 2 then
         self.damageState = 2
-        local img = gfx.image.new("images/shared/station_damaged_2")
+        local img = Utils.getCachedImage("images/shared/station_damaged_2")
         if img then self:setImage(img) end
     elseif healthPercent <= 0.66 and healthPercent > 0.33 and self.damageState ~= 1 then
         self.damageState = 1
-        local img = gfx.image.new("images/shared/station_damaged_1")
+        local img = Utils.getCachedImage("images/shared/station_damaged_1")
         if img then self:setImage(img) end
     end
 
@@ -407,11 +424,11 @@ function Station:heal(amount)
     local healthPercent = self.health / self.maxHealth
     if healthPercent > 0.66 and self.damageState ~= 0 then
         self.damageState = 0
-        local img = gfx.image.new("images/shared/station_base")
+        local img = Utils.getCachedImage("images/shared/station_base")
         if img then self:setImage(img) end
     elseif healthPercent > 0.33 and self.damageState == 2 then
         self.damageState = 1
-        local img = gfx.image.new("images/shared/station_damaged_1")
+        local img = Utils.getCachedImage("images/shared/station_damaged_1")
         if img then self:setImage(img) end
     end
 end
@@ -500,18 +517,25 @@ function Station:drawShield()
     local lineWidth = 1 + math.floor(self.shieldOpacity * 2)  -- 1 to 3
     gfx.setLineWidth(lineWidth)
 
+    -- Pre-calculate all arc points (25 points for 24 segments)
+    -- This reduces conditional trig calculations and allows point reuse
+    local points = {}
+    local stationX, stationY = self.x, self.y
+    for i = 0, segments do
+        local angle = startRad + i * angleStep
+        points[i] = {
+            x = stationX + math.cos(angle) * radius,
+            y = stationY + math.sin(angle) * radius
+        }
+    end
+
+    -- Draw segments with dithering
     for i = 0, segments - 1 do
         -- Dithering: use a pseudo-random pattern based on segment index
-        -- This creates a more scattered appearance as shield regenerates
-        local dither = ((i * 7) % 8) / 8  -- Pseudo-random pattern: 0, 0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125
+        local dither = ((i * 7) % 8) / 8
         if self.shieldOpacity > dither then
-            local a1 = startRad + i * angleStep
-            local a2 = startRad + (i + 1) * angleStep
-            local x1 = self.x + math.cos(a1) * radius
-            local y1 = self.y + math.sin(a1) * radius
-            local x2 = self.x + math.cos(a2) * radius
-            local y2 = self.y + math.sin(a2) * radius
-            gfx.drawLine(x1, y1, x2, y2)
+            local p1, p2 = points[i], points[i + 1]
+            gfx.drawLine(p1.x, p1.y, p2.x, p2.y)
         end
     end
 

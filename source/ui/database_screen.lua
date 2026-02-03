@@ -23,6 +23,8 @@ DatabaseScreen = {
         { id = "bosses", name = "Bosses", total = 5 },
         { id = "episodes", name = "Episodes", total = 5 },
     },
+    categoryScrollOffset = 0,
+    maxVisibleCategories = 5,
 
     -- Gameplay detail scroll
     gameplayScrollOffset = 0,
@@ -53,6 +55,7 @@ function DatabaseScreen:show(fromState)
     self.fromState = fromState or GameManager.states.TITLE
     self.currentState = self.STATE_CATEGORIES
     self.selectedCategory = 1
+    self.categoryScrollOffset = 0
     self.selectedEntry = 1
     self.scrollOffset = 0
     self.inputDelay = 0.2
@@ -98,14 +101,24 @@ function DatabaseScreen:updateCategoryMenu()
         self.selectedCategory = self.selectedCategory - 1
         if self.selectedCategory < 1 then
             self.selectedCategory = #self.categories
+            -- Jump to bottom
+            self.categoryScrollOffset = math.max(0, #self.categories - self.maxVisibleCategories)
         end
         if AudioManager then AudioManager:playSFX("menu_select", 0.3) end
     elseif InputManager.buttonJustPressed.down or InputManager.buttonJustPressed.left then
         self.selectedCategory = self.selectedCategory + 1
         if self.selectedCategory > #self.categories then
             self.selectedCategory = 1
+            self.categoryScrollOffset = 0
         end
         if AudioManager then AudioManager:playSFX("menu_select", 0.3) end
+    end
+
+    -- Adjust scroll to keep selection visible
+    if self.selectedCategory < self.categoryScrollOffset + 1 then
+        self.categoryScrollOffset = self.selectedCategory - 1
+    elseif self.selectedCategory > self.categoryScrollOffset + self.maxVisibleCategories then
+        self.categoryScrollOffset = self.selectedCategory - self.maxVisibleCategories
     end
 
     -- Select category
@@ -473,12 +486,17 @@ function DatabaseScreen:drawCategoryMenu()
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
     gfx.drawTextAligned("*DATABASE*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
 
-    -- Category list
+    -- Category list with scrolling
     local startY = 55
     local itemHeight = 32
 
-    for i, cat in ipairs(self.categories) do
-        local y = startY + (i - 1) * itemHeight
+    local startIdx = self.categoryScrollOffset + 1
+    local endIdx = math.min(startIdx + self.maxVisibleCategories - 1, #self.categories)
+
+    for i = startIdx, endIdx do
+        local cat = self.categories[i]
+        local displayIdx = i - self.categoryScrollOffset
+        local y = startY + (displayIdx - 1) * itemHeight
         local isSelected = (i == self.selectedCategory)
 
         -- Get unlock count
@@ -519,6 +537,17 @@ function DatabaseScreen:drawCategoryMenu()
         gfx.drawTextAligned(countText, Constants.SCREEN_WIDTH - 55, y, kTextAlignment.right)
 
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    end
+
+    -- Scroll indicators
+    if self.categoryScrollOffset > 0 then
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillTriangle(Constants.SCREEN_WIDTH - 25, 50, Constants.SCREEN_WIDTH - 20, 44, Constants.SCREEN_WIDTH - 15, 50)
+    end
+    if self.categoryScrollOffset + self.maxVisibleCategories < #self.categories then
+        local arrowY = startY + self.maxVisibleCategories * itemHeight - 8
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillTriangle(Constants.SCREEN_WIDTH - 25, arrowY, Constants.SCREEN_WIDTH - 20, arrowY + 6, Constants.SCREEN_WIDTH - 15, arrowY)
     end
 
     -- Instructions (bold)
