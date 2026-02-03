@@ -39,7 +39,10 @@ function ToolPlacementScreen:show(toolData, station, callback)
     self.usedSlots = {}
     self.slotIcons = {}
 
-    for _, tool in ipairs(station.tools) do
+    print("ToolPlacementScreen:show - " .. #station.tools .. " existing tools")
+
+    for idx, tool in ipairs(station.tools) do
+        print("  Tool[" .. idx .. "]: slotIndex=" .. tostring(tool.slotIndex) .. ", data=" .. tostring(tool.data ~= nil))
         if tool.slotIndex ~= nil then
             -- Mark slot as used
             self.usedSlots[tool.slotIndex] = true
@@ -52,31 +55,48 @@ function ToolPlacementScreen:show(toolData, station, callback)
             if tool.data then
                 iconPath = tool.data.iconPath or tool.data.imagePath
                 toolId = tool.data.id
+                print("    iconPath from data: " .. tostring(iconPath) .. " (id=" .. tostring(toolId) .. ")")
             end
 
             -- Fallback: try class DATA if instance data missing
             if not iconPath and tool.DATA then
                 iconPath = tool.DATA.iconPath or tool.DATA.imagePath
                 toolId = tool.DATA.id
+                print("    iconPath from DATA: " .. tostring(iconPath))
             end
 
             if iconPath then
                 local filename = iconPath:match("([^/]+)$")
+                local tryPath = "images/icons_on_black/" .. filename
+                print("    Loading: " .. tryPath)
                 -- Try icons_on_black first
-                local icon = gfx.image.new("images/icons_on_black/" .. filename)
+                local icon = gfx.image.new(tryPath)
                 -- Fall back to tools folder
                 if not icon then
+                    print("    Fallback: " .. iconPath)
                     icon = gfx.image.new(iconPath)
                 end
                 self.slotIcons[tool.slotIndex] = icon
 
-                if not icon then
+                if icon then
+                    print("    SUCCESS: icon loaded for slot " .. tool.slotIndex)
+                else
                     print("WARNING: Failed to load icon for slot " .. tool.slotIndex .. " (tool: " .. (toolId or "unknown") .. ")")
                 end
             else
                 print("WARNING: No iconPath for tool in slot " .. tool.slotIndex)
             end
         end
+    end
+
+    -- Debug: print slotIcons contents
+    print("  slotIcons:")
+    for k, v in pairs(self.slotIcons) do
+        print("    [" .. k .. "] = " .. tostring(v))
+    end
+    print("  usedSlots:")
+    for k, v in pairs(self.usedSlots) do
+        print("    [" .. k .. "] = " .. tostring(v))
     end
 
     -- Load the new tool icon (larger version for left panel) with fallback
@@ -290,22 +310,27 @@ function ToolPlacementScreen:draw()
         -- Draw slot
         if isUsed then
             -- Occupied slot with tool icon
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
+            -- Draw black filled circle first (background for the icon)
             gfx.setColor(gfx.kColorBlack)
-            gfx.drawCircleAtPoint(slotX, slotY, drawSize / 2)
+            gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
 
             local icon = self.slotIcons[i]
             if icon then
+                -- Icons are white-on-black, draw on black background
+                gfx.setImageDrawMode(gfx.kDrawModeCopy)
                 local iconW, iconH = icon:getSize()
                 local iconScale = (drawSize - 4) / math.max(iconW, iconH)
                 icon:drawScaled(slotX - iconW * iconScale / 2, slotY - iconH * iconScale / 2, iconScale)
             else
-                -- Fallback: draw "X" if icon failed to load
-                gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-                gfx.drawTextAligned("X", slotX, slotY - 5, kTextAlignment.center)
+                -- Fallback: draw "?" if icon failed to load
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.drawTextAligned("?", slotX, slotY - 5, kTextAlignment.center)
                 gfx.setImageDrawMode(gfx.kDrawModeCopy)
             end
+
+            -- Draw circle outline on top
+            gfx.setColor(gfx.kColorBlack)
+            gfx.drawCircleAtPoint(slotX, slotY, drawSize / 2)
         elseif isAtSelectionPoint then
             -- Selected available slot (at 3 o'clock)
             if self.isConfirming then

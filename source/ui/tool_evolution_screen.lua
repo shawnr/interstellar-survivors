@@ -201,9 +201,15 @@ function ToolEvolutionScreen:draw()
         local scaledW = iconW * iconScale
         local scaledH = iconH * iconScale
 
+        -- Draw black background for white-on-black icon
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(leftX - scaledW/2 - 2, iconY - scaledH/2 - 2, scaledW + 4, scaledH + 4)
+
         -- Fade out original during phase 2+
         if self.phase >= 2 then
             gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        else
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
         self.originalIcon:drawScaled(leftX - scaledW/2, iconY - scaledH/2, iconScale)
     end
@@ -237,6 +243,14 @@ function ToolEvolutionScreen:draw()
             local pulseW = iconW * pulseScale
             local pulseH = iconH * pulseScale
 
+            -- Draw black background for white-on-black icon (slightly larger for pulse room)
+            local maxPulseScale = iconScale * 1.1
+            local maxW = iconW * maxPulseScale
+            local maxH = iconH * maxPulseScale
+            gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(rightX - maxW/2 - 2, iconY - maxH/2 - 2, maxW + 4, maxH + 4)
+
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
             self.evolvedIcon:drawScaled(rightX - pulseW/2, iconY - pulseH/2, pulseScale)
         end
 
