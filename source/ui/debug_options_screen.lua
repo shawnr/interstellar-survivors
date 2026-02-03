@@ -1,5 +1,5 @@
--- Debug Options Screen
--- Allows configuration of debug mode settings
+-- Creative Options Screen
+-- Allows configuration of creative mode settings (unlocks, god mode, etc.)
 
 local gfx <const> = playdate.graphics
 
@@ -21,7 +21,9 @@ end
 DebugOptionsScreen.menuItems = {
     { label = "Episode Length", key = "episodeLength", type = "time", min = 30, max = 420, step = 30 },
     { label = "Wave Length", key = "waveLength", type = "time", min = 5, max = 60, step = 5 },
+    { label = "Difficulty", key = "difficultyMultiplier", type = "multiplier", min = 0.25, max = 3.0, step = 0.25 },
     { label = "Station Invincible", key = "stationInvincible", type = "toggle" },
+    { label = "Tool Placement", key = "toolPlacementEnabled", type = "toggle" },
     { label = "Unlock All Equipment", key = "unlockAllEquipment", type = "toggle" },
     { label = "Unlock All Episodes", key = "unlockAllEpisodes", type = "toggle" },
     { label = "Unlock All Database", key = "unlockAllDatabase", type = "toggle" },
@@ -92,6 +94,24 @@ function DebugOptionsScreen:update()
             SaveManager:flush()
             if AudioManager then AudioManager:playSFX("menu_select", 0.3) end
         end
+    elseif item.type == "multiplier" then
+        local currentValue = SaveManager:getDebugSetting(item.key, 1.0)
+
+        if InputManager.buttonJustPressed.left then
+            currentValue = math.max(item.min, currentValue - item.step)
+            -- Round to avoid floating point issues
+            currentValue = math.floor(currentValue * 100 + 0.5) / 100
+            SaveManager:setDebugSetting(item.key, currentValue)
+            SaveManager:flush()
+            if AudioManager then AudioManager:playSFX("menu_select", 0.3) end
+        elseif InputManager.buttonJustPressed.right then
+            currentValue = math.min(item.max, currentValue + item.step)
+            -- Round to avoid floating point issues
+            currentValue = math.floor(currentValue * 100 + 0.5) / 100
+            SaveManager:setDebugSetting(item.key, currentValue)
+            SaveManager:flush()
+            if AudioManager then AudioManager:playSFX("menu_select", 0.3) end
+        end
     elseif item.type == "toggle" then
         if InputManager.buttonJustPressed.a or InputManager.buttonJustPressed.left or InputManager.buttonJustPressed.right then
             local currentValue = SaveManager:getDebugSetting(item.key, true)
@@ -130,7 +150,7 @@ function DebugOptionsScreen:draw()
     gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
     gfx.setColor(gfx.kColorBlack)
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
-    gfx.drawTextAligned("*DEBUG OPTIONS*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.drawTextAligned("*CREATIVE OPTIONS*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
 
     -- Draw menu items with scrolling
     local startY = 48
@@ -172,6 +192,13 @@ function DebugOptionsScreen:draw()
 
                 gfx.drawText(item.label, 30, y)
                 gfx.drawTextAligned("< " .. timeStr .. " >", Constants.SCREEN_WIDTH - 30, y, kTextAlignment.right)
+
+            elseif item.type == "multiplier" then
+                local value = SaveManager:getDebugSetting(item.key, 1.0)
+                local valueStr = string.format("%.2fx", value)
+
+                gfx.drawText(item.label, 30, y)
+                gfx.drawTextAligned("< " .. valueStr .. " >", Constants.SCREEN_WIDTH - 30, y, kTextAlignment.right)
 
             elseif item.type == "toggle" then
                 local value = SaveManager:getDebugSetting(item.key, true)

@@ -56,8 +56,13 @@ function SalvageDrone:update()
         return
     end
 
+    -- Clear stale target immediately if it's no longer active
+    if self.targetCollectible and not self.targetCollectible.active then
+        self.targetCollectible = nil
+    end
+
     -- Find a target if we don't have one (throttled search - every 5 frames)
-    if not self.targetCollectible or not self.targetCollectible.active then
+    if not self.targetCollectible then
         self.searchCooldown = (self.searchCooldown or 0) - 1
         if self.searchCooldown <= 0 then
             self.targetCollectible = self:findClosestCollectible()
@@ -121,6 +126,9 @@ function SalvageDrone:collectTarget()
     local collectible = self.targetCollectible
     self.targetCollectible = nil
 
+    -- Guard: ensure collectible is still active (may have been collected elsewhere)
+    if not collectible.active then return end
+
     -- Only do special handling for RP collectibles
     if collectible.collectibleType == Collectible.TYPES.RP then
         -- Play collect sound
@@ -151,8 +159,9 @@ function SalvageDrone:collectTarget()
             end
         end
 
-        -- Mark collectible as inactive and remove
+        -- Mark collectible as inactive and remove (consistent with Collectible:collect())
         collectible.active = false
+        collectible:setVisible(false)
         collectible:remove()
     else
         -- For non-RP collectibles (health, etc.), use normal collection

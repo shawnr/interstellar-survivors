@@ -61,7 +61,6 @@ function Tool:init(toolData)
     -- Bonus modifiers (applied by upgrade system)
     self.damageBonus = 0
     self.fireRateBonus = 0
-    self.accuracyBonus = 0
     self.globalDamageBonus = 0
     self.projectileSpeedBonus = 0
     self.rangeBonus = 0
@@ -102,6 +101,12 @@ end
 -- Update method called each frame
 function Tool:update(dt)
     if not self.station then return end
+
+    -- Don't fire if game is paused or leveling up
+    -- (gfx.sprite.update() still calls this even during pause)
+    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
+        return
+    end
 
     dt = dt or (1/30)
 
@@ -175,6 +180,11 @@ function Tool:evolve(toolData)
     if toolData.upgradedImagePath then
         local img = gfx.image.new(toolData.upgradedImagePath)
         if img then self:setImage(img) end
+    end
+
+    -- Update projectile image to evolved version
+    if toolData.upgradedProjectileImage then
+        self.data.projectileImage = toolData.upgradedProjectileImage
     end
 
     -- Recalculate with new base stats

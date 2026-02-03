@@ -65,6 +65,13 @@ function GameplayScene:init()
     self.bossDefeatedImage = nil
     self.bossZoomScale = 1.0
 
+    -- Station destroyed sequence state
+    self.showingStationDestroyed = false
+    self.stationDestroyedTimer = 0
+    self.stationDestroyedAnim = nil
+    self.stationDestroyedFrame = 1
+    self.stationDestroyedFrameTimer = 0
+
     -- Episode statistics tracking
     self.stats = {
         mobKills = {},      -- { mobType = count }
@@ -79,6 +86,9 @@ function GameplayScene:init()
 
     -- Visual pulse effects (expanding rings for tools like Tractor Pulse)
     self.pulseEffects = {}
+
+    -- Lightning arc effects (for Tesla Coil chain lightning)
+    self.lightningArcs = {}
 end
 
 -- Track a mob kill
@@ -352,6 +362,127 @@ function GameplayScene:drawBossDefeated()
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
+-- Start station destroyed sequence
+function GameplayScene:startStationDestroyedSequence()
+    print("Starting station destroyed sequence")
+
+    -- Load the destroyed animation image table
+    self.stationDestroyedAnim = gfx.imagetable.new("images/shared/station_destroyed_anim")
+    if not self.stationDestroyedAnim then
+        print("Warning: Could not load station destroyed animation")
+        -- Fallback to immediate game over
+        if self.station then self.station:remove() end
+        GameManager:endEpisode(false)
+        return
+    end
+
+    -- Store state
+    self.showingStationDestroyed = true
+    self.stationDestroyedTimer = 0
+    self.stationDestroyedFrame = 1
+    self.stationDestroyedFrameTimer = 0
+
+    -- Pause gameplay
+    self.isPaused = true
+
+    -- Hide the station sprite (we'll draw the animation manually)
+    if self.station then
+        self.station:setVisible(false)
+    end
+end
+
+-- Update station destroyed sequence
+function GameplayScene:updateStationDestroyed(dt)
+    self.stationDestroyedTimer = self.stationDestroyedTimer + dt
+
+    -- Animate through frames (4 frames over ~1.5 seconds)
+    local frameCount = self.stationDestroyedAnim:getLength()
+    local frameDuration = 0.35  -- Time per frame
+
+    self.stationDestroyedFrameTimer = self.stationDestroyedFrameTimer + dt
+    if self.stationDestroyedFrameTimer >= frameDuration then
+        self.stationDestroyedFrameTimer = 0
+        if self.stationDestroyedFrame < frameCount then
+            self.stationDestroyedFrame = self.stationDestroyedFrame + 1
+        end
+    end
+
+    -- Check for button press to skip (after animation plays through once, ~1.4 seconds)
+    if self.stationDestroyedTimer > 1.4 then
+        if playdate.buttonJustPressed(playdate.kButtonA) or
+           playdate.buttonJustPressed(playdate.kButtonB) then
+            self:endStationDestroyedSequence()
+            return
+        end
+    end
+
+    -- Auto-advance after 5 seconds
+    if self.stationDestroyedTimer >= 5.0 then
+        self:endStationDestroyedSequence()
+    end
+end
+
+-- End station destroyed sequence and go to game over
+function GameplayScene:endStationDestroyedSequence()
+    print("Station destroyed sequence complete - proceeding to game over")
+    self.showingStationDestroyed = false
+    self.isPaused = false
+
+    -- Now remove the station
+    if self.station then
+        self.station:remove()
+    end
+
+    GameManager:endEpisode(false)
+end
+
+-- Draw station destroyed sequence
+function GameplayScene:drawStationDestroyed()
+    if not self.showingStationDestroyed then return end
+
+    local centerX = Constants.SCREEN_WIDTH / 2
+    local centerY = Constants.SCREEN_HEIGHT / 2
+
+    -- Draw darkened background overlay
+    gfx.setColor(gfx.kColorBlack)
+    gfx.setDitherPattern(0.5)
+    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+    gfx.setDitherPattern(0)
+
+    -- Draw the animation frame at station position
+    if self.stationDestroyedAnim then
+        local frame = self.stationDestroyedAnim:getImage(self.stationDestroyedFrame)
+        if frame then
+            local imgW, imgH = frame:getSize()
+            -- Draw at station center position
+            frame:draw(Constants.STATION_CENTER_X - imgW / 2, Constants.STATION_CENTER_Y - imgH / 2)
+        end
+    end
+
+    -- Draw "STATION DESTROYED" text
+    local text = "*STATION DESTROYED*"
+    local textY = centerY + 60
+
+    -- Draw black stroke
+    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_2PX) do
+        gfx.drawTextAligned(text, centerX + offset[1], textY + offset[2], kTextAlignment.center)
+    end
+
+    -- Draw white text
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned(text, centerX, textY, kTextAlignment.center)
+
+    -- Draw "Press A to continue" hint after animation completes
+    if self.stationDestroyedTimer > 1.4 then
+        local hintText = "Press A to continue"
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawTextAligned(hintText, centerX, textY + 25, kTextAlignment.center)
+    end
+
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+end
+
 function GameplayScene:enter(params)
     -- Stop title/menu music when starting gameplay
     if AudioManager then
@@ -371,6 +502,7 @@ function GameplayScene:enter(params)
     self.collectibles = {}
     self.messages = {}
     self.pulseEffects = {}
+    self.lightningArcs = {}
     self.boss = nil
     self.bossSpawned = false
     self.salvageDrone = nil
@@ -408,6 +540,13 @@ function GameplayScene:enter(params)
     self.defeatedBossName = ""
     self.bossDefeatedImage = nil
     self.bossZoomScale = 1.0
+
+    -- Reset station destroyed state
+    self.showingStationDestroyed = false
+    self.stationDestroyedTimer = 0
+    self.stationDestroyedAnim = nil
+    self.stationDestroyedFrame = 1
+    self.stationDestroyedFrameTimer = 0
 
     -- Reset crank indicator state (will be activated after mission intro if needed)
     self.showCrankIndicator = false
@@ -494,6 +633,10 @@ end
 function GameplayScene:update()
     local dt = 1/30
 
+    -- Increment projectile frame counter to prevent double updates
+    -- (projectiles are updated by both pool and sprite system)
+    Projectile.incrementFrameCounter()
+
     -- Update mission intro overlay
     if self.showingMissionIntro then
         self:updateMissionIntro(dt)
@@ -506,9 +649,27 @@ function GameplayScene:update()
         return
     end
 
+    -- Update station destroyed sequence
+    if self.showingStationDestroyed then
+        self:updateStationDestroyed(dt)
+        return
+    end
+
     -- Update upgrade selection UI if visible (before early return)
     if self.isLevelingUp and UpgradeSelection.isVisible then
         UpgradeSelection:update()
+        return
+    end
+
+    -- Update tool placement UI if visible (before early return)
+    if self.isLevelingUp and ToolPlacementScreen.isVisible then
+        ToolPlacementScreen:update()
+        return
+    end
+
+    -- Update tool evolution screen if visible
+    if self.isLevelingUp and ToolEvolutionScreen.isVisible then
+        ToolEvolutionScreen:update()
         return
     end
 
@@ -539,6 +700,9 @@ function GameplayScene:update()
 
     -- Update visual pulse effects
     self:updatePulseEffects(dt)
+
+    -- Update lightning arc effects
+    self:updateLightningArcs(dt)
 
     -- Spawn new MOBs
     self:updateSpawning(dt)
@@ -943,12 +1107,20 @@ function GameplayScene:checkCollisions()
     local projectiles = self.projectilePool:getActive()
 
     for _, proj in ipairs(projectiles) do
-        if proj.active then
+        -- Skip projectiles that haven't moved yet (just spawned this frame)
+        -- This prevents instant collision with mobs near the firing tool
+        if proj.active and (proj.framesAlive or 0) >= 1 then
             for _, mob in ipairs(self.mobs) do
                 if mob.active then
+                    -- Use MOB radius + projectile radius (6) + small speed bonus
+                    -- The speed bonus helps fast projectiles hit targets without tunneling
+                    local mobRadius = mob.cachedRadius or 8
+                    local projSpeed = proj.speed or 8
+                    local collisionDist = mobRadius + 6 + (projSpeed * 0.25)
+                    local collisionDistSq = collisionDist * collisionDist
+
                     -- Simple distance check (squared to avoid sqrt)
                     local distSq = Utils.distanceSquared(proj.x, proj.y, mob.x, mob.y)
-                    local collisionDistSq = 144  -- 12² = 144
 
                     if distSq < collisionDistSq then
                         -- For tick-based projectiles (like orbital), check if damage can be applied
@@ -1016,9 +1188,12 @@ function GameplayScene:checkCollisions()
 end
 
 function GameplayScene:checkGameConditions()
-    -- Check for game over
-    if self.station.health <= 0 then
-        GameManager:endEpisode(false)
+    -- Check for game over (station destroyed sequence is triggered by Station:onDestroyed)
+    -- This is a safety fallback in case the sequence wasn't triggered
+    if self.station.health <= 0 and not self.showingStationDestroyed then
+        -- Station should have triggered the sequence, but if not, trigger it now
+        self:startStationDestroyedSequence()
+        return
     end
 
     -- Check for boss spawn (use episode length set during enter)
@@ -1145,6 +1320,94 @@ function GameplayScene:drawPulseEffects()
     end
 end
 
+-- Create a lightning arc visual effect (for chain lightning)
+function GameplayScene:createLightningArc(x1, y1, x2, y2)
+    table.insert(self.lightningArcs, {
+        x1 = x1,
+        y1 = y1,
+        x2 = x2,
+        y2 = y2,
+        duration = 0.15,  -- Short flash
+        elapsed = 0,
+        segments = self:generateLightningSegments(x1, y1, x2, y2)
+    })
+end
+
+-- Generate zigzag lightning segments between two points
+function GameplayScene:generateLightningSegments(x1, y1, x2, y2)
+    local segments = {}
+    local dx = x2 - x1
+    local dy = y2 - y1
+    local dist = math.sqrt(dx * dx + dy * dy)
+
+    -- Number of segments based on distance
+    local numSegments = math.max(3, math.floor(dist / 15))
+
+    -- Perpendicular vector for offsets
+    local perpX = -dy / dist
+    local perpY = dx / dist
+
+    local prevX, prevY = x1, y1
+    for i = 1, numSegments do
+        local t = i / numSegments
+        local baseX = x1 + dx * t
+        local baseY = y1 + dy * t
+
+        -- Add random perpendicular offset (except for endpoints)
+        local offset = 0
+        if i < numSegments then
+            offset = (math.random() - 0.5) * 16  -- Random offset up to 8 pixels
+        end
+
+        local pointX = baseX + perpX * offset
+        local pointY = baseY + perpY * offset
+
+        table.insert(segments, {
+            x1 = prevX, y1 = prevY,
+            x2 = pointX, y2 = pointY
+        })
+
+        prevX, prevY = pointX, pointY
+    end
+
+    return segments
+end
+
+-- Update lightning arcs
+function GameplayScene:updateLightningArcs(dt)
+    for i = #self.lightningArcs, 1, -1 do
+        local arc = self.lightningArcs[i]
+        arc.elapsed = arc.elapsed + dt
+
+        if arc.elapsed >= arc.duration then
+            table.remove(self.lightningArcs, i)
+        end
+    end
+end
+
+-- Draw lightning arcs
+function GameplayScene:drawLightningArcs()
+    gfx.setColor(gfx.kColorWhite)
+    gfx.setLineWidth(2)
+
+    for _, arc in ipairs(self.lightningArcs) do
+        -- Fade out over duration
+        local alpha = 1 - (arc.elapsed / arc.duration)
+
+        -- Draw each segment of the lightning
+        for _, seg in ipairs(arc.segments) do
+            gfx.drawLine(seg.x1, seg.y1, seg.x2, seg.y2)
+        end
+
+        -- Draw a second pass with slight offset for thickness
+        for _, seg in ipairs(arc.segments) do
+            gfx.drawLine(seg.x1 + 1, seg.y1, seg.x2 + 1, seg.y2)
+        end
+    end
+
+    gfx.setLineWidth(1)
+end
+
 -- Draw background (called before sprite.update)
 function GameplayScene:drawBackground()
     -- Background is now a sprite, so nothing to do here
@@ -1165,6 +1428,9 @@ function GameplayScene:drawOverlay()
     -- Draw pulse effects (expanding rings for tools like Tractor Pulse)
     self:drawPulseEffects()
 
+    -- Draw lightning arc effects (for Tesla Coil chain lightning)
+    self:drawLightningArcs()
+
     -- Draw shield effect (before HUD so it's behind UI elements)
     self.station:drawShield()
 
@@ -1179,6 +1445,16 @@ function GameplayScene:drawOverlay()
         UpgradeSelection:draw()
     end
 
+    -- Draw tool placement UI if visible (drawn on top of upgrade selection)
+    if self.isLevelingUp and ToolPlacementScreen.isVisible then
+        ToolPlacementScreen:draw()
+    end
+
+    -- Draw tool evolution screen if visible (on top of everything)
+    if self.isLevelingUp and ToolEvolutionScreen.isVisible then
+        ToolEvolutionScreen:draw()
+    end
+
     -- Draw mission intro overlay (on top of everything)
     if self.showingMissionIntro then
         self:drawMissionIntro()
@@ -1187,6 +1463,11 @@ function GameplayScene:drawOverlay()
     -- Draw boss defeat celebration (on top of everything)
     if self.showingBossDefeated then
         self:drawBossDefeated()
+    end
+
+    -- Draw station destroyed sequence (on top of everything)
+    if self.showingStationDestroyed then
+        self:drawStationDestroyed()
     end
 
     -- Draw crank indicator if crank is docked (on top of everything)
@@ -1405,6 +1686,21 @@ function GameplayScene:onLevelUp()
     -- Always play level up sound
     AudioManager:playSFX("level_up")
 
+    -- Level up HP bonus: restore 5% HP if damaged, or increase max HP by 5% if full
+    if self.station then
+        local hpBonus = math.floor(self.station.maxHealth * 0.05)
+        if self.station.health < self.station.maxHealth then
+            -- Restore HP (up to max)
+            self.station.health = math.min(self.station.health + hpBonus, self.station.maxHealth)
+            print("Level up: Restored " .. hpBonus .. " HP")
+        else
+            -- Increase max HP (and current HP)
+            self.station.maxHealth = self.station.maxHealth + hpBonus
+            self.station.health = self.station.health + hpBonus
+            print("Level up: Increased max HP by " .. hpBonus)
+        end
+    end
+
     -- Get upgrade options from the upgrade system
     local toolOptions, bonusOptions = UpgradeSystem:getUpgradeOptions(self.station)
 
@@ -1429,21 +1725,67 @@ function GameplayScene:onUpgradeSelected(selectionType, selectionData)
     print("Selected " .. selectionType .. ": " .. (selectionData.name or "unknown"))
 
     if selectionType == "tool" then
-        UpgradeSystem:applyToolSelection(selectionData, self.station)
-        -- Track tool for episode stats
-        if selectionData.id then
-            self:trackToolObtained(selectionData.id)
+        -- Check if tool placement is enabled and this is a NEW tool
+        local toolPlacementEnabled = SaveManager and SaveManager:getDebugSetting("toolPlacementEnabled", true)
+
+        -- Debug logging
+        print("Tool Placement Check: toolPlacementEnabled=" .. tostring(toolPlacementEnabled) ..
+              ", isNew=" .. tostring(selectionData.isNew))
+
+        if toolPlacementEnabled and selectionData.isNew then
+            -- Show tool placement interface
+            ToolPlacementScreen:show(selectionData, self.station, function(slotIndex)
+                -- Callback when slot is selected
+                local success, evolutionInfo = UpgradeSystem:applyToolSelection(selectionData, self.station, slotIndex)
+                -- Track tool for episode stats
+                if selectionData.id then
+                    self:trackToolObtained(selectionData.id)
+                end
+                -- Check for evolution
+                if evolutionInfo and evolutionInfo.evolved then
+                    self:showToolEvolution(evolutionInfo)
+                else
+                    -- Resume gameplay
+                    self.isLevelingUp = false
+                end
+            end)
+        else
+            -- Normal flow: auto-place tool
+            local success, evolutionInfo = UpgradeSystem:applyToolSelection(selectionData, self.station)
+            -- Track tool for episode stats
+            if selectionData.id then
+                self:trackToolObtained(selectionData.id)
+            end
+            -- Check for evolution
+            if evolutionInfo and evolutionInfo.evolved then
+                self:showToolEvolution(evolutionInfo)
+            else
+                -- Resume gameplay
+                self.isLevelingUp = false
+            end
         end
     else
-        UpgradeSystem:applyBonusSelection(selectionData, self.station)
+        local success, evolutionInfo = UpgradeSystem:applyBonusSelection(selectionData, self.station)
         -- Track bonus item for episode stats
         if selectionData.id then
             self:trackItemObtained(selectionData.id)
         end
+        -- Check for evolution
+        if evolutionInfo and evolutionInfo.evolved then
+            self:showToolEvolution(evolutionInfo)
+        else
+            -- Resume gameplay
+            self.isLevelingUp = false
+        end
     end
+end
 
-    -- Resume gameplay
-    self.isLevelingUp = false
+-- Show tool evolution screen
+function GameplayScene:showToolEvolution(evolutionInfo)
+    ToolEvolutionScreen:show(evolutionInfo.originalData, evolutionInfo.evolvedData, function()
+        -- Resume gameplay after evolution screen
+        self.isLevelingUp = false
+    end)
 end
 
 function GameplayScene:exit()

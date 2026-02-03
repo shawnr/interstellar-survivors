@@ -379,11 +379,11 @@ function Station:takeDamage(amount, attackAngle, damageType)
     -- Update damage visual state
     local healthPercent = self.health / self.maxHealth
 
-    if healthPercent <= 0.33 and self.damageState ~= 2 then
+    if healthPercent <= 0.50 and self.damageState ~= 2 then
         self.damageState = 2
         local img = Utils.getCachedImage("images/shared/station_damaged_2")
         if img then self:setImage(img) end
-    elseif healthPercent <= 0.66 and healthPercent > 0.33 and self.damageState ~= 1 then
+    elseif healthPercent <= 0.75 and healthPercent > 0.50 and self.damageState ~= 1 then
         self.damageState = 1
         local img = Utils.getCachedImage("images/shared/station_damaged_1")
         if img then self:setImage(img) end
@@ -407,12 +407,15 @@ function Station:onDestroyed()
         AudioManager:playSFX("station_destroyed", 1.0)
     end
 
-    -- Remove station from sprite system
-    self:remove()
-
-    -- Trigger game over
-    if GameManager then
-        GameManager:endEpisode(false)
+    -- Trigger destruction sequence in gameplay scene (don't remove yet - animation handles that)
+    if GameplayScene and GameplayScene.startStationDestroyedSequence then
+        GameplayScene:startStationDestroyedSequence()
+    else
+        -- Fallback: immediate game over if scene method not available
+        self:remove()
+        if GameManager then
+            GameManager:endEpisode(false)
+        end
     end
 end
 
@@ -422,11 +425,11 @@ function Station:heal(amount)
 
     -- Update visual state if healed enough
     local healthPercent = self.health / self.maxHealth
-    if healthPercent > 0.66 and self.damageState ~= 0 then
+    if healthPercent > 0.75 and self.damageState ~= 0 then
         self.damageState = 0
         local img = Utils.getCachedImage("images/shared/station_base")
         if img then self:setImage(img) end
-    elseif healthPercent > 0.33 and self.damageState == 2 then
+    elseif healthPercent > 0.50 and self.damageState == 2 then
         self.damageState = 1
         local img = Utils.getCachedImage("images/shared/station_damaged_1")
         if img then self:setImage(img) end

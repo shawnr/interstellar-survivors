@@ -23,6 +23,7 @@ ThermalLance.DATA = {
     pairsWithBonus = "cooling_vents",
     upgradedName = "Plasma Cutter",
     upgradedImagePath = "images/tools/tool_plasma_cutter",
+    upgradedProjectileImage = "images/tools/tool_plasma_cutter_beam",
     upgradedDamage = 12,
 }
 

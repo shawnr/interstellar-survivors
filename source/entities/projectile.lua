@@ -20,6 +20,13 @@ function Projectile:init()
     self.dx = 0
     self.dy = 0
 
+    -- Track frame updates to prevent double-updating
+    -- (once by pool, once by sprite system)
+    self.lastUpdateFrame = -1
+
+    -- Track frames since spawn for collision grace period
+    self.framesAlive = 0
+
     -- Set center point FIRST
     self:setCenter(0.5, 0.5)
 
@@ -42,6 +49,12 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
     self.hitCount = 0
     self.maxHits = self.piercing and 2 or 1
     self.active = true
+
+    -- Reset frame tracking for recycled projectiles
+    self.lastUpdateFrame = -1
+
+    -- Reset frames alive counter (for collision grace period)
+    self.framesAlive = 0
 
     -- Parse options
     options = options or {}
@@ -77,13 +90,30 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
     self:add()
 end
 
+-- Global frame counter to prevent double updates
+-- (projectiles get updated by both projectilePool:update() AND gfx.sprite.update())
+Projectile.frameCounter = 0
+
+function Projectile.incrementFrameCounter()
+    Projectile.frameCounter = Projectile.frameCounter + 1
+end
+
 function Projectile:update()
     if not self.active then return end
+
+    -- Prevent double updates in the same frame
+    if self.lastUpdateFrame == Projectile.frameCounter then
+        return
+    end
+    self.lastUpdateFrame = Projectile.frameCounter
 
     -- Don't update if game is paused/leveling up
     if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
         return
     end
+
+    -- Track frames alive for collision grace period
+    self.framesAlive = self.framesAlive + 1
 
     -- Move in direction
     self.x = self.x + self.dx * self.speed
@@ -150,7 +180,11 @@ function ProjectilePool:get(x, y, angle, speed, damage, imagePath, piercing, opt
     else
         -- Create new if pool empty
         proj = Projectile()
-        print("ProjectilePool: Created new projectile (pool exhausted)")
+        -- Only print warning occasionally to avoid log spam
+        self.exhaustedCount = (self.exhaustedCount or 0) + 1
+        if self.exhaustedCount <= 5 or self.exhaustedCount % 50 == 0 then
+            print("ProjectilePool: Created new projectile (pool exhausted, count: " .. self.exhaustedCount .. ")")
+        end
     end
 
     -- Reset and configure
@@ -240,6 +274,9 @@ function EnemyProjectile:init()
     self.dx = 0
     self.dy = 0
 
+    -- Track frame updates to prevent double-updating
+    self.lastUpdateFrame = -1
+
     -- Set center point
     self:setCenter(0.5, 0.5)
 
@@ -258,6 +295,9 @@ function EnemyProjectile:reset(x, y, angle, speed, damage, imagePath, effect)
     self.damage = damage or 1
     self.effect = effect
     self.active = true
+
+    -- Reset frame tracking for recycled projectiles
+    self.lastUpdateFrame = -1
 
     -- Calculate direction
     self.dx, self.dy = Utils.angleToVector(angle)
@@ -280,6 +320,13 @@ end
 
 function EnemyProjectile:update()
     if not self.active then return end
+
+    -- Prevent double updates in the same frame
+    -- (uses same frame counter as player Projectile)
+    if self.lastUpdateFrame == Projectile.frameCounter then
+        return
+    end
+    self.lastUpdateFrame = Projectile.frameCounter
 
     -- Don't update if game is paused
     if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then

@@ -176,7 +176,8 @@ function Collectible:collect(applyEffect)
         end
     end
 
-    -- Remove sprite
+    -- Ensure visibility is off and remove sprite
+    self:setVisible(false)
     self:remove()
 end
 
@@ -238,6 +239,7 @@ end
 -- Deactivate for pooling
 function Collectible:deactivate()
     self.active = false
+    self:setVisible(false)
     self:remove()
 end
 
@@ -257,6 +259,7 @@ function CollectiblePool:init(initialSize)
     for i = 1, initialSize do
         local c = Collectible(0, 0, Collectible.TYPES.RP, 1)
         c.active = false
+        c:setVisible(false)  -- Ensure hidden
         c:remove()  -- Remove from sprite system initially
         table.insert(self.pool, c)
     end
@@ -275,6 +278,7 @@ function CollectiblePool:get(x, y, collectibleType, value)
         -- Create new if pool empty
         c = Collectible(0, 0, Collectible.TYPES.RP, 1)
         c.active = false
+        c:setVisible(false)
         c:remove()
         print("CollectiblePool: Created new collectible (pool exhausted)")
     end

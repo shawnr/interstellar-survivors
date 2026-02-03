@@ -9,6 +9,7 @@ RailDriver.DATA = {
     name = "Rail Driver",
     description = "Kinetic launcher for breaking asteroids",
     imagePath = "images/tools/tool_rail_driver",
+    iconPath = "images/tools/tool_rail_driver",
     projectileImage = "images/tools/tool_rail_driver_projectile",
 
     -- Base stats
@@ -22,6 +23,7 @@ RailDriver.DATA = {
     pairsWithBonus = "alloy_gears",
     upgradedName = "Rail Cannon",
     upgradedImagePath = "images/tools/tool_rail_cannon",
+    upgradedProjectileImage = "images/tools/tool_rail_cannon_projectile",
     upgradedDamage = 8,
     upgradedSpeed = 12,
     piercing = true,       -- Upgraded version pierces through first target
@@ -34,33 +36,20 @@ function RailDriver:init()
     self.piercing = false
 end
 
-function RailDriver:fire()
-    -- Get firing angle from station
-    local firingAngle = self.station:getSlotFiringAngle(self.slotIndex)
-
-    -- Get firing position
-    local offsetDist = 12
-    local dx, dy = Utils.angleToVector(firingAngle)
-    local fireX = self.x + dx * offsetDist
-    local fireY = self.y + dy * offsetDist
-
-    -- Create projectile
-    self:createProjectile(fireX, fireY, firingAngle)
-
-    -- Play sound
-    -- TODO: AudioManager:playSFX("tool_rail_driver")
-end
-
+-- RailDriver uses the base Tool:fire() method
+-- Override createProjectile to pass the piercing parameter
 function RailDriver:createProjectile(x, y, angle)
-    if GameplayScene and GameplayScene.createProjectile then
-        local projectile = GameplayScene:createProjectile(
+    if GameplayScene and GameplayScene.projectilePool then
+        local projectile = GameplayScene.projectilePool:get(
             x, y, angle,
-            self.projectileSpeed,
+            self.projectileSpeed * (1 + (self.projectileSpeedBonus or 0)),
             self.damage,
-            self.data.projectileImage,
+            self.data.projectileImage or "images/tools/tool_rail_driver_projectile",
             self.piercing
         )
         return projectile
+    else
+        print("ERROR: RailDriver:createProjectile - projectilePool not available!")
     end
 end
 

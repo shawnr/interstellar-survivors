@@ -20,6 +20,7 @@ MicroMissilePod.DATA = {
     pairsWithBonus = "guidance_module",
     upgradedName = "Swarm Launcher",
     upgradedImagePath = "images/tools/tool_micro_missile_pod",
+    upgradedProjectileImage = "images/tools/tool_swarm_missile",
     upgradedDamage = 8,
 }
 

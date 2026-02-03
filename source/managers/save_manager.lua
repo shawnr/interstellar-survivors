@@ -23,6 +23,8 @@ SaveManager = {
             unlockAllEpisodes = true,   -- All episodes selectable
             unlockAllDatabase = true,   -- All database entries visible
             unlockAllResearchSpecs = true,  -- All research specs available
+            difficultyMultiplier = 1.0, -- Multiplier for MOB/BOSS health and damage
+            toolPlacementEnabled = true, -- Manual tool placement on level-up
         },
         -- Database unlocks (discovered items)
         databaseUnlocks = {
@@ -89,6 +91,8 @@ function SaveManager:loadGameData()
             self.gameData.debugSettings.unlockAllEpisodes = data.debugSettings.unlockAllEpisodes ~= false
             self.gameData.debugSettings.unlockAllDatabase = data.debugSettings.unlockAllDatabase ~= false
             self.gameData.debugSettings.unlockAllResearchSpecs = data.debugSettings.unlockAllResearchSpecs ~= false
+            self.gameData.debugSettings.difficultyMultiplier = data.debugSettings.difficultyMultiplier or 1.0
+            self.gameData.debugSettings.toolPlacementEnabled = data.debugSettings.toolPlacementEnabled ~= false
         end
 
         -- Load database unlocks
@@ -397,6 +401,8 @@ function SaveManager:resetAllData()
             unlockAllEpisodes = true,
             unlockAllDatabase = true,
             unlockAllResearchSpecs = true,
+            difficultyMultiplier = 1.0,
+            toolPlacementEnabled = true,
         },
         databaseUnlocks = {
             tools = {},

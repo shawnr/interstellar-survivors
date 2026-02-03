@@ -255,7 +255,8 @@ function UpgradeSystem:getUpgradeOptions(station)
 end
 
 -- Apply a tool selection
-function UpgradeSystem:applyToolSelection(toolData, station)
+-- slotIndex: optional slot to place the tool (for manual placement)
+function UpgradeSystem:applyToolSelection(toolData, station, slotIndex)
     if toolData.isNew then
         -- Attach new tool
         local toolClass = self:getToolClass(toolData.originalData.id)
@@ -263,7 +264,7 @@ function UpgradeSystem:applyToolSelection(toolData, station)
             local newTool = toolClass()
             newTool.level = 1
             self.toolLevels[toolData.id] = 1
-            station:attachTool(newTool)
+            station:attachTool(newTool, slotIndex)
 
             -- Track acquisition order
             table.insert(self.equipmentOrder, {type = "tool", id = toolData.id})
@@ -289,14 +290,20 @@ function UpgradeSystem:applyToolSelection(toolData, station)
                 if tool.level >= MAX_LEVEL and toolData.originalData.pairsWithBonus then
                     if self.ownedBonusItems[toolData.originalData.pairsWithBonus] then
                         tool:evolve(toolData.originalData)
+                        -- Return evolution info
+                        return true, {
+                            evolved = true,
+                            originalData = toolData.originalData,
+                            evolvedData = toolData.originalData
+                        }
                     end
                 end
 
-                return true
+                return true, nil
             end
         end
     end
-    return false
+    return false, nil
 end
 
 -- Apply a bonus item selection
@@ -325,17 +332,23 @@ function UpgradeSystem:applyBonusSelection(bonusData, station)
     self:applyBonusEffect(actualBonusData, station, newLevel)
 
     -- Check if this bonus pairs with any equipped tool for evolution
+    local evolutionInfo = nil
     if newLevel >= MAX_LEVEL and actualBonusData.pairsWithTool then
         for _, tool in ipairs(station.tools) do
             if tool.data.id == actualBonusData.pairsWithTool and tool.level >= MAX_LEVEL and not tool.isEvolved then
                 tool:evolve(tool.data)
                 print("Tool evolved: " .. tool.data.id)
+                evolutionInfo = {
+                    evolved = true,
+                    originalData = tool.data,
+                    evolvedData = tool.data
+                }
             end
         end
     end
 
     print("Applied bonus item: " .. actualBonusData.name .. " (Lv" .. newLevel .. ")")
-    return true
+    return true, evolutionInfo
 end
 
 -- Apply bonus item effect to station/tools (with level scaling)
@@ -377,13 +390,6 @@ function UpgradeSystem:applyBonusEffect(bonusData, station, level)
 
     elseif effect == "health_regen" then
         station.healthRegen = (station.healthRegen or 0) + applyValue
-
-    elseif effect == "accuracy" then
-        -- Apply to all tools
-        for _, tool in ipairs(station.tools) do
-            tool.accuracyBonus = (tool.accuracyBonus or 0) + applyValue
-        end
-        station.globalAccuracyBonus = (station.globalAccuracyBonus or 0) + applyValue
 
     elseif effect == "ram_resistance" then
         station.ramResistance = (station.ramResistance or 0) + applyValue
@@ -440,22 +446,6 @@ function UpgradeSystem:applyBonusEffect(bonusData, station, level)
     elseif effect == "homing_accuracy" then
         -- Apply to mapping drone's homing accuracy
         self:applyToolBonus(station, "modified_mapping_drone", "homingAccuracyBonus", applyValue)
-
-    elseif effect == "brain_buddy" then
-        -- BrainBuddy: Combined accuracy + fire rate bonus
-        -- Apply accuracy to all tools
-        for _, tool in ipairs(station.tools) do
-            tool.accuracyBonus = (tool.accuracyBonus or 0) + applyValue
-        end
-        station.globalAccuracyBonus = (station.globalAccuracyBonus or 0) + applyValue
-
-        -- Also apply 10% fire rate bonus (2/3 of the accuracy value)
-        local fireRateBonus = applyValue * 0.67
-        for _, tool in ipairs(station.tools) do
-            tool.fireRateBonus = (tool.fireRateBonus or 0) + fireRateBonus
-            tool:recalculateStats()
-        end
-        station.globalFireRateBonus = (station.globalFireRateBonus or 0) + fireRateBonus
 
     -- New tool-pairing effects
     elseif effect == "orbital_range" then

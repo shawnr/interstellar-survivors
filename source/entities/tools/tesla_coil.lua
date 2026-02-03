@@ -1,6 +1,8 @@
 -- Tesla Coil Tool
 -- Lightning that chains to multiple enemies
 
+local gfx <const> = playdate.graphics
+
 class('TeslaCoil').extends(Tool)
 
 TeslaCoil.DATA = {
@@ -13,21 +15,22 @@ TeslaCoil.DATA = {
 
     baseDamage = 8,
     fireRate = 0.8,
-    projectileSpeed = 20,
+    projectileSpeed = 18,
     pattern = "chain",
     damageType = "electric",
 
     pairsWithBonus = "arc_capacitors",
     upgradedName = "Storm Generator",
     upgradedImagePath = "images/tools/tool_tesla_coil",
+    upgradedProjectileImage = "images/tools/tool_storm_bolt",
     upgradedDamage = 16,
 }
 
 function TeslaCoil:init()
     TeslaCoil.super.init(self, TeslaCoil.DATA)
-    self.chainTargets = 2
-    self.extraChainTargets = 0
-    self.chainRange = 60  -- Max distance to chain
+    self.chainTargets = 2  -- Base chains (hits initial + 2 more)
+    self.extraChainTargets = 0  -- From arc capacitors
+    self.chainRange = 70  -- Max distance to chain
 end
 
 function TeslaCoil:fire()
@@ -37,24 +40,24 @@ function TeslaCoil:fire()
     local fireX = self.x + dx * offsetDist
     local fireY = self.y + dy * offsetDist
 
-    -- Find nearest enemy in firing direction
+    -- Find nearest enemy
     local target = self:findNearestEnemy(fireX, fireY, firingAngle)
 
     if target then
-        -- Fire at the target
+        -- Fire lightning directly at target
         local targetAngle = Utils.vectorToAngle(target.x - fireX, target.y - fireY)
-        local proj = self:createChainProjectile(fireX, fireY, targetAngle, target)
+        self:createChainProjectile(fireX, fireY, targetAngle, target)
     else
-        -- Fire in default direction
+        -- No target - fire in default direction
         self:createProjectile(fireX, fireY, firingAngle)
     end
 end
 
--- Override createProjectile to use inverted lightning bolt with correct rotation
+-- Override createProjectile to use lightning bolt with correct rotation
 function TeslaCoil:createProjectile(x, y, angle)
     if GameplayScene and GameplayScene.projectilePool then
-        -- Lightning bolt options: inverted (white on dark), rotation offset 0 (sprite faces UP)
-        local lightningOptions = { inverted = true, rotationOffset = 0 }
+        -- Lightning bolt sprite faces RIGHT, use default -90 offset
+        local lightningOptions = { inverted = true, rotationOffset = -90 }
         local projectile = GameplayScene.projectilePool:get(
             x, y, angle,
             self.projectileSpeed * (1 + self.projectileSpeedBonus),
@@ -73,7 +76,7 @@ function TeslaCoil:findNearestEnemy(fromX, fromY, preferredAngle)
     end
 
     local nearest = nil
-    local nearestDist = 200  -- Max targeting range
+    local nearestDist = 180  -- Max targeting range
 
     for _, mob in ipairs(GameplayScene.mobs) do
         if mob.active then
@@ -89,8 +92,8 @@ function TeslaCoil:findNearestEnemy(fromX, fromY, preferredAngle)
 end
 
 function TeslaCoil:createChainProjectile(x, y, angle, target)
-    -- Lightning bolt options: inverted (white on dark), rotation offset 0 (sprite faces UP)
-    local lightningOptions = { inverted = true, rotationOffset = 0 }
+    -- Lightning bolt sprite faces RIGHT, use default -90 offset
+    local lightningOptions = { inverted = true, rotationOffset = -90 }
     local proj = GameplayScene:createProjectile(
         x, y, angle,
         self.projectileSpeed * (1 + self.projectileSpeedBonus),
@@ -106,11 +109,18 @@ function TeslaCoil:createChainProjectile(x, y, angle, target)
         proj.chainRange = self.chainRange
         proj.chainDamage = self.damage
         proj.hitTargets = {}  -- Track hit targets to avoid re-hitting
+        proj.sourceX = x
+        proj.sourceY = y
 
         -- Override onHit for chain behavior
         proj.onHit = function(self, hitTarget)
             -- Mark target as hit
             self.hitTargets[hitTarget] = true
+
+            -- Create visual lightning arc from source to hit point
+            if GameplayScene and GameplayScene.createLightningArc then
+                GameplayScene:createLightningArc(self.sourceX, self.sourceY, hitTarget.x, hitTarget.y)
+            end
 
             -- Chain to next target if chains remaining
             if self.chainsRemaining > 0 then
@@ -135,12 +145,11 @@ function TeslaCoil:createChainProjectile(x, y, angle, target)
                 if nextTarget then
                     -- Create chain projectile to next target
                     local chainAngle = Utils.vectorToAngle(nextTarget.x - hitTarget.x, nextTarget.y - hitTarget.y)
-                    -- Lightning bolt options: inverted (white on dark), rotation offset 0 (sprite faces UP)
-                    local chainOptions = { inverted = true, rotationOffset = 0 }
+                    local chainOptions = { inverted = true, rotationOffset = -90 }
                     local chainProj = GameplayScene:createProjectile(
                         hitTarget.x, hitTarget.y, chainAngle,
-                        20,  -- Fast chain
-                        self.chainDamage * 0.8,  -- Slightly reduced damage per chain
+                        22,  -- Fast chain
+                        self.chainDamage * 0.85,  -- Slightly reduced damage per chain
                         "images/tools/tool_lightning_bolt",
                         false,
                         chainOptions
@@ -150,8 +159,10 @@ function TeslaCoil:createChainProjectile(x, y, angle, target)
                         chainProj.chainTarget = nextTarget
                         chainProj.chainsRemaining = self.chainsRemaining
                         chainProj.chainRange = self.chainRange
-                        chainProj.chainDamage = self.chainDamage * 0.8
+                        chainProj.chainDamage = self.chainDamage * 0.85
                         chainProj.hitTargets = self.hitTargets
+                        chainProj.sourceX = hitTarget.x
+                        chainProj.sourceY = hitTarget.y
                         chainProj.onHit = self.onHit  -- Copy chain behavior
                     end
                 end
@@ -168,8 +179,18 @@ end
 function TeslaCoil:upgrade(bonusItem)
     local success = TeslaCoil.super.upgrade(self, bonusItem)
     if success then
-        self.chainTargets = 4
-        self.chainRange = 80
+        self.chainTargets = 4  -- More chains when upgraded
+        self.chainRange = 90   -- Longer chain range
     end
     return success
+end
+
+-- Apply bonus item effect
+function TeslaCoil:applyBonusEffect(bonusId, level)
+    TeslaCoil.super.applyBonusEffect(self, bonusId, level)
+
+    if bonusId == "arc_capacitors" then
+        -- Arc Capacitors: +1 chain target per level
+        self.extraChainTargets = level
+    end
 end

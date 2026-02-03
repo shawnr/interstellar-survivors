@@ -1021,16 +1021,16 @@ function DatabaseScreen:drawSettingsDetail()
     gfx.drawText("Includes hits, pickups, and UI sounds.", margin, y)
     y = y + 24
 
-    -- Section: Debug Mode
-    gfx.drawText("*DEBUG MODE*", margin, y)
+    -- Section: Creative Mode
+    gfx.drawText("*CREATIVE MODE*", margin, y)
     y = y + 16
-    gfx.drawText("Testing mode for developers.", margin, y)
+    gfx.drawText("Sandbox mode for exploration.", margin, y)
     y = y + 14
-    gfx.drawText("- All episodes unlocked", margin, y)
+    gfx.drawText("- Unlock all content instantly", margin, y)
     y = y + 14
-    gfx.drawText("- Boss spawns at 2 minutes", margin, y)
+    gfx.drawText("- Customize episode/wave timing", margin, y)
     y = y + 14
-    gfx.drawText("- Station takes no damage", margin, y)
+    gfx.drawText("- Optional invincibility", margin, y)
     y = y + 24
 
     -- Section: Reset All Data

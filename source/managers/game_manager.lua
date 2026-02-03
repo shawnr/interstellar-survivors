@@ -204,11 +204,11 @@ function GameManager:endEpisode(victory)
         -- Track death and save
         SaveManager:incrementDeaths()
 
-        -- Convert 1% of total RP earned to Grant Funds
+        -- Convert 2% of total RP earned to Grant Funds
         if GameplayScene then
             local stats = GameplayScene:getStats()
             local totalRP = stats and stats.totalRP or 0
-            local grantFundsEarned = math.floor(totalRP / 100)
+            local grantFundsEarned = math.floor(totalRP / 50)
             if grantFundsEarned > 0 then
                 SaveManager:addGrantFunds(grantFundsEarned)
                 print("Converted " .. totalRP .. " RP to " .. grantFundsEarned .. " Grant Funds")
@@ -490,8 +490,8 @@ function GameManager:createGameOverScene()
             stats = { mobKills = {}, toolsObtained = {}, itemsObtained = {}, totalRP = 0, elapsedTime = 0, playerLevel = 1 }
         end
 
-        -- Calculate grant funds earned (1% of total RP)
-        grantFundsEarned = math.floor((stats.totalRP or 0) / 100)
+        -- Calculate grant funds earned (2% of total RP)
+        grantFundsEarned = math.floor((stats.totalRP or 0) / 50)
 
         -- Load pattern background
         patternBg = gfx.image.new("images/ui/menu_pattern_bg")
@@ -1356,7 +1356,7 @@ function GameManager:createSettingsScene()
     local menuItems = {
         { label = "Music Volume", type = "slider", key = "musicVolume", min = 0, max = 1, step = 0.1 },
         { label = "SFX Volume", type = "slider", key = "sfxVolume", min = 0, max = 1, step = 0.1 },
-        { label = "Debug Mode", type = "debug_toggle", key = "debugMode" },  -- Special type with gear icon
+        { label = "Creative Mode", type = "debug_toggle", key = "debugMode" },  -- Special type with gear icon
         { label = "Reset All Data", type = "action", action = "reset" },
         { label = "Back", type = "action", action = "back" },
     }

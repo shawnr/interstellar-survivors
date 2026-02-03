@@ -20,6 +20,7 @@ PlasmaSprayer.DATA = {
     pairsWithBonus = "fuel_injector",
     upgradedName = "Inferno Cannon",
     upgradedImagePath = "images/tools/tool_plasma_sprayer",
+    upgradedProjectileImage = "images/tools/tool_inferno_droplet",
     upgradedDamage = 6,
 }
 

@@ -41,6 +41,8 @@ import "ui/database_screen"
 import "ui/grant_funding_screen"
 import "ui/tool_select"
 import "ui/debug_options_screen"
+import "ui/tool_placement_screen"
+import "ui/tool_evolution_screen"
 
 -- Import entities
 import "entities/entity"
@@ -123,16 +125,25 @@ local function initialize()
     local menu = playdate.getSystemMenu()
 
     menu:addMenuItem("Main Menu", function()
-        -- Return to episode select (acts as main menu)
+        -- Return to title screen
         if GameManager.currentState == GameManager.states.GAMEPLAY then
             GameplayScene:exit()
         end
-        GameManager:setState(GameManager.states.EPISODE_SELECT)
+        GameManager:setState(GameManager.states.TITLE)
     end)
 
-    menu:addMenuItem("Research", function()
-        -- Show research specs screen
-        GameManager:setState(GameManager.states.RESEARCH_SPECS, { fromState = GameManager.currentState })
+    menu:addMenuItem("Restart Ep", function()
+        -- Restart current episode, skipping intro panels
+        if GameManager.currentEpisodeId then
+            -- Exit current gameplay scene if active
+            if GameManager.currentState == GameManager.states.GAMEPLAY then
+                GameplayScene:exit()
+            end
+            -- Reset episode state with same episode
+            GameManager:startNewEpisode(GameManager.currentEpisodeId)
+            -- Go directly to gameplay, skipping intro panels
+            GameManager:setState(GameManager.states.GAMEPLAY)
+        end
     end)
 
     menu:addMenuItem("Settings", function()

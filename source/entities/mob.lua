@@ -15,10 +15,16 @@ function MOB:init(x, y, mobData, waveMultipliers)
     -- Apply wave multipliers
     waveMultipliers = waveMultipliers or { health = 1, damage = 1, speed = 1 }
 
-    -- Stats
-    self.health = mobData.baseHealth * waveMultipliers.health
+    -- Apply creative mode difficulty multiplier if enabled
+    local difficultyMult = 1.0
+    if SaveManager and SaveManager:getSetting("debugMode", false) then
+        difficultyMult = SaveManager:getDebugSetting("difficultyMultiplier", 1.0)
+    end
+
+    -- Stats (apply both wave and difficulty multipliers to health/damage)
+    self.health = mobData.baseHealth * waveMultipliers.health * difficultyMult
     self.maxHealth = self.health
-    self.damage = mobData.baseDamage * waveMultipliers.damage
+    self.damage = mobData.baseDamage * waveMultipliers.damage * difficultyMult
     self.speed = mobData.baseSpeed * waveMultipliers.speed
     self.rpValue = mobData.rpValue or 5
     self.range = mobData.range or 1
@@ -55,9 +61,11 @@ function MOB:init(x, y, mobData, waveMultipliers)
     -- Z-index (mobs behind projectiles)
     self:setZIndex(50)
 
-    -- Cache radius for collision checks (performance optimization)
-    local spriteW, spriteH = self:getSize()
-    self.cachedRadius = math.max(spriteW, spriteH) / 2
+    -- Cache radius for collision checks (use explicit mobData dimensions, not sprite size)
+    -- This ensures collision works even if sprite fails to load
+    local collisionW = mobData.width or 16
+    local collisionH = mobData.height or 16
+    self.cachedRadius = math.max(collisionW, collisionH) / 2
 
     -- Now position properly
     self:moveTo(x, y)
