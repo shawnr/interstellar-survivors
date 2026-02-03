@@ -80,19 +80,31 @@ function SingularityCore:createOrbitalProjectile()
         proj.damageTickTimer = 0
         proj.damageTickInterval = 10  -- Damage every 10 frames (3x per second)
         proj.maxHits = 999  -- Unlimited hits
+        -- Ensure spawn position is set for collision protection
+        proj.spawnX = x
+        proj.spawnY = y
 
         -- Override update for orbital behavior
         proj.update = function(self)
             if not self.active then return end
 
+            -- Prevent double updates in the same frame
+            if self.lastUpdateFrame == Projectile.frameCounter then
+                return
+            end
+            self.lastUpdateFrame = Projectile.frameCounter
+
             if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
                 return
             end
 
+            -- Track frames alive for collision grace period
+            self.framesAlive = self.framesAlive + 1
+
             -- Update lifetime
             self.orbitalLifetime = self.orbitalLifetime + 1
             if self.orbitalLifetime > self.maxOrbitalLifetime then
-                self:deactivate()
+                self:deactivate("lifetime")
                 return
             end
 

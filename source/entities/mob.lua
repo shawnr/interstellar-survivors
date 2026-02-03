@@ -34,6 +34,15 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.targetX = Constants.STATION_CENTER_X
     self.targetY = Constants.STATION_CENTER_Y
 
+    -- Orbital movement for shooter MOBs
+    self.orbitDirection = (math.random() > 0.5) and 1 or -1  -- Random CW or CCW
+    self.orbitAngle = math.atan(y - Constants.STATION_CENTER_Y, x - Constants.STATION_CENTER_X)
+
+    -- Evasion behavior
+    self.evading = false
+    self.evadeTimer = 0
+    self.evadeDirection = 0
+
     -- Health bar display
     self.showHealthBar = false
     self.healthBarTimer = 0
@@ -160,6 +169,26 @@ function MOB:updateShooterMovement(dt)
     local distSq = dx * dx + dy * dy
     local rangeSq = self.range * self.range
 
+    -- Handle evasion - temporarily move away from damage source
+    if self.evading then
+        self.evadeTimer = self.evadeTimer - dt
+        if self.evadeTimer <= 0 then
+            self.evading = false
+            -- Update orbit angle to current position after evasion
+            self.orbitAngle = math.atan(self.y - self.targetY, self.x - self.targetX)
+        else
+            -- Move away from damage source at double speed
+            local evadeSpeed = self.speed * 2
+            self.x = self.x + math.cos(self.evadeDirection) * evadeSpeed
+            self.y = self.y + math.sin(self.evadeDirection) * evadeSpeed
+            self:moveTo(self.x, self.y)
+            -- Face the station while evading
+            local faceAngle = Utils.vectorToAngle(self.targetX - self.x, self.targetY - self.y)
+            self:setRotation(faceAngle)
+            return
+        end
+    end
+
     if distSq > rangeSq then
         -- Move closer (only sqrt when needed)
         local invDist = 1 / math.sqrt(distSq)
@@ -170,27 +199,34 @@ function MOB:updateShooterMovement(dt)
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
     else
-        -- Orbit behavior
-        local angle = math.atan(dy, dx)
-        angle = angle + (self.speed * 0.02 * dt)
+        -- Active orbit behavior - circle around the station
+        -- Speed based on MOB speed stat, faster than before
+        local orbitSpeed = self.speed * 0.04 * self.orbitDirection
+        self.orbitAngle = self.orbitAngle + orbitSpeed
 
-        self.x = self.targetX - math.cos(angle) * self.range
-        self.y = self.targetY - math.sin(angle) * self.range
+        self.x = self.targetX + math.cos(self.orbitAngle) * self.range
+        self.y = self.targetY + math.sin(self.orbitAngle) * self.range
         self:moveTo(self.x, self.y)
     end
 
     -- Always face the station
-    local angle = Utils.vectorToAngle(dx, dy)
-    self:setRotation(angle)
+    local faceAngle = Utils.vectorToAngle(self.targetX - self.x, self.targetY - self.y)
+    self:setRotation(faceAngle)
 end
 
 -- Take damage
-function MOB:takeDamage(amount, damageType)
+-- sourceX, sourceY: optional position of the damage source for evasion
+function MOB:takeDamage(amount, damageType, sourceX, sourceY)
     self.health = self.health - amount
 
     -- Show health bar
     self.showHealthBar = true
     self.healthBarTimer = Constants.HEALTH_BAR_SHOW_DURATION
+
+    -- Trigger evasion for shooter MOBs (if source position provided)
+    if self.emits and sourceX and sourceY then
+        self:startEvasion(sourceX, sourceY)
+    end
 
     -- Check for death
     if self.health <= 0 then
@@ -199,6 +235,28 @@ function MOB:takeDamage(amount, damageType)
     end
 
     return false
+end
+
+-- Start evasion maneuver (move away from damage source)
+function MOB:startEvasion(sourceX, sourceY)
+    self.evading = true
+    self.evadeTimer = 0.25  -- Evade for 0.25 seconds
+
+    -- Calculate direction away from damage source
+    local dx = self.x - sourceX
+    local dy = self.y - sourceY
+
+    if dx == 0 and dy == 0 then
+        -- Random direction if directly on top
+        self.evadeDirection = math.random() * math.pi * 2
+    else
+        self.evadeDirection = math.atan(dy, dx)
+    end
+
+    -- Sometimes reverse orbit direction when hit
+    if math.random() > 0.6 then
+        self.orbitDirection = -self.orbitDirection
+    end
 end
 
 -- Called when MOB is destroyed

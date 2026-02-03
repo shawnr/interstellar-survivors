@@ -86,20 +86,32 @@ function ModifiedMappingDrone:createHomingProjectile(x, y, angle, target)
         proj.isHoming = true
         proj.maxLifetime = 180  -- 6 seconds at 30fps
         proj.lifetime = 0
+        -- Ensure spawn position is set for collision protection
+        proj.spawnX = x
+        proj.spawnY = y
 
         -- Override the update function for homing behavior
         proj.update = function(self)
             if not self.active then return end
+
+            -- Prevent double updates in the same frame
+            if self.lastUpdateFrame == Projectile.frameCounter then
+                return
+            end
+            self.lastUpdateFrame = Projectile.frameCounter
 
             -- Don't update if game is paused
             if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
                 return
             end
 
+            -- Track frames alive for collision grace period
+            self.framesAlive = self.framesAlive + 1
+
             -- Track lifetime
             self.lifetime = (self.lifetime or 0) + 1
             if self.lifetime > (self.maxLifetime or 180) then
-                self:deactivate()
+                self:deactivate("lifetime")
                 return
             end
 
@@ -152,7 +164,7 @@ function ModifiedMappingDrone:createHomingProjectile(x, y, angle, target)
 
             -- Check if off screen (with larger margin for homing)
             if not self:isOnScreen(50) then
-                self:deactivate()
+                self:deactivate("offscreen")
             end
         end
     end

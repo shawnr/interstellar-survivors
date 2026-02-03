@@ -1106,37 +1106,53 @@ function GameplayScene:checkCollisions()
     -- Projectiles vs MOBs
     local projectiles = self.projectilePool:getActive()
 
+    -- Minimum distance projectile must travel from spawn before collision is enabled
+    -- This prevents instant collision with mobs parked near tools
+    local minTravelDistSq = 40 * 40  -- 40 pixels from spawn point
+
     for _, proj in ipairs(projectiles) do
-        -- Skip projectiles that haven't moved yet (just spawned this frame)
-        -- This prevents instant collision with mobs near the firing tool
-        if proj.active and (proj.framesAlive or 0) >= 1 then
-            for _, mob in ipairs(self.mobs) do
-                if mob.active then
-                    -- Use MOB radius + projectile radius (6) + small speed bonus
-                    -- The speed bonus helps fast projectiles hit targets without tunneling
-                    local mobRadius = mob.cachedRadius or 8
-                    local projSpeed = proj.speed or 8
-                    local collisionDist = mobRadius + 6 + (projSpeed * 0.25)
-                    local collisionDistSq = collisionDist * collisionDist
+        if proj.active then
+            -- Check if projectile has traveled far enough from its spawn point
+            local spawnX = proj.spawnX or proj.x
+            local spawnY = proj.spawnY or proj.y
+            local travelDistSq = Utils.distanceSquared(proj.x, proj.y, spawnX, spawnY)
 
-                    -- Simple distance check (squared to avoid sqrt)
-                    local distSq = Utils.distanceSquared(proj.x, proj.y, mob.x, mob.y)
+            if travelDistSq >= minTravelDistSq then
+                for _, mob in ipairs(self.mobs) do
+                    if mob.active then
+                        -- Use MOB radius + projectile radius (6) + small speed bonus
+                        -- The speed bonus helps fast projectiles hit targets without tunneling
+                        local mobRadius = mob.cachedRadius or 8
+                        local projSpeed = proj.speed or 8
+                        local collisionDist = mobRadius + 6 + (projSpeed * 0.25)
+                        local collisionDistSq = collisionDist * collisionDist
 
-                    if distSq < collisionDistSq then
-                        -- For tick-based projectiles (like orbital), check if damage can be applied
-                        if proj.usesTickDamage then
-                            local canDamage = proj:onHit(mob)
-                            if canDamage then
-                                mob:takeDamage(proj:getDamage())
+                        -- Simple distance check (squared to avoid sqrt)
+                        local distSq = Utils.distanceSquared(proj.x, proj.y, mob.x, mob.y)
+
+                        if distSq < collisionDistSq then
+                            -- DEBUG: Log early collisions
+                            if proj.framesAlive and proj.framesAlive < 10 then
+                                local travelDist = math.sqrt(travelDistSq)
+                                print("COLLISION at framesAlive=" .. proj.framesAlive .. " travelDist=" .. travelDist .. " spawn=" .. spawnX .. "," .. spawnY .. " pos=" .. proj.x .. "," .. proj.y)
                             end
-                        else
-                            -- Normal projectile: apply damage then call onHit
-                            mob:takeDamage(proj:getDamage())
-                            proj:onHit(mob)
-                        end
 
-                        if not proj.active then
-                            break  -- Projectile used up
+                            -- For tick-based projectiles (like orbital), check if damage can be applied
+                            if proj.usesTickDamage then
+                                local canDamage = proj:onHit(mob)
+                                if canDamage then
+                                    mob:takeDamage(proj:getDamage(), nil, proj.x, proj.y)
+                                end
+                            else
+                                -- Normal projectile: apply damage then call onHit
+                                -- Pass projectile position for evasion behavior
+                                mob:takeDamage(proj:getDamage(), nil, proj.x, proj.y)
+                                proj:onHit(mob)
+                            end
+
+                            if not proj.active then
+                                break  -- Projectile used up
+                            end
                         end
                     end
                 end

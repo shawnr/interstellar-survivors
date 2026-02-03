@@ -39,6 +39,10 @@ end
 -- RailDriver uses the base Tool:fire() method
 -- Override createProjectile to pass the piercing parameter
 function RailDriver:createProjectile(x, y, angle)
+    print("RailDriver:createProjectile called at " .. x .. "," .. y .. " angle=" .. angle)
+    print("  projectileSpeed=" .. tostring(self.projectileSpeed) .. " damage=" .. tostring(self.damage))
+    print("  projectileImage=" .. tostring(self.data.projectileImage))
+
     if GameplayScene and GameplayScene.projectilePool then
         local projectile = GameplayScene.projectilePool:get(
             x, y, angle,
@@ -47,9 +51,10 @@ function RailDriver:createProjectile(x, y, angle)
             self.data.projectileImage or "images/tools/tool_rail_driver_projectile",
             self.piercing
         )
+        print("  projectile created: " .. tostring(projectile) .. " active=" .. tostring(projectile and projectile.active))
         return projectile
     else
-        print("ERROR: RailDriver:createProjectile - projectilePool not available!")
+        print("  ERROR: No GameplayScene or projectilePool!")
     end
 end
 

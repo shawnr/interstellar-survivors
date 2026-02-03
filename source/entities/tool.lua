@@ -138,6 +138,11 @@ function Tool:fire()
     local fireX = self.x + dx * offsetDist
     local fireY = self.y + dy * offsetDist
 
+    -- DEBUG: Log firing for tools using straight pattern
+    if self.pattern == "straight" then
+        print("Tool:fire() - " .. (self.data.name or "unknown") .. " at slot " .. tostring(self.slotIndex))
+    end
+
     -- Create projectile (override in subclass for different patterns)
     self:createProjectile(fireX, fireY, firingAngle)
 end

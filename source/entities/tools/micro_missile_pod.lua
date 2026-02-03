@@ -64,17 +64,29 @@ function MicroMissilePod:createMissileProjectile(x, y, angle)
         proj.homingStrength = 1.5
         proj.lifetime = 0
         proj.maxLifetime = 120  -- 4 seconds
+        -- Ensure spawn position is set for collision protection
+        proj.spawnX = x
+        proj.spawnY = y
 
         proj.update = function(self)
             if not self.active then return end
+
+            -- Prevent double updates in the same frame
+            if self.lastUpdateFrame == Projectile.frameCounter then
+                return
+            end
+            self.lastUpdateFrame = Projectile.frameCounter
 
             if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
                 return
             end
 
+            -- Track frames alive for collision grace period
+            self.framesAlive = self.framesAlive + 1
+
             self.lifetime = self.lifetime + 1
             if self.lifetime > self.maxLifetime then
-                self:deactivate()
+                self:deactivate("lifetime")
                 return
             end
 
@@ -118,7 +130,7 @@ function MicroMissilePod:createMissileProjectile(x, y, angle)
             self:moveTo(self.x, self.y)
 
             if not self:isOnScreen(30) then
-                self:deactivate()
+                self:deactivate("offscreen")
             end
         end
     end

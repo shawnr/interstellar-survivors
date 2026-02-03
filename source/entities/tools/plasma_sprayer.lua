@@ -52,32 +52,42 @@ function PlasmaSprayer:fire()
             -- Short range - deactivate after traveling maxRange
             proj.maxTravelDist = self.maxRange
             proj.travelDist = 0
-            proj.startX = fireX
-            proj.startY = fireY
+            -- Use spawnX/spawnY for consistency with collision protection
+            -- (createProjectile already sets these, but we ensure they're correct)
+            proj.spawnX = fireX
+            proj.spawnY = fireY
 
-            local originalUpdate = proj.update
             proj.update = function(self)
                 if not self.active then return end
+
+                -- Prevent double updates in the same frame
+                if self.lastUpdateFrame == Projectile.frameCounter then
+                    return
+                end
+                self.lastUpdateFrame = Projectile.frameCounter
 
                 if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
                     return
                 end
+
+                -- Track frames alive for collision grace period
+                self.framesAlive = self.framesAlive + 1
 
                 -- Move
                 self.x = self.x + self.dx * self.speed
                 self.y = self.y + self.dy * self.speed
                 self:moveTo(self.x, self.y)
 
-                -- Check distance traveled
-                self.travelDist = Utils.distance(self.startX, self.startY, self.x, self.y)
+                -- Check distance traveled (use spawnX/spawnY for consistency)
+                self.travelDist = Utils.distance(self.spawnX, self.spawnY, self.x, self.y)
                 if self.travelDist > self.maxTravelDist then
-                    self:deactivate()
+                    self:deactivate("max_range")
                     return
                 end
 
                 -- Off screen check
                 if not self:isOnScreen(20) then
-                    self:deactivate()
+                    self:deactivate("offscreen")
                 end
             end
         end

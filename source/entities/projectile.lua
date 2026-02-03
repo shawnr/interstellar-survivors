@@ -50,6 +50,10 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
     self.maxHits = self.piercing and 2 or 1
     self.active = true
 
+    -- Track spawn position for minimum travel distance check
+    self.spawnX = x
+    self.spawnY = y
+
     -- Reset frame tracking for recycled projectiles
     self.lastUpdateFrame = -1
 
@@ -122,7 +126,8 @@ function Projectile:update()
 
     -- Check if off screen
     if not self:isOnScreen(20) then
-        self:deactivate()
+        print("Projectile OFF SCREEN at " .. self.x .. "," .. self.y .. " framesAlive=" .. self.framesAlive)
+        self:deactivate("offscreen")
     end
 end
 
@@ -132,12 +137,15 @@ function Projectile:onHit(target)
 
     -- Deactivate if max hits reached
     if self.hitCount >= self.maxHits then
-        self:deactivate()
+        self:deactivate("hit_max")
     end
 end
 
 -- Deactivate for pooling
-function Projectile:deactivate()
+function Projectile:deactivate(reason)
+    if self.framesAlive and self.framesAlive < 5 then
+        print("EARLY DEACTIVATE: reason=" .. tostring(reason) .. " framesAlive=" .. tostring(self.framesAlive) .. " pos=" .. self.x .. "," .. self.y)
+    end
     self.active = false
     self:remove()
 end
