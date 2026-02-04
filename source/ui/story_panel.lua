@@ -1,6 +1,7 @@
 -- Story Panel UI
 -- Displays intro and ending story panels for episodes
--- Per design doc: Shows text line by line (5 sec each) on white bar at bottom
+-- Shows text line by line (3 sec each) on white bar at bottom
+-- A/Right advances one line, B/Left rewinds one line, crossing panel boundaries
 
 local gfx <const> = playdate.graphics
 
@@ -11,9 +12,9 @@ StoryPanel = {
     currentLine = 0,    -- Which line of text we're showing (0 = none, 1+ = showing that line)
     onComplete = nil,   -- Callback when all panels viewed
     inputDelay = 0,     -- Brief delay before accepting input
-    lineTimer = 0,      -- Timer for auto-advancing lines (5 seconds)
-    allLinesShown = false,  -- Whether all lines have been shown for current panel
-    LINE_DISPLAY_TIME = 5.0,  -- Seconds to show each line before auto-advance
+    lineTimer = 0,      -- Timer for auto-advancing lines
+    allLinesShown = false,  -- Whether we're on the last line of the last panel (waiting for A)
+    LINE_DISPLAY_TIME = 3.0,  -- Seconds to show each line before auto-advance
 }
 
 function StoryPanel:init()
@@ -86,13 +87,76 @@ function StoryPanel:startNextLine()
     if not panel then return end
 
     if self.currentLine > #panel.lines then
-        -- All lines shown, wait for button press to continue
-        self.allLinesShown = true
         self.currentLine = #panel.lines  -- Keep showing last line
+    end
+
+    -- Check if we're on the last line of the last panel
+    if self.currentPanel == #self.panels and self.currentLine == #panel.lines then
+        self.allLinesShown = true
+    end
+
+    -- Play audio hit for new line
+    self:playRandomHit()
+end
+
+-- Advance one line forward, crossing panel boundaries
+function StoryPanel:advanceLine()
+    local panel = self.panels[self.currentPanel]
+    if not panel then return end
+
+    if self.currentLine < #panel.lines then
+        -- More lines in current panel
+        self.currentLine = self.currentLine + 1
+        self.lineTimer = 0
+        self.inputDelay = 0.2
+        self:playRandomHit()
+        -- Check if we just reached the last line of the last panel
+        if self.currentPanel == #self.panels and self.currentLine == #panel.lines then
+            self.allLinesShown = true
+        end
+    elseif self.currentPanel < #self.panels then
+        -- Move to next panel, line 1
+        self.currentPanel = self.currentPanel + 1
+        self.currentLine = 1
+        self.lineTimer = 0
+        self.inputDelay = 0.2
+        self.allLinesShown = false
+        self:playRandomHit()
+        -- Check if this new panel's first line is also the last line of the last panel
+        local newPanel = self.panels[self.currentPanel]
+        if self.currentPanel == #self.panels and #newPanel.lines == 1 then
+            self.allLinesShown = true
+        end
     else
-        -- Play audio hit for new line
+        -- Last line of last panel: complete
+        local callback = self.onComplete
+        self:hide()
+        if callback then
+            callback()
+        end
+    end
+end
+
+-- Rewind one line backward, crossing panel boundaries
+function StoryPanel:retreatLine()
+    if self.currentLine > 1 then
+        -- Go back one line in current panel
+        self.currentLine = self.currentLine - 1
+        self.lineTimer = 0
+        self.inputDelay = 0.2
+        self.allLinesShown = false
+        self:playRandomHit()
+    elseif self.currentPanel > 1 then
+        -- Go to previous panel's last line
+        self.currentPanel = self.currentPanel - 1
+        local prevPanel = self.panels[self.currentPanel]
+        self.currentLine = #prevPanel.lines
+        self.lineTimer = 0
+        self.inputDelay = 0.2
+        self.allLinesShown = false
         self:playRandomHit()
     end
+    -- At panel 1, line 1: do nothing
 end
 
 function StoryPanel:update()
@@ -106,58 +170,22 @@ function StoryPanel:update()
         return  -- Don't accept input during delay
     end
 
-    -- If showing lines, timer advances them
+    -- Auto-advance timer (stops at last line of last panel)
     if not self.allLinesShown then
         self.lineTimer = self.lineTimer + dt
         if self.lineTimer >= self.LINE_DISPLAY_TIME then
-            self:startNextLine()
+            self:advanceLine()
         end
     end
 
-    -- A button skips to next panel (or completes sequence on last panel)
-    if InputManager.buttonJustPressed.a then
-        self:nextPanel()
+    -- A or Right: advance one line (or complete on last line)
+    if InputManager.buttonJustPressed.a or InputManager.buttonJustPressed.right then
+        self:advanceLine()
     end
 
-    -- B button goes back to previous panel (undocumented feature)
-    if InputManager.buttonJustPressed.b then
-        self:prevPanel()
-    end
-end
-
-function StoryPanel:prevPanel()
-    if self.currentPanel > 1 then
-        print("StoryPanel:prevPanel() - going back from panel " .. self.currentPanel)
-        self.currentPanel = self.currentPanel - 1
-        self.currentLine = 0
-        self.allLinesShown = false
-        self.lineTimer = 0
-        self.inputDelay = 0.3
-        -- Start showing first line of previous panel
-        self:startNextLine()
-    end
-end
-
-function StoryPanel:nextPanel()
-    print("StoryPanel:nextPanel() - advancing from panel " .. self.currentPanel .. " of " .. #self.panels)
-    self.currentPanel = self.currentPanel + 1
-    self.currentLine = 0
-    self.allLinesShown = false
-    self.lineTimer = 0
-    self.inputDelay = 0.3
-
-    if self.currentPanel > #self.panels then
-        -- Done with all panels
-        print("StoryPanel: All panels complete, calling callback")
-        local callback = self.onComplete
-        self:hide()
-        if callback then
-            callback()
-        end
-    else
-        print("StoryPanel: Now showing panel " .. self.currentPanel)
-        -- Start showing first line (will also play audio hit)
-        self:startNextLine()
+    -- B or Left: rewind one line
+    if InputManager.buttonJustPressed.b or InputManager.buttonJustPressed.left then
+        self:retreatLine()
     end
 end
 

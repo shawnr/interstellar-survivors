@@ -1108,7 +1108,7 @@ function GameplayScene:checkCollisions()
 
     -- Minimum distance projectile must travel from spawn before collision is enabled
     -- This prevents instant collision with mobs parked near tools
-    local minTravelDistSq = 40 * 40  -- 40 pixels from spawn point
+    local minTravelDistSq = 10 * 10  -- 10 pixels from spawn point
 
     for _, proj in ipairs(projectiles) do
         if proj.active then

@@ -205,9 +205,9 @@ function ImprobabilityEngine:updateEnraged(dt)
     -- Rapid chaotic attacks
     if self.attackTimer >= 0.5 then
         local roll = math.random(100)
-        if roll <= 40 then
+        if roll <= 50 then
             self:spawnFluctuation()
-        elseif roll <= 60 then
+        elseif roll <= 80 then
             self:spawnParadoxNode()
         else
             self:applyRealityGlitch()
@@ -293,40 +293,52 @@ end
 
 function ImprobabilityEngine:endRealityWarp()
     self.warpActive = false
-    -- Remove any lingering effects
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station.controlsInverted = false
-    end
+    -- Remove all lingering effects
+    self:clearAllDebuffs()
 end
 
 function ImprobabilityEngine:applyRealityGlitch()
     if GameplayScene and GameplayScene.station then
-        -- Invert crank controls temporarily
-        GameplayScene.station.controlsInverted = true
-        GameplayScene.station.controlsInvertedTimer = 2.5
+        local station = GameplayScene.station
 
-        -- Also apply a random debuff
+        -- Don't stack control inversion if already active
+        if not station.controlsInverted then
+            station.controlsInverted = true
+            station.controlsInvertedTimer = 2.5
+        end
+
+        -- Also apply a random debuff (only if not already active)
         local roll = math.random(3)
-        if roll == 1 then
+        if roll == 1 and station.rotationSlow >= 1.0 then
             -- Slow rotation
-            GameplayScene.station.rotationSlow = 0.5
-            GameplayScene.station.rotationSlowTimer = 2.0
-        elseif roll == 2 then
+            station.rotationSlow = 0.5
+            station.rotationSlowTimer = 2.0
+        elseif roll == 2 and station.fireRateSlow >= 1.0 then
             -- Slow fire rate
-            GameplayScene.station.fireRateSlow = 0.6
-            GameplayScene.station.fireRateSlowTimer = 2.0
+            station.fireRateSlow = 0.6
+            station.fireRateSlowTimer = 2.0
         end
         -- roll == 3: just inverted controls
+    end
+end
+
+function ImprobabilityEngine:clearAllDebuffs()
+    if GameplayScene and GameplayScene.station then
+        local station = GameplayScene.station
+        station.controlsInverted = false
+        station.controlsInvertedTimer = 0
+        station.rotationSlow = 1.0
+        station.rotationSlowTimer = 0
+        station.fireRateSlow = 1.0
+        station.fireRateSlowTimer = 0
     end
 end
 
 function ImprobabilityEngine:onDestroyed()
     self.active = false
 
-    -- End any lingering effects
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station.controlsInverted = false
-    end
+    -- End all lingering effects
+    self:clearAllDebuffs()
 
     if GameManager then
         GameManager:awardRP(self.rpValue)

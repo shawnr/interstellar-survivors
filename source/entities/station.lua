@@ -207,16 +207,21 @@ function Station:update()
 
     -- Apply controls inverted effect (boss ability)
     if self.controlsInverted then
-        -- Invert by reflecting around current rotation
-        local diff = baseRotation - self.currentRotation
-        baseRotation = self.currentRotation - diff
+        -- Save pivot on first inverted frame so reflection is stable
+        if not self.invertPivot then
+            self.invertPivot = baseRotation
+        end
+        -- Reflect input around the fixed pivot point
+        baseRotation = 2 * self.invertPivot - baseRotation
+    else
+        self.invertPivot = nil
     end
 
     -- Apply slow effect by interpolating slower toward target
     if self.rotationSlow < 1.0 then
         -- When slowed, don't follow input as quickly
         local slowedTarget = self.currentRotation + (baseRotation - self.currentRotation) * self.rotationSlow
-        self.currentRotation = Utils.lerp(self.currentRotation, slowedTarget, 0.5)
+        self.currentRotation = slowedTarget
     else
         self.currentRotation = baseRotation
     end

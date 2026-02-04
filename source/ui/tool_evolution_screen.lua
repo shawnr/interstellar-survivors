@@ -205,11 +205,13 @@ function ToolEvolutionScreen:draw()
         gfx.setColor(gfx.kColorBlack)
         gfx.fillRect(leftX - scaledW/2 - 2, iconY - scaledH/2 - 2, scaledW + 4, scaledH + 4)
 
-        -- Fade out original during phase 2+
+        -- Phase 1: draw icon inverted (1-bit icons render black-on-white in kDrawModeCopy;
+        -- kDrawModeInverted restores intended white-on-black appearance)
+        -- Phase 2+: fade original to white
         if self.phase >= 2 then
             gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         else
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+            gfx.setImageDrawMode(gfx.kDrawModeInverted)
         end
         self.originalIcon:drawScaled(leftX - scaledW/2, iconY - scaledH/2, iconScale)
     end
@@ -250,7 +252,7 @@ function ToolEvolutionScreen:draw()
             gfx.setColor(gfx.kColorBlack)
             gfx.fillRect(rightX - maxW/2 - 2, iconY - maxH/2 - 2, maxW + 4, maxH + 4)
 
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+            gfx.setImageDrawMode(gfx.kDrawModeInverted)
             self.evolvedIcon:drawScaled(rightX - pulseW/2, iconY - pulseH/2, pulseScale)
         end
 
