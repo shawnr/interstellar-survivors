@@ -117,7 +117,7 @@ function CulturalAttache:updateApproach(dt)
     local dy = self.targetY - self.y
     local dist = math.sqrt(dx * dx + dy * dy)
 
-    if dist > self.range then
+    if dist > self.range and dist > 0 then
         local moveX = (dx / dist) * self.speed
         local moveY = (dy / dist) * self.speed
         self.x = self.x + moveX
@@ -129,8 +129,10 @@ function CulturalAttache:updateApproach(dt)
     end
 
     -- Face the station
-    local angle = Utils.vectorToAngle(dx, dy)
-    self:setRotation(angle)
+    if dist > 0 then
+        local angle = Utils.vectorToAngle(dx, dy)
+        self:setRotation(angle)
+    end
 end
 
 function CulturalAttache:updateDroneWave(dt)

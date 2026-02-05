@@ -1,6 +1,6 @@
 -- Story Panel UI
 -- Displays intro and ending story panels for episodes
--- Shows text line by line (3 sec each) on white bar at bottom
+-- Shows text line by line (3 sec each) on black bar at bottom with retro terminal aesthetic
 -- A/Right advances one line, B/Left rewinds one line, crossing panel boundaries
 
 local gfx <const> = playdate.graphics
@@ -200,8 +200,8 @@ function StoryPanel:drawAButtonIcon(x, y, radius)
     gfx.drawCircleAtPoint(x, y, radius)
     -- Draw black "A" centered in circle
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    local font = gfx.getSystemFont(gfx.font.kVariantBold)
-    gfx.setFont(font)
+    FontManager:setBoldFont()
+    local font = FontManager.boldFont
     local textW = font:getTextWidth("A")
     local textH = font:getHeight()
     gfx.drawText("A", x - textW/2, y - textH/2)
@@ -262,10 +262,13 @@ function StoryPanel:draw()
     local barHeight = 32  -- Default height
     local barY = Constants.SCREEN_HEIGHT - barHeight - 6
 
-    -- Draw current line on white bar at bottom
+    -- Draw current line on black bar with white border at bottom
     if self.currentLine > 0 and self.currentLine <= #panel.lines then
         local line = panel.lines[self.currentLine]
         if line and line ~= "" then
+            -- Set Roobert body family so *bold* markup works
+            FontManager:setBodyFamily()
+
             -- Measure text to determine if wrapping is needed
             local textWidth, textHeight = gfx.getTextSize(line)
             local needsWrap = (#line > 40) or (textWidth > maxTextWidth)
@@ -274,11 +277,13 @@ function StoryPanel:draw()
             barHeight = needsWrap and 48 or 32
             barY = Constants.SCREEN_HEIGHT - barHeight - 6
 
-            -- Draw white bar background
-            gfx.setColor(gfx.kColorWhite)
+            -- Draw black bar background with white border
+            gfx.setColor(gfx.kColorBlack)
             gfx.fillRect(0, barY, Constants.SCREEN_WIDTH, barHeight)
+            gfx.setColor(gfx.kColorWhite)
+            gfx.drawRect(0, barY, Constants.SCREEN_WIDTH, barHeight)
 
-            gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
 
             -- Make text bold by wrapping with *
             local boldLine = "*" .. line .. "*"
@@ -312,10 +317,10 @@ function StoryPanel:draw()
 
     -- Draw "Press" text before icon
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    local smallFont = gfx.getSystemFont()
-    gfx.setFont(smallFont)
-    local pressWidth = smallFont:getTextWidth("Press ")
-    gfx.drawText("Press ", iconX - pressWidth - 2, iconY - smallFont:getHeight()/2)
+    FontManager:setBodyFont()
+    local bodyFont = FontManager.bodyFont
+    local pressWidth = bodyFont:getTextWidth("Press ")
+    gfx.drawText("Press ", iconX - pressWidth - 2, iconY - bodyFont:getHeight()/2)
 
     -- Draw the A button icon
     self:drawAButtonIcon(iconX, iconY, radius)

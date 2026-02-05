@@ -1,13 +1,12 @@
 -- Database Screen UI
 -- Encyclopedia of discovered game content
+-- Retro terminal aesthetic: black background, white text/borders
 
 local gfx <const> = playdate.graphics
 
 DatabaseScreen = {
     isVisible = false,
     fromState = nil,
-    patternBg = nil,
-
     -- Screen states
     STATE_CATEGORIES = 1,
     STATE_LIST = 2,
@@ -47,7 +46,6 @@ DatabaseScreen = {
 }
 
 function DatabaseScreen:init()
-    self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 end
 
 function DatabaseScreen:show(fromState)
@@ -60,9 +58,6 @@ function DatabaseScreen:show(fromState)
     self.scrollOffset = 0
     self.inputDelay = 0.2
 
-    if not self.patternBg then
-        self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
-    end
 end
 
 function DatabaseScreen:hide()
@@ -462,12 +457,7 @@ end
 function DatabaseScreen:draw()
     if not self.isVisible then return end
 
-    -- Draw background
-    if self.patternBg then
-        self.patternBg:draw(0, 0)
-    else
-        gfx.clear(gfx.kColorWhite)
-    end
+    gfx.clear(gfx.kColorBlack)
 
     if self.currentState == self.STATE_CATEGORIES then
         self:drawCategoryMenu()
@@ -479,12 +469,15 @@ function DatabaseScreen:draw()
 end
 
 function DatabaseScreen:drawCategoryMenu()
-    -- Title bar
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    -- Title bar - BLACK bar with WHITE text
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
+    FontManager:setTitleFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     gfx.drawTextAligned("*DATABASE*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Category list with scrolling
     local startY = 55
@@ -492,6 +485,8 @@ function DatabaseScreen:drawCategoryMenu()
 
     local startIdx = self.categoryScrollOffset + 1
     local endIdx = math.min(startIdx + self.maxVisibleCategories - 1, #self.categories)
+
+    FontManager:setMenuFont()
 
     for i = startIdx, endIdx do
         local cat = self.categories[i]
@@ -516,46 +511,50 @@ function DatabaseScreen:drawCategoryMenu()
             unlockCount = SaveManager:getDatabaseUnlockCount(cat.id)
         end
 
-        -- Row background
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(40, y - 4, Constants.SCREEN_WIDTH - 80, 26)
-
-        gfx.setColor(gfx.kColorBlack)
         if isSelected then
+            -- Selected: WHITE fill, BLACK text
+            gfx.setColor(gfx.kColorWhite)
             gfx.fillRoundRect(40, y - 4, Constants.SCREEN_WIDTH - 80, 26, 4)
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
         else
+            -- Unselected: BLACK fill, WHITE border
+            gfx.setColor(gfx.kColorBlack)
+            gfx.fillRoundRect(40, y - 4, Constants.SCREEN_WIDTH - 80, 26, 4)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRoundRect(40, y - 4, Constants.SCREEN_WIDTH - 80, 26, 4)
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         end
 
-        -- Category name (bold)
+        -- Category name
         gfx.drawText("*" .. cat.name .. "*", 55, y)
 
-        -- Unlock count (bold)
+        -- Unlock count
         local countText = "*[" .. unlockCount .. "/" .. cat.total .. "]*"
         gfx.drawTextAligned(countText, Constants.SCREEN_WIDTH - 55, y, kTextAlignment.right)
 
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
-    -- Scroll indicators
+    -- Scroll indicators (white on black)
     if self.categoryScrollOffset > 0 then
-        gfx.setColor(gfx.kColorBlack)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillTriangle(Constants.SCREEN_WIDTH - 25, 50, Constants.SCREEN_WIDTH - 20, 44, Constants.SCREEN_WIDTH - 15, 50)
     end
     if self.categoryScrollOffset + self.maxVisibleCategories < #self.categories then
         local arrowY = startY + self.maxVisibleCategories * itemHeight - 8
-        gfx.setColor(gfx.kColorBlack)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillTriangle(Constants.SCREEN_WIDTH - 25, arrowY, Constants.SCREEN_WIDTH - 20, arrowY + 6, Constants.SCREEN_WIDTH - 15, arrowY)
     end
 
-    -- Instructions (bold)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    -- Footer - WHITE rule, WHITE text on BLACK
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
-    gfx.drawTextAligned("*D-pad navigate   A select   B back*", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    FontManager:setFooterFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned("D-pad navigate   A select   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
 function DatabaseScreen:drawEntryList()
@@ -568,12 +567,15 @@ function DatabaseScreen:drawEntryList()
         end
     end
 
-    -- Title bar
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    -- Title bar - BLACK bar with WHITE text
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
+    FontManager:setTitleFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     gfx.drawTextAligned("*" .. catName .. "*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Entry list
     local startY = 50
@@ -582,23 +584,26 @@ function DatabaseScreen:drawEntryList()
     local startIdx = self.scrollOffset + 1
     local endIdx = math.min(startIdx + self.maxVisibleItems - 1, #self.entries)
 
+    FontManager:setMenuFont()
+
     for i = startIdx, endIdx do
         local entry = self.entries[i]
         local displayIdx = i - self.scrollOffset
         local y = startY + (displayIdx - 1) * itemHeight
         local isSelected = (i == self.selectedEntry)
 
-        -- Row background
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 28)
-
-        gfx.setColor(gfx.kColorBlack)
         if isSelected then
+            -- Selected: WHITE fill, BLACK text
+            gfx.setColor(gfx.kColorWhite)
             gfx.fillRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 28, 4)
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
         else
+            -- Unselected: BLACK fill, WHITE border
+            gfx.setColor(gfx.kColorBlack)
+            gfx.fillRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 28, 4)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 28, 4)
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         end
 
         if entry.unlocked then
@@ -616,10 +621,10 @@ function DatabaseScreen:drawEntryList()
                     local iconX = 27 + (26 - scaledW) / 2
                     local iconY = y - 1 + (26 - scaledH) / 2
 
-                    -- Draw BLACK background for icon (consistent with equipment bar)
+                    -- Draw BLACK background for icon (terminal-appropriate)
                     gfx.setColor(gfx.kColorBlack)
                     gfx.fillRect(26, y - 1, 28, 26)
-                    -- Draw border around icon area
+                    -- Draw WHITE border around icon area
                     gfx.setColor(gfx.kColorWhite)
                     gfx.drawRect(26, y - 1, 28, 26)
 
@@ -629,11 +634,11 @@ function DatabaseScreen:drawEntryList()
                 end
             end
 
-            -- Name text (bold) - use white on highlighted rows
+            -- Name text - restore correct draw mode after icon
             if isSelected then
-                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
             else
-                gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             end
             gfx.drawText("*" .. entry.name .. "*", 58, y + 4)
 
@@ -642,7 +647,7 @@ function DatabaseScreen:drawEntryList()
                 gfx.drawText("*+*", Constants.SCREEN_WIDTH - 40, y + 4)
             end
         else
-            -- Locked (bold)
+            -- Locked
             gfx.drawText("*??????*", 58, y + 4)
             gfx.drawTextAligned("*-*", Constants.SCREEN_WIDTH - 40, y + 4, kTextAlignment.right)
         end
@@ -650,24 +655,27 @@ function DatabaseScreen:drawEntryList()
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
-    -- Scroll indicators
+    -- Scroll indicators (white on black)
     if self.scrollOffset > 0 then
-        gfx.setColor(gfx.kColorBlack)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillTriangle(Constants.SCREEN_WIDTH - 20, 48, Constants.SCREEN_WIDTH - 15, 44, Constants.SCREEN_WIDTH - 10, 48)
     end
 
     if self.scrollOffset + self.maxVisibleItems < #self.entries then
         local arrowY = startY + self.maxVisibleItems * itemHeight - 8
-        gfx.setColor(gfx.kColorBlack)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillTriangle(Constants.SCREEN_WIDTH - 20, arrowY, Constants.SCREEN_WIDTH - 15, arrowY + 4, Constants.SCREEN_WIDTH - 10, arrowY)
     end
 
-    -- Instructions (bold)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    -- Footer - WHITE rule, WHITE text on BLACK
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
-    gfx.drawTextAligned("*D-pad navigate   A view   B back*", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    FontManager:setFooterFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned("D-pad navigate   A view   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
 function DatabaseScreen:drawDetailView()
@@ -676,18 +684,24 @@ function DatabaseScreen:drawDetailView()
     local entry = self.currentEntry
     local data = entry.data
 
-    -- Title bar
-    gfx.setColor(gfx.kColorWhite)
+    -- Title bar - BLACK bar with WHITE text
+    gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
-    gfx.drawTextAligned("*" .. string.upper(entry.name) .. "*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
-
-    -- Content area background
     gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(10, 48, Constants.SCREEN_WIDTH - 20, Constants.SCREEN_HEIGHT - 78)
+    gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
+    FontManager:setTitleFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned("*" .. string.upper(entry.name) .. "*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
+    -- Content area - BLACK background with WHITE border
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(10, 48, Constants.SCREEN_WIDTH - 20, Constants.SCREEN_HEIGHT - 78)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawRect(10, 48, Constants.SCREEN_WIDTH - 20, Constants.SCREEN_HEIGHT - 78)
+
+    -- All detail content drawn in WHITE on BLACK
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
 
     -- Draw based on category
     if self.currentCategoryId == "gameplay" then
@@ -704,17 +718,22 @@ function DatabaseScreen:drawDetailView()
         self:drawEpisodeDetail(data, entry.completed)
     end
 
-    -- Instructions (bold)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
+    -- Footer - WHITE rule, WHITE text on BLACK
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
 
+    FontManager:setFooterFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     if self.currentCategoryId == "gameplay" then
-        gfx.drawTextAligned("*D-pad/Crank scroll   B back*", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.drawTextAligned("D-pad/Crank scroll   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
     else
-        gfx.drawTextAligned("*B back*", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.drawTextAligned("B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
     end
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
 function DatabaseScreen:drawToolDetail(data)
@@ -734,6 +753,7 @@ function DatabaseScreen:drawToolDetail(data)
         local iconY = spriteY + (spriteBoxSize - scaledH) / 2
 
         -- Black background with white border
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
         gfx.setColor(gfx.kColorBlack)
         gfx.fillRect(spriteX, spriteY, spriteBoxSize, spriteBoxSize)
         gfx.setColor(gfx.kColorWhite)
@@ -741,13 +761,16 @@ function DatabaseScreen:drawToolDetail(data)
 
         -- Pre-processed icons are already white on black, just draw them
         self.currentSprite:drawScaled(iconX, iconY, scale)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     end
 
-    -- Description (bold)
+    -- Description
+    FontManager:setBodyFont()
     gfx.drawText("*" .. (data.description or "") .. "*", textX, y)
     y = y + 20
 
-    -- Stats (bold)
+    -- Stats
+    FontManager:setMenuFont()
     gfx.drawText("*DMG: " .. (data.baseDamage or 0) .. "*", textX, y)
     y = y + 16
     gfx.drawText("*RATE: " .. (data.fireRate or 0) .. "/s*", textX, y)
@@ -755,10 +778,12 @@ function DatabaseScreen:drawToolDetail(data)
     gfx.drawText("*Pattern: " .. (data.pattern or "straight") .. "*", textX, y)
     y = y + 24
 
-    -- Evolution info (bold)
+    -- Evolution info
     if data.pairsWithBonus then
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(textX, y, Constants.SCREEN_WIDTH - 30, y)
         y = y + 8
+        FontManager:setBodyFont()
         local bonusData = BonusItemsData[data.pairsWithBonus]
         local bonusName = bonusData and bonusData.name or data.pairsWithBonus
         gfx.drawText("*Pairs with: " .. bonusName .. "*", textX, y)
@@ -786,6 +811,7 @@ function DatabaseScreen:drawBonusItemDetail(data)
         local iconY = spriteY + (spriteBoxSize - scaledH) / 2
 
         -- Black background with white border
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
         gfx.setColor(gfx.kColorBlack)
         gfx.fillRect(spriteX, spriteY, spriteBoxSize, spriteBoxSize)
         gfx.setColor(gfx.kColorWhite)
@@ -793,13 +819,16 @@ function DatabaseScreen:drawBonusItemDetail(data)
 
         -- Pre-processed icons are already white on black, just draw them
         self.currentSprite:drawScaled(iconX, iconY, scale)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     end
 
-    -- Effect (bold)
+    -- Effect
+    FontManager:setBodyFont()
     gfx.drawText("*" .. (data.description or "") .. "*", textX, y)
     y = y + 30
 
-    -- Pairing info (bold)
+    -- Pairing info
+    FontManager:setMenuFont()
     if data.pairsWithTool then
         local toolData = ToolsData[data.pairsWithTool]
         local toolName = toolData and toolData.name or data.pairsWithTool
@@ -819,25 +848,30 @@ function DatabaseScreen:drawEnemyDetail(data)
     local textX = 100
     local y = 58
 
-    -- Draw sprite (scaled up)
+    -- Draw sprite (scaled up) - keep black background
     if self.currentSprite then
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
         self.currentSprite:drawScaled(spriteX, spriteY, 2)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     end
 
-    -- Episode (bold)
+    -- Episode
+    FontManager:setMenuFont()
     gfx.drawText("*Episode " .. (data.episode or "?") .. "*", textX, y)
     y = y + 20
 
-    -- Stats (bold)
+    -- Stats
     gfx.drawText("*HP: " .. (data.health or "?") .. "*", textX, y)
     gfx.drawText("*DMG: " .. (data.damage or "?") .. "*", textX + 80, y)
     y = y + 16
     gfx.drawText("*Speed: " .. (data.speed or "?") .. "*", textX, y)
     y = y + 24
 
-    -- Behavior (bold)
+    -- Behavior
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(textX, y, Constants.SCREEN_WIDTH - 30, y)
     y = y + 8
+    FontManager:setBodyFont()
     gfx.drawTextInRect("*" .. (data.behavior or "") .. "*", textX, y, Constants.SCREEN_WIDTH - textX - 30, 40)
 end
 
@@ -847,31 +881,37 @@ function DatabaseScreen:drawBossDetail(data)
     local textX = 90
     local y = 55
 
-    -- Draw sprite (scaled)
+    -- Draw sprite (scaled) - keep black background
     if self.currentSprite then
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
         local w, h = self.currentSprite:getSize()
         local scale = math.min(60 / w, 60 / h)
         self.currentSprite:drawScaled(spriteX, spriteY, scale)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     end
 
-    -- Tagline (bold)
+    -- Tagline
+    FontManager:setBodyFont()
     gfx.drawText("*\"" .. (data.tagline or "") .. "\"*", textX, y)
     y = y + 18
+    FontManager:setMenuFont()
     gfx.drawText("*Episode " .. (data.episode or "?") .. " Boss*", textX, y)
     y = y + 20
 
-    -- Stats (bold)
+    -- Stats
     gfx.drawText("*HP: " .. (data.health or "?") .. "*", textX, y)
     gfx.drawText("*DMG: " .. (data.damage or "?") .. "*", textX + 100, y)
     y = y + 20
 
-    -- Phases (bold)
+    -- Phases
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(textX, y, Constants.SCREEN_WIDTH - 20, y)
     y = y + 6
     gfx.drawText("*PHASES:*", textX, y)
     y = y + 14
 
     if data.phases then
+        FontManager:setBodyFont()
         for _, phase in ipairs(data.phases) do
             gfx.drawText("*" .. phase .. "*", textX + 10, y)
             y = y + 14
@@ -883,36 +923,42 @@ function DatabaseScreen:drawEpisodeDetail(data, completed)
     local y = 55
     local margin = 25
 
-    -- Title and tagline (bold)
+    -- Title and tagline
+    FontManager:setBodyFont()
     gfx.drawText("*" .. data.title .. "*", margin, y)
     y = y + 18
     gfx.drawText("*\"" .. (data.tagline or "") .. "\"*", margin, y)
     y = y + 24
 
     -- Separator
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(margin, y, Constants.SCREEN_WIDTH - margin, y)
     y = y + 10
 
-    -- Enemies (bold)
+    -- Enemies
+    FontManager:setMenuFont()
     gfx.drawText("*ENEMIES:*", margin, y)
     y = y + 14
+    FontManager:setBodyFont()
     local enemyText = data.enemyNames or "Various threats"
     gfx.drawTextInRect("*" .. enemyText .. "*", margin + 10, y, Constants.SCREEN_WIDTH - margin * 2 - 10, 30)
     y = y + 30
 
-    -- Boss (bold)
+    -- Boss
+    FontManager:setMenuFont()
     gfx.drawText("*BOSS: " .. (data.bossName or "Unknown") .. "*", margin, y)
     y = y + 18
 
-    -- Research spec reward (bold)
+    -- Research spec reward
     if data.researchSpecUnlock then
         local specData = ResearchSpecsData and ResearchSpecsData.get(data.researchSpecUnlock)
         local specName = specData and specData.name or data.researchSpecUnlock
         gfx.drawText("*REWARD: " .. specName .. "*", margin, y)
     end
 
-    -- Completion status (bold)
+    -- Completion status
     y = Constants.SCREEN_HEIGHT - 55
+    FontManager:setMenuFont()
     if completed then
         gfx.drawTextAligned("*+ COMPLETED*", Constants.SCREEN_WIDTH / 2, y, kTextAlignment.center)
     else
@@ -945,8 +991,10 @@ function DatabaseScreen:drawControlsDetail()
     local y = contentTop - self.gameplayScrollOffset
 
     -- Section: Crank
+    FontManager:setMenuFont()
     gfx.drawText("*CRANK*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Rotate the crank to spin your station.", margin, y)
     y = y + 14
     gfx.drawText("Tools fire in the direction they face.", margin, y)
@@ -955,32 +1003,40 @@ function DatabaseScreen:drawControlsDetail()
     y = y + 24
 
     -- Section: D-Pad
+    FontManager:setMenuFont()
     gfx.drawText("*D-PAD*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Navigate menus (Up/Down or Left/Right).", margin, y)
     y = y + 14
     gfx.drawText("Scroll content in some screens.", margin, y)
     y = y + 24
 
     -- Section: A Button
+    FontManager:setMenuFont()
     gfx.drawText("*A BUTTON*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Confirm selections in menus.", margin, y)
     y = y + 14
     gfx.drawText("Continue through story panels.", margin, y)
     y = y + 24
 
     -- Section: B Button
+    FontManager:setMenuFont()
     gfx.drawText("*B BUTTON*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Go back / Cancel.", margin, y)
     y = y + 14
     gfx.drawText("Pause during gameplay.", margin, y)
     y = y + 24
 
     -- Section: Menu Button
+    FontManager:setMenuFont()
     gfx.drawText("*MENU BUTTON*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Pause the game during an episode.", margin, y)
     y = y + 24
 
@@ -1006,24 +1062,30 @@ function DatabaseScreen:drawSettingsDetail()
     local y = contentTop - self.gameplayScrollOffset
 
     -- Section: Music Volume
+    FontManager:setMenuFont()
     gfx.drawText("*MUSIC VOLUME*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Adjust background music volume.", margin, y)
     y = y + 14
     gfx.drawText("Range: 0% (off) to 100% (full).", margin, y)
     y = y + 24
 
     -- Section: SFX Volume
+    FontManager:setMenuFont()
     gfx.drawText("*SFX VOLUME*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Adjust sound effects volume.", margin, y)
     y = y + 14
     gfx.drawText("Includes hits, pickups, and UI sounds.", margin, y)
     y = y + 24
 
     -- Section: Creative Mode
+    FontManager:setMenuFont()
     gfx.drawText("*CREATIVE MODE*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Sandbox mode for exploration.", margin, y)
     y = y + 14
     gfx.drawText("- Unlock all content instantly", margin, y)
@@ -1034,8 +1096,10 @@ function DatabaseScreen:drawSettingsDetail()
     y = y + 24
 
     -- Section: Reset All Data
+    FontManager:setMenuFont()
     gfx.drawText("*RESET ALL DATA*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Clears all save data and progress.", margin, y)
     y = y + 14
     gfx.drawText("Resets episodes, specs, and database.", margin, y)
@@ -1065,8 +1129,10 @@ function DatabaseScreen:drawStationSystemsDetail()
     local y = contentTop - self.gameplayScrollOffset
 
     -- Section: Tools
+    FontManager:setMenuFont()
     gfx.drawText("*TOOLS*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Weapons that auto-fire from your station.", margin, y)
     y = y + 14
     gfx.drawText("Max 8 different tools per episode.", margin, y)
@@ -1077,8 +1143,10 @@ function DatabaseScreen:drawStationSystemsDetail()
     y = y + 24
 
     -- Section: Bonus Items
+    FontManager:setMenuFont()
     gfx.drawText("*BONUS ITEMS*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Passive upgrades and stat boosts.", margin, y)
     y = y + 14
     gfx.drawText("Max 8 different items per episode.", margin, y)
@@ -1089,8 +1157,10 @@ function DatabaseScreen:drawStationSystemsDetail()
     y = y + 24
 
     -- Section: Level Up
+    FontManager:setMenuFont()
     gfx.drawText("*LEVEL UP*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Collect RP (Research Points) from enemies.", margin, y)
     y = y + 14
     gfx.drawText("Fill the bar at top to level up.", margin, y)
@@ -1099,8 +1169,10 @@ function DatabaseScreen:drawStationSystemsDetail()
     y = y + 24
 
     -- Section: Research Specs
+    FontManager:setMenuFont()
     gfx.drawText("*RESEARCH SPECS*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("Permanent bonuses unlocked by", margin, y)
     y = y + 14
     gfx.drawText("completing episodes.", margin, y)
@@ -1109,8 +1181,10 @@ function DatabaseScreen:drawStationSystemsDetail()
     y = y + 24
 
     -- Section: Episodes
+    FontManager:setMenuFont()
     gfx.drawText("*EPISODES*", margin, y)
     y = y + 16
+    FontManager:setBodyFont()
     gfx.drawText("7 waves of enemies + 1 boss fight.", margin, y)
     y = y + 14
     gfx.drawText("Defeat the boss to complete the episode.", margin, y)
@@ -1136,14 +1210,14 @@ function DatabaseScreen:drawScrollIndicator()
         scrollPct = self.gameplayScrollOffset / self.gameplayMaxScroll
     end
 
-    -- Draw small scroll bar on right
+    -- Draw small scroll bar on right (white on black)
     local barX = Constants.SCREEN_WIDTH - 18
     local barY = 55
     local barH = Constants.SCREEN_HEIGHT - 85
     local thumbH = math.max(20, barH * 0.3)
     local thumbY = barY + scrollPct * (barH - thumbH)
 
-    gfx.setColor(gfx.kColorBlack)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawRect(barX, barY, 6, barH)
     gfx.fillRect(barX + 1, thumbY, 4, thumbH)
 end

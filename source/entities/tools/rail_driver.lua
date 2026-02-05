@@ -12,10 +12,10 @@ RailDriver.DATA = {
     iconPath = "images/tools/tool_rail_driver",
     projectileImage = "images/tools/tool_rail_driver_projectile",
 
-    -- Base stats
-    baseDamage = 3,
-    fireRate = 1.5,        -- 1.5 shots per second
-    projectileSpeed = 8,   -- Fast projectiles
+    -- Base stats (synced with tools_data.lua)
+    baseDamage = 8,
+    fireRate = 2.0,
+    projectileSpeed = 10,
     pattern = "straight",
     damageType = "physical",
 
@@ -24,7 +24,7 @@ RailDriver.DATA = {
     upgradedName = "Rail Cannon",
     upgradedImagePath = "images/tools/tool_rail_cannon",
     upgradedProjectileImage = "images/tools/tool_rail_cannon_projectile",
-    upgradedDamage = 8,
+    upgradedDamage = 20,
     upgradedSpeed = 12,
     piercing = true,       -- Upgraded version pierces through first target
 }
@@ -39,10 +39,6 @@ end
 -- RailDriver uses the base Tool:fire() method
 -- Override createProjectile to pass the piercing parameter
 function RailDriver:createProjectile(x, y, angle)
-    print("RailDriver:createProjectile called at " .. x .. "," .. y .. " angle=" .. angle)
-    print("  projectileSpeed=" .. tostring(self.projectileSpeed) .. " damage=" .. tostring(self.damage))
-    print("  projectileImage=" .. tostring(self.data.projectileImage))
-
     if GameplayScene and GameplayScene.projectilePool then
         local projectile = GameplayScene.projectilePool:get(
             x, y, angle,
@@ -51,10 +47,7 @@ function RailDriver:createProjectile(x, y, angle)
             self.data.projectileImage or "images/tools/tool_rail_driver_projectile",
             self.piercing
         )
-        print("  projectile created: " .. tostring(projectile) .. " active=" .. tostring(projectile and projectile.active))
         return projectile
-    else
-        print("  ERROR: No GameplayScene or projectilePool!")
     end
 end
 

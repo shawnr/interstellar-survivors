@@ -91,6 +91,6 @@ function SilkWeaver:applySlowEffect()
         GameplayScene.station.rotationSlow = 0.5  -- 50% slower
         GameplayScene.station.rotationSlowTimer = 2.0  -- 2 seconds
 
-        print("Silk Weaver applied slow effect!")
+        -- Slow effect applied
     end
 end

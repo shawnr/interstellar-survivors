@@ -266,6 +266,23 @@ function Tool:recalculateStats()
     end
 end
 
+-- Apply bonus item effect (override in subclasses that need special behavior)
+function Tool:applyBonusEffect(bonusData)
+    -- Base implementation: apply generic stat bonuses from bonus item
+    if bonusData then
+        if bonusData.damageBonus then
+            self.damageBonus = self.damageBonus + bonusData.damageBonus
+        end
+        if bonusData.fireRateBonus then
+            self.fireRateBonus = self.fireRateBonus + bonusData.fireRateBonus
+        end
+        if bonusData.rangeBonus then
+            self.rangeBonus = self.rangeBonus + bonusData.rangeBonus
+        end
+        self:recalculateStats()
+    end
+end
+
 -- Get tool info for UI
 function Tool:getInfo()
     return {

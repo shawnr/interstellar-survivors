@@ -13,8 +13,8 @@ ThermalLance.DATA = {
     projectileImage = "images/tools/tool_thermal_beam",
 
     -- Base stats
-    baseDamage = 5,
-    fireRate = 0.4,         -- Slower fire rate
+    baseDamage = 12,
+    fireRate = 0.6,
     projectileSpeed = 0,    -- Instant beam
     pattern = "beam",
     damageType = "thermal",
@@ -24,7 +24,7 @@ ThermalLance.DATA = {
     upgradedName = "Plasma Cutter",
     upgradedImagePath = "images/tools/tool_plasma_cutter",
     upgradedProjectileImage = "images/tools/tool_plasma_cutter_beam",
-    upgradedDamage = 12,
+    upgradedDamage = 30,
 }
 
 function ThermalLance:init()

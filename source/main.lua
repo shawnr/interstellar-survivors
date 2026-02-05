@@ -16,6 +16,7 @@ local timer <const> = playdate.timer
 import "lib/constants"
 import "lib/class"
 import "lib/utils"
+import "managers/font_manager"
 import "managers/input_manager"
 import "managers/game_manager"
 import "managers/audio_manager"
@@ -105,6 +106,7 @@ local function initialize()
     playdate.display.setRefreshRate(30)
 
     -- Initialize managers
+    FontManager:init()
     InputManager:init()
     SaveManager:init()
     GameManager:init()
@@ -169,6 +171,9 @@ end
 function playdate.update()
     -- Update timers
     timer.updateTimers()
+
+    -- Increment projectile frame counter (prevents double-updates within same frame)
+    Projectile.incrementFrameCounter()
 
     -- Process input
     InputManager:update()

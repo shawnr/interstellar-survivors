@@ -11,16 +11,16 @@ CryoProjector.DATA = {
     iconPath = "images/tools/tool_cryo_projector",
     projectileImage = "images/tools/tool_cryo_particle",
 
-    baseDamage = 1,
-    fireRate = 0.7,
-    projectileSpeed = 7,
+    baseDamage = 4,
+    fireRate = 1.0,
+    projectileSpeed = 8,
     pattern = "spread",
     damageType = "cold",
 
     pairsWithBonus = "compressor_unit",
     upgradedName = "Absolute Zero",
     upgradedImagePath = "images/tools/tool_absolute_zero",
-    upgradedDamage = 3,
+    upgradedDamage = 10,
 }
 
 function CryoProjector:init()

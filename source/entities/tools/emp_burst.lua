@@ -11,8 +11,8 @@ EMPBurst.DATA = {
     iconPath = "images/tools/tool_emp_burst",
     projectileImage = "images/tools/tool_emp_effect",
 
-    baseDamage = 2,
-    fireRate = 0.3,
+    baseDamage = 6,
+    fireRate = 0.5,
     projectileSpeed = 0,  -- Instant radial
     pattern = "radial",
     damageType = "electric",
@@ -20,7 +20,7 @@ EMPBurst.DATA = {
     pairsWithBonus = "capacitor_bank",
     upgradedName = "Ion Storm",
     upgradedImagePath = "images/tools/tool_ion_storm",
-    upgradedDamage = 5,
+    upgradedDamage = 15,
 }
 
 function EMPBurst:init()

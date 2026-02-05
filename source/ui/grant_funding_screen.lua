@@ -1,5 +1,6 @@
 -- Grant Funding Screen UI
 -- Allows players to spend Grant Funds to upgrade station stats
+-- Retro terminal aesthetic: black background, white text, inverted selection
 
 local gfx <const> = playdate.graphics
 
@@ -10,13 +11,11 @@ GrantFundingScreen = {
     maxVisibleItems = 3,  -- Fits 3 items at 46px each in available space
     stats = {},  -- Display data for each stat
     fromState = nil,
-    patternBg = nil,
     confirmingPurchase = false,
     confirmIndex = 2,  -- Default to "No"
 }
 
 function GrantFundingScreen:init()
-    self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 end
 
 function GrantFundingScreen:show(fromState)
@@ -26,10 +25,6 @@ function GrantFundingScreen:show(fromState)
     self.fromState = fromState or GameManager.states.TITLE
     self.confirmingPurchase = false
     self:refreshStats()
-
-    if not self.patternBg then
-        self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
-    end
 end
 
 function GrantFundingScreen:hide()
@@ -177,27 +172,28 @@ end
 function GrantFundingScreen:draw()
     if not self.isVisible then return end
 
-    -- Draw pattern background
-    if self.patternBg then
-        self.patternBg:draw(0, 0)
-    else
-        gfx.clear(gfx.kColorWhite)
-    end
+    gfx.clear(gfx.kColorBlack)
 
-    -- Title bar with white background
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    -- Title bar with BLACK background
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    -- White horizontal rule below header
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
-    gfx.drawTextAligned("*GRANT FUNDING*", Constants.SCREEN_WIDTH / 2, 6, kTextAlignment.center)
+    -- WHITE header text on black
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    FontManager:setTitleFont()
+    gfx.drawTextAligned("GRANT FUNDING", Constants.SCREEN_WIDTH / 2, 6, kTextAlignment.center)
 
-    -- Current funds display
-    local funds = SaveManager:getGrantFunds()
-    gfx.drawTextAligned("*Funds: " .. funds .. "*", Constants.SCREEN_WIDTH / 2, 22, kTextAlignment.center)
+    -- Current funds display: WHITE text on black
+    FontManager:setBodyFont()
+    gfx.drawTextAligned("*Funds: " .. SaveManager:getGrantFunds() .. "*", Constants.SCREEN_WIDTH / 2, 22, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Draw stats list with scrolling
     local startY = 46
-    local itemHeight = 46  -- Increased for better spacing between items
+    local itemHeight = 46
+    local funds = SaveManager:getGrantFunds()
 
     local startIdx = self.scrollOffset + 1
     local endIdx = math.min(startIdx + self.maxVisibleItems - 1, #self.stats)
@@ -211,23 +207,27 @@ function GrantFundingScreen:draw()
         self:drawStatItem(stat, y, isSelected, funds)
     end
 
-    -- Scroll indicators
+    -- Scroll indicators (white on black background)
     if self.scrollOffset > 0 then
-        gfx.setColor(gfx.kColorBlack)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillTriangle(Constants.SCREEN_WIDTH - 25, 50, Constants.SCREEN_WIDTH - 20, 44, Constants.SCREEN_WIDTH - 15, 50)
     end
     if self.scrollOffset + self.maxVisibleItems < #self.stats then
         local arrowY = startY + self.maxVisibleItems * itemHeight - 8
-        gfx.setColor(gfx.kColorBlack)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillTriangle(Constants.SCREEN_WIDTH - 25, arrowY, Constants.SCREEN_WIDTH - 20, arrowY + 6, Constants.SCREEN_WIDTH - 15, arrowY)
     end
 
-    -- Draw instructions at bottom
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    -- Footer: BLACK background with white rule above and WHITE text
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
-    gfx.drawTextAligned("*D-pad navigate   A purchase   B back*", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    FontManager:setFooterFont()
+    gfx.drawTextAligned("[D-pad] Navigate   [A] Purchase   [B] Back",
+        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Draw confirmation dialog if active
     if self.confirmingPurchase then
@@ -237,35 +237,32 @@ end
 
 function GrantFundingScreen:drawStatItem(stat, y, isSelected, funds)
     local itemWidth = Constants.SCREEN_WIDTH - 40
-    local rowHeight = 42  -- Increased height for better margins
-    local leftPadding = 32  -- More padding inside box
+    local rowHeight = 42
+    local leftPadding = 32
     local rightPadding = 32
 
-    -- Row background for readability
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRoundRect(20, y, itemWidth, rowHeight, 4)
-
-    -- Selection highlight or border
-    gfx.setColor(gfx.kColorBlack)
     if isSelected then
+        -- Selected: WHITE fill, BLACK text
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillRoundRect(20, y, itemWidth, rowHeight, 4)
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
     else
+        -- Unselected: BLACK fill, WHITE border, WHITE text
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillRoundRect(20, y, itemWidth, rowHeight, 4)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawRoundRect(20, y, itemWidth, rowHeight, 4)
-    end
-
-    -- Set draw mode based on selection
-    if isSelected then
         gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    else
-        gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
-    -- Stat name and level (first line with more top margin)
+    -- Stat name and level (first line)
+    FontManager:setMenuFont()
     local levelText = "Lv " .. stat.currentLevel .. "/4"
     gfx.drawText("*" .. stat.data.name .. "*", leftPadding, y + 6)
     gfx.drawTextAligned("*" .. levelText .. "*", Constants.SCREEN_WIDTH - rightPadding, y + 6, kTextAlignment.right)
 
-    -- Second line: next upgrade info or MAXED (more spacing between lines)
+    -- Second line: next upgrade info or MAXED
+    FontManager:setBodyFont()
     if stat.maxed then
         gfx.drawText("*MAXED OUT*", leftPadding, y + 24)
     else
@@ -281,7 +278,7 @@ function GrantFundingScreen:drawStatItem(stat, y, isSelected, funds)
 
         gfx.drawText(shortLabel, leftPadding, y + 24)
 
-        -- Cost on right side
+        -- Cost on right side: bold if affordable
         if canAfford then
             gfx.drawTextAligned("*" .. costText .. "*", Constants.SCREEN_WIDTH - rightPadding, y + 24, kTextAlignment.right)
         else
@@ -302,38 +299,51 @@ function GrantFundingScreen:drawConfirmDialog()
     gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
     gfx.setDitherPattern(0)
 
-    -- Dialog box
+    -- Dialog box: BLACK fill, WHITE double-line border
     local dialogW = 300
     local dialogH = 100
     local dialogX = (Constants.SCREEN_WIDTH - dialogW) / 2
     local dialogY = (Constants.SCREEN_HEIGHT - dialogH) / 2
 
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(dialogX, dialogY, dialogW, dialogH)
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(dialogX, dialogY, dialogW, dialogH)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawRect(dialogX, dialogY, dialogW, dialogH)
     gfx.drawRect(dialogX + 2, dialogY + 2, dialogW - 4, dialogH - 4)
 
-    -- Text
+    -- WHITE text on black dialog
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    FontManager:setMenuFont()
     gfx.drawTextAligned("*Purchase " .. stat.data.name .. " Upgrade?*", Constants.SCREEN_WIDTH / 2, dialogY + 15, kTextAlignment.center)
+    FontManager:setBodyFont()
     gfx.drawTextAligned("*Cost: " .. stat.cost .. " Funds*", Constants.SCREEN_WIDTH / 2, dialogY + 35, kTextAlignment.center)
     gfx.drawTextAligned(stat.nextLabel, Constants.SCREEN_WIDTH / 2, dialogY + 52, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Yes/No buttons
     local yesX = dialogX + 60
     local noX = dialogX + dialogW - 100
     local buttonY = dialogY + dialogH - 28
 
+    FontManager:setMenuFont()
+
     if self.confirmIndex == 1 then
+        -- Yes selected: WHITE fill, BLACK text
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillRoundRect(yesX - 10, buttonY - 2, 60, 22, 4)
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+        gfx.drawText("*Yes*", yesX, buttonY)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawText("*No*", noX, buttonY)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    else
+        -- No selected: WHITE fill, BLACK text
         gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         gfx.drawText("*Yes*", yesX, buttonY)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
-        gfx.drawText("*No*", noX, buttonY)
-    else
-        gfx.drawText("*Yes*", yesX, buttonY)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillRoundRect(noX - 10, buttonY - 2, 60, 22, 4)
-        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
         gfx.drawText("*No*", noX, buttonY)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end

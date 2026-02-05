@@ -101,7 +101,7 @@ function InputManager:update()
     )
 
     -- Calculate smoothed delta for this frame
-    self.smoothedCrankDelta = self.currentRotation - (self.currentRotation - (self.crankDelta * Constants.ROTATION_RATIO * Constants.ROTATION_SMOOTHING))
+    self.smoothedCrankDelta = self.crankDelta * Constants.ROTATION_RATIO * Constants.ROTATION_SMOOTHING
 
     -- Update button states using polling
     local currentButtonState = {

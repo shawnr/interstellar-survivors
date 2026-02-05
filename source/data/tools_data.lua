@@ -166,6 +166,7 @@ ToolsData = {
         pairsWithBonus = "field_amplifier",
         upgradedName = "Shockwave Generator",
         upgradedImagePath = "images/tools/tool_shockwave_gen",
+        upgradedDamage = 8,
         damagePerLevel = 2,
         fireRatePerLevel = 0.1,
     },

@@ -121,7 +121,7 @@ There are two meta-progression systems in the game:
 ### Research Specs
 Research Specs are items that can be gained by completing Episodes. Unlocking a Research Spec is permanent. Once the Episode related to that Research Spec is completed, that item will always affect the game.
 
-Players can view a list available from the Research menu of their unlocked Research Specs to learn more about them. They are defined in the Research Specs table (see Systems Update tab), and include items like "Silk Weave Plating" to increase the health of the Station, or "Quantum Flux Capacitor" to provide a dodge chance.
+Players can view a list available from the Research menu of their unlocked Research Specs to learn more about them. They are defined in the Research Specs table (see Systems Update tab), and include items like "Silk Weave Plating" to increase the health of the Station, or "Probability Shield" to provide a dodge chance.
 
 When a new Episode starts, the effects of all unlocked Research Specs are noted and applied to the gameplay session. Each Episode unlocks a specific Research Spec when completed.
 
@@ -140,14 +140,14 @@ The following are tables that provide game data to be used during play. For comp
 ## General Game Data
 
 1. BOSS\_SPAWN\_TIME=7min (2min in debug mode)
-2. MAX\_TOOLS\_PER\_EPISODE=8
-3. MAX\_BONUS\_ITEMS\_PER\_EPISODE=8
-4. MAX\_UPGRADE\_LEVEL=4 (for both tools and bonus items)
-5. MOB\_DAMAGE\_MULTIPLIER=1
-6. BASE\_XP=50
-7. BASE\_LEVEL\_EXPONENT=1.15
-8. STATION\_BASE\_HEALTH=500
-9. ROTATION\_RATIO=1:1 (360° crank = 360° station)
+2. MAX\_EQUIPMENT=8 (combined limit for tools + bonus items per episode)
+3. MAX\_UPGRADE\_LEVEL=4 (for both tools and bonus items)
+4. MOB\_DAMAGE\_MULTIPLIER=1
+5. BASE\_XP=50
+6. BASE\_LEVEL\_EXPONENT=1.15
+7. STATION\_BASE\_HEALTH=500
+8. ROTATION\_RATIO=1:1 (360° crank = 360° station)
+9. STATION\_SLOTS=8
 
 ## Grant Funding
 
@@ -187,7 +187,7 @@ A player with all Grant Funding upgrades at level 4 should be able to reliably c
 
 ## Research Specifications
 
-See **Systems Update** tab for complete Research Specs table (8 specs with unlock conditions).
+See **Systems Update** tab for complete Research Specs table (9 specs with unlock conditions).
 
 ## MOBs
 
@@ -235,16 +235,16 @@ This game uses the following formula to define levels:
 
 **BASE\_XP × (LEVEL^EXPONENT \- 1\)**
 
-So with a base of 100 and exponent of 1.2:
+So with a base of 50 and exponent of 1.15:
 
-* Level 1: 100 × (1^1.2 \- 1\) \= 100 × (1 \- 1\) \= 0  
-* Level 2: 100 × (2^1.2 \- 1\) \= 100 × (2.30 \- 1\) \= 130  
-* Level 5: 100 × (5^1.2 \- 1\) \= 100 × (7.14 \- 1\) \= 614  
-* Level 10: 100 × (10^1.2 \- 1\) \= 100 × (15.85 \- 1\) \= 1,585
+* Level 1: 50 × (1^1.15 \- 1\) \= 50 × (1 \- 1\) \= 0
+* Level 2: 50 × (2^1.15 \- 1\) \= 50 × (2.22 \- 1\) \= 61
+* Level 5: 50 × (5^1.15 \- 1\) \= 50 × (6.42 \- 1\) \= 271
+* Level 10: 50 × (10^1.15 \- 1\) \= 50 × (14.13 \- 1\) \= 656
 
-BASE\_XP will be 100 for the game (set in game constants)
+BASE\_XP will be 50 for the game (set in game constants)
 
-BASE\_LEVEL\_EXPONENT will be 1.2 for the game (set in game constants)
+BASE\_LEVEL\_EXPONENT will be 1.15 for the game (set in game constants)
 
 When a new level is achieved, the amount required to hit the next level will be calculated, and the RP bar display will be adjusted accordingly. There may be times when these counts are going up very rapidly, so this needs to be fast to update.
 
@@ -258,28 +258,34 @@ For the complete Tools table (14 Tools with stats, patterns, and upgrade paths),
 
 ### Tool Summary
 
-| Tool | Available | Pairs With | Upgrades To |
-| :---- | :---- | :---- | :---- |
-| Rail Driver | Start | Alloy Gears | Rail Cannon |
-| Frequency Scanner | Start | Expanded Dish | Harmonic Disruptor |
-| Tractor Pulse | Start | Magnetic Coils | Gravity Well |
-| Thermal Lance | Episode 1 | Cooling Vents | Plasma Cutter |
-| Cryo Projector | Episode 2 | Compressor Unit | Absolute Zero |
-| EMP Burst | Episode 3 | Capacitor Bank | Ion Storm |
-| Probe Launcher | Episode 4 | Probe Swarm | Drone Carrier |
-| Repulsor Field | Episode 5 | Field Amplifier | Shockwave Generator |
+| Tool | Available | Pattern | Pairs With | Upgrades To |
+| :---- | :---- | :---- | :---- | :---- |
+| Rail Driver | Start | straight | Alloy Gears | Rail Cannon |
+| Frequency Scanner | Start | straight | Expanded Dish | Harmonic Disruptor |
+| Tractor Pulse | Start | cone | Magnetic Coils | Gravity Well |
+| Plasma Sprayer | Episode 1 | cone (5 droplets) | Fuel Injector | Inferno Cannon |
+| Thermal Lance | Episode 1 | beam | Cooling Vents | Plasma Cutter |
+| Cryo Projector | Episode 2 | spread | Compressor Unit | Absolute Zero |
+| Mapping Drone | Episode 2 | homing (priority) | Targeting Matrix | Perihelion Strike |
+| Micro-Missile Pod | Episode 2 | burst (3 missiles) | Guidance Module | Swarm Launcher |
+| EMP Burst | Episode 3 | radial | Capacitor Bank | Ion Storm |
+| Singularity Core | Episode 3 | orbital | Graviton Lens | Black Hole Generator |
+| Tesla Coil | Episode 3 | chain | Arc Capacitors | Storm Generator |
+| Probe Launcher | Episode 4 | homing | Probe Swarm | Drone Carrier |
+| Phase Disruptor | Episode 4 | piercing | Phase Modulators | Dimensional Rift |
+| Repulsor Field | Episode 5 | radial | Field Amplifier | Shockwave Generator |
 
 ## Bonus Items
 
 Bonus Items are passive upgrades selected at level-up. Some Bonus Items provide general stat boosts; others combine with specific Tools to create Upgraded Tools with significantly improved stats and special effects.
 
-For the complete Bonus Items table (16 items with effects and unlock conditions), see the **Systems Update** tab.
+For the complete Bonus Items table (33 items with effects and unlock conditions), see the **Systems Update** tab.
 
 ### Bonus Item Summary
 
-**Tool Upgrade Items:** Alloy Gears, Expanded Dish, Magnetic Coils, Cooling Vents, Compressor Unit, Capacitor Bank, Probe Swarm, Field Amplifier
+**Tool Upgrade Items (14):** Alloy Gears, Expanded Dish, Magnetic Coils, Cooling Vents, Compressor Unit, Capacitor Bank, Probe Swarm, Field Amplifier, Targeting Matrix, Graviton Lens, Fuel Injector, Arc Capacitors, Guidance Module, Phase Modulators
 
-**General Passive Items:** Reinforced Hull, Overclocked Capacitors, Extended Sensors, Emergency Thrusters, Scrap Collector, Backup Generator, Targeting Computer, Ablative Coating
+**General Passive Items (19):** Reinforced Hull, Emergency Thrusters, Overclocked Capacitors, Rapid Repair, Scrap Collector, Backup Generator, Ablative Coating, Shield Capacitor, Quantum Stabilizer, Power Relay, BrainBuddy, Critical Matrix, Salvage Drone, Kinetic Absorber, Rapid Loader, Multi-Spectrum Rounds
 
 # Mission Content
 
@@ -330,7 +336,7 @@ Ending Panels:
    b. "Their silk has remarkable tensile properties."
    c. "Maserati is very smug about this."
 
-Research Spec Unlock: "Silk Weave Plating" — Station takes 10% less damage from ramming attacks.  
+Research Spec Unlock: "Silk Weave Plating" — +10% Station Health.
 ---
 
 ## Mission 2: "Productivity Review"
@@ -378,7 +384,7 @@ Ending Panels:
    a. "...was actually pretty good. We've repurposed it."
    b. "Don't tell corporate."
 
-Research Spec Unlock: "Optimized Targeting" — Projectiles track targets 5% more accurately.  
+Research Spec Unlock: "Efficiency Protocols" — All tools fire 5% faster.
 ---
 
 ## Mission 3: "Whose Idea Was This?"
@@ -395,7 +401,7 @@ Threats:
 
 * Probability Fluctuations (ram) — Objects that used to be something else. They're confused. They're angry about being confused.  
 * Paradox Nodes (shoot) — Hover at range and fire beams that temporarily reverse your rotation controls.  
-* The Improbability Itself (boss) — A shimmering mass of "what if" that changes form every few seconds, alternating between ramming and shooting unpredictably.
+* Improbability Engine (boss) — A reality-bending anomaly that warps probability and breaks physics. Cycles through multiple phases including probability storms, reality warps that invert controls, and paradox node summoning.
 
 Collectibles:
 
@@ -426,7 +432,7 @@ Ending Panels:
    a. "This should not be possible."
    b. "That's rather the point."
 
-Research Spec Unlock: "Improbability Compensation" — 5% chance for any damage to be negated entirely.  
+Research Spec Unlock: "Probability Shield" — 5% chance to dodge hits entirely.
 ---
 
 ## Mission 4: "Garbage Day"
@@ -630,9 +636,7 @@ Threats
 | probability\_fluctuation\_anim | 16×16 ×3 | 3-frame morph animation |
 | paradox\_node | 24×24 | Geometric impossibility (Escher-like) |
 | paradox\_beam | 8×8 | Swirling beam projectile |
-| improbability\_itself | 48×48 | Boss: shimmering mass, changes form |
-| improbability\_form\_a | 48×48 | Boss alternate form 1 |
-| improbability\_form\_b | 48×48 | Boss alternate form 2 |
+| improbability\_engine | 48×48 | Boss: reality-bending anomaly |
 
 Collectibles
 
@@ -831,28 +835,24 @@ The following list of taglines should be randomly rotated in on the game title s
 "A qualified success."
 
 
-### Intro Panels Rules
-   1. When the mission is selected, the mission title screen shows
+### Intro/End Panels Rules
+   1. When the mission is selected, the mission title screen shows (3s auto-advance with fade)
    2. That fades into the mission Intro Panels
-   3. For each panel, do the following:
+   3. Navigation is **line-by-line** across all panels:
       1. Show the panel background
-      2. Play a randomly chosen audio hit from the game_assets/audio/hits directory
-      3. Show the first line of text for 5 sec (or button press)
-      4. Show the second line of text for 5 sec (or button press)
-      5. Show the third line of text for 5 sec (or button press)
-      6. Wait for button press to continue
-      6. On button press enter game field and play session
+      2. Play a randomly chosen audio hit from the game\_assets/audio/hits directory
+      3. Each line auto-advances after **3 seconds**
+      4. **A button or Right** advances one line (crosses panel boundaries)
+      5. **B button or Left** rewinds one line (crosses panel boundaries)
+      6. When the last line of the last panel is reached, auto-advance **stops**
+      7. Player must press **A** to proceed (start gameplay or continue to stats)
+   4. Three dots at bottom of screen show per-panel progress
+   5. "Press A" indicator shows in top-right corner
 
 ### End Panels Rules
-   1. After the mission is beaten, show the End Panels
-   3. For each panel, do the following:
-      1. Show the panel background
-      2. Play a randomly chosen audio hit from the game_assets/audio/hits directory
-      3. Show the first line of text for 5 sec (or button press)
-      4. Show the second line of text for 5 sec (or button press)
-      5. Show the third line of text for 5 sec (or button press)
-      6. Wait for button press to continue
-      6. On button press go to mission select menu
+   1. After the boss is defeated, show the End Panels
+   2. Same line-by-line navigation as Intro Panels
+   3. On final A press, proceed to episode stats/results
 
 ---
 
@@ -862,31 +862,43 @@ The following list of taglines should be randomly rotated in on the game title s
 
 ### Tool Data Table
 
-| Name | Description | Base Damage | Damage Type | Pattern | Base Speed | Fire Rate | Pairs With (Bonus Item) | Upgraded Tool |
+| Name | Description | Base Dmg | Type | Pattern | Speed | Fire Rate | Pairs With | Upgraded Tool |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
-| **Rail Driver** | A kinetic launcher for breaking up asteroids. Simple, reliable, satisfying. | 3 | physical | straight | 10 | 1.0 | Alloy Gears | Rail Cannon |
-| **Frequency Scanner** | Emits tuned waves that disperse gas clouds and destabilize energy threats. | 4 | frequency | straight | 8 | 0.8 | Expanded Dish | Harmonic Disruptor |
-| **Tractor Pulse** | Pulls collectibles toward the station faster. Essential for sample collection. | 0 | none | cone | 6 | 0.5 | Magnetic Coils | Gravity Well |
-| **Thermal Lance** | A focused heat beam for cutting through dense materials. | 5 | thermal | beam | instant | 0.4 | Cooling Vents | Plasma Cutter |
-| **Cryo Projector** | Supercooled particles that slow MOB movement by 50%. | 1 | cold | spread | 7 | 0.7 | Compressor Unit | Absolute Zero |
-| **EMP Burst** | Disables mechanical MOBs and deals bonus damage to electronics. | 2 (×3 vs mech) | electric | radial | instant | 0.3 | Capacitor Bank | Ion Storm |
-| **Probe Launcher** | Fires probes that attach to MOBs, dealing DoT and collecting bonus RP. | 1/tick | analysis | homing | 5 | 0.6 | Probe Swarm | Drone Carrier |
-| **Repulsor Field** | Pushes MOBs away from the station. No damage, creates breathing room. | 0 | force | radial | instant | 0.2 | Field Amplifier | Shockwave Generator |
+| **Rail Driver** | Kinetic launcher. Dmg: 8 | 8 | physical | straight | 10 | 2.0 | Alloy Gears | Rail Cannon |
+| **Frequency Scanner** | Disperses gas clouds. Dmg: 10 | 10 | frequency | straight | 14 | 1.2 | Expanded Dish | Harmonic Disruptor |
+| **Tractor Pulse** | Pulls collectibles. No dmg | 0 | none | cone | 8 | 0.8 | Magnetic Coils | Gravity Well |
+| **Plasma Sprayer** | Cone spray. Dmg: 3x5 | 3 | plasma | cone | 8 | 1.5 | Fuel Injector | Inferno Cannon |
+| **Thermal Lance** | Heat beam. Dmg: 12 | 12 | thermal | beam | 0 | 0.6 | Cooling Vents | Plasma Cutter |
+| **Cryo Projector** | Slows enemies. Dmg: 4 | 4 | cold | spread | 8 | 1.0 | Compressor Unit | Absolute Zero |
+| **Mapping Drone** | Seeks highest HP. Dmg: 18 | 18 | explosive | homing\_priority | 4 | 0.5 | Targeting Matrix | Perihelion Strike |
+| **Micro-Missile Pod** | 3-missile burst. Dmg: 4x3 | 4 | explosive | burst | 7 | 0.6 | Guidance Module | Swarm Launcher |
+| **EMP Burst** | Disables mechs. Dmg: 6 | 6 | electric | radial | 0 | 0.5 | Capacitor Bank | Ion Storm |
+| **Singularity Core** | Orbital gravity orb. Dmg: 6/tick | 6 | gravity | orbital | 0 | 0.3 | Graviton Lens | Black Hole Generator |
+| **Tesla Coil** | Chain lightning. Dmg: 8 | 8 | electric | chain | 20 | 0.8 | Arc Capacitors | Storm Generator |
+| **Probe Launcher** | Homing probes. Dmg: 5/tick | 5 | analysis | homing | 6 | 0.8 | Probe Swarm | Drone Carrier |
+| **Phase Disruptor** | Piercing beam. Dmg: 15 | 15 | phase | piercing | 15 | 0.4 | Phase Modulators | Dimensional Rift |
+| **Repulsor Field** | Pushes enemies. Dmg: 3 | 3 | force | radial | 0 | 0.4 | Field Amplifier | Shockwave Generator |
 
 ### Upgraded Tools Table
 
-When a Tool is paired with its matching Bonus Item, it becomes an Upgraded Tool with significantly improved stats and sometimes new effects.
+When a max-level Tool (Level 4) is paired with its matching Bonus Item, it evolves into an Upgraded Tool with significantly improved stats and sometimes new effects.
 
-| Upgraded Tool | Base Tool \+ Bonus Item | New Stats | Special Effect |
+| Upgraded Tool | Base Tool \+ Bonus Item | Upgraded Dmg | Special Effect |
 | :---- | :---- | :---- | :---- |
-| **Rail Cannon** | Rail Driver \+ Alloy Gears | Damage: 8, Speed: 12 | Projectiles pierce through first target |
-| **Harmonic Disruptor** | Frequency Scanner \+ Expanded Dish | Damage: 10, Width: ×2 | Chains to nearby MOBs |
-| **Gravity Well** | Tractor Pulse \+ Magnetic Coils | Cone: 90°, Pull: ×3 | Also slows MOBs caught in cone |
-| **Plasma Cutter** | Thermal Lance \+ Cooling Vents | Damage: 12, Fire Rate: 0.2 | Beam persists 1 second, sweeps with rotation |
-| **Absolute Zero** | Cryo Projector \+ Compressor Unit | Damage: 3, Slow: 80% | Frozen MOBs take ×2 damage from other Tools |
-| **Ion Storm** | EMP Burst \+ Capacitor Bank | Damage: 5 (×4 vs mech), Radius: ×2 | Disabled MOBs explode on death, damaging nearby |
-| **Drone Carrier** | Probe Launcher \+ Probe Swarm | Fires 5 probes, DoT: 2/tick | Probes return RP even if MOB not destroyed |
-| **Shockwave Generator** | Repulsor Field \+ Field Amplifier | Push: ×3, Radius: ×2 | Pushed MOBs damage other MOBs on collision |
+| **Rail Cannon** | Rail Driver \+ Alloy Gears | 20 | Projectiles pierce through first target |
+| **Harmonic Disruptor** | Freq Scanner \+ Expanded Dish | 25 | Chains to nearby MOBs |
+| **Gravity Well** | Tractor Pulse \+ Magnetic Coils | — | 90° cone, ×3 pull, slows MOBs |
+| **Inferno Cannon** | Plasma Sprayer \+ Fuel Injector | 6 | Enhanced cone spray |
+| **Plasma Cutter** | Thermal Lance \+ Cooling Vents | 30 | Beam persists, sweeps with rotation |
+| **Absolute Zero** | Cryo Projector \+ Compressor Unit | 10 | Frozen MOBs take ×2 damage from others |
+| **Perihelion Strike** | Mapping Drone \+ Targeting Matrix | 35 | Improved homing accuracy |
+| **Swarm Launcher** | Micro-Missile Pod \+ Guidance Module | 8 | +2 missiles per burst |
+| **Ion Storm** | EMP Burst \+ Capacitor Bank | 15 | Radius ×2, chain explosions |
+| **Black Hole Generator** | Singularity Core \+ Graviton Lens | 12 | Expanded orbital range |
+| **Storm Generator** | Tesla Coil \+ Arc Capacitors | 16 | +1 chain target |
+| **Drone Carrier** | Probe Launcher \+ Probe Swarm | 12 | +2 probes per shot |
+| **Dimensional Rift** | Phase Disruptor \+ Phase Modulators | 30 | Pierces all enemies in path |
+| **Shockwave Generator** | Repulsor Field \+ Field Amplifier | — | Push ×3, radius ×2, collision damage |
 
 ### Tool Pattern Definitions
 
@@ -895,9 +907,14 @@ When a Tool is paired with its matching Bonus Item, it becomes an Upgraded Tool 
 | straight | Fires in a line from the Tool's position |
 | beam | Continuous line that persists for 0.5 seconds |
 | spread | Multiple projectiles (3) in a 45° fan |
-| cone | Affects a 45° cone-shaped area (90° when upgraded) |
+| cone | Affects a cone-shaped area (45° base, 90° when upgraded) |
 | radial | Affects all directions around the station equally |
 | homing | Projectile tracks the nearest valid target |
+| homing\_priority | Projectile seeks the highest-HP enemy on screen |
+| burst | Fires multiple projectiles in rapid succession with spread |
+| orbital | Spawns projectile that orbits the station, damaging on contact |
+| chain | Hits one target, then chains to nearby additional targets |
+| piercing | Projectile passes through all enemies in its path |
 
 ### Tool Damage Types
 
@@ -918,10 +935,16 @@ When a Tool is paired with its matching Bonus Item, it becomes an Upgraded Tool 
 | Rail Driver | Available from start |
 | Frequency Scanner | Available from start |
 | Tractor Pulse | Available from start |
+| Plasma Sprayer | Complete Episode 1 |
 | Thermal Lance | Complete Episode 1 |
 | Cryo Projector | Complete Episode 2 |
+| Mapping Drone | Complete Episode 2 |
+| Micro-Missile Pod | Complete Episode 2 |
 | EMP Burst | Complete Episode 3 |
+| Singularity Core | Complete Episode 3 |
+| Tesla Coil | Complete Episode 3 |
 | Probe Launcher | Complete Episode 4 |
+| Phase Disruptor | Complete Episode 4 |
 | Repulsor Field | Complete Episode 5 |
 
 ---
@@ -935,24 +958,50 @@ When a Tool is paired with its matching Bonus Item, it becomes an Upgraded Tool 
 
 ### Bonus Items Table
 
+#### Tool Upgrade Items
+
 | Name | Description | Effect | Pairs With Tool |
 | :---- | :---- | :---- | :---- |
-| **Alloy Gears** | Precision-machined components from ancient salvage. | \+25% physical damage | Rail Driver → Rail Cannon |
-| **Expanded Dish** | A wider sensor array for broader coverage. | \+25% frequency damage | Frequency Scanner → Harmonic Disruptor |
-| **Magnetic Coils** | Powerful electromagnets for enhanced pulling. | Tractor range \+50% | Tractor Pulse → Gravity Well |
-| **Cooling Vents** | Advanced heat dissipation system. | \+25% thermal damage | Thermal Lance → Plasma Cutter |
-| **Compressor Unit** | Cryogenic compression for colder output. | Slow duration \+50% | Cryo Projector → Absolute Zero |
-| **Capacitor Bank** | High-capacity energy storage. | \+25% electric damage | EMP Burst → Ion Storm |
-| **Probe Swarm** | Deploys additional probe units. | \+2 probes per shot | Probe Launcher → Drone Carrier |
-| **Field Amplifier** | Boosts repulsor field strength. | Push force \+50% | Repulsor Field → Shockwave Generator |
-| **Reinforced Hull** | Extra plating for the station. | \+20% max health | None (general) |
-| **Overclocked Capacitors** | Faster energy cycling for all systems. | \+15% fire rate (all Tools) | None (general) |
-| **Extended Sensors** | Long-range detection equipment. | Collectibles visible 2 sec earlier | None (general) |
-| **Emergency Thrusters** | Backup rotation assistance. | \+25% rotation speed | None (general) |
-| **Scrap Collector** | Automated debris analysis. | \+15% RP from destroyed MOBs | None (general) |
-| **Backup Generator** | Emergency power supply. | Slowly regenerate health (1/5 sec) | None (general) |
-| **Targeting Computer** | Predictive aim assistance. | \+10% projectile accuracy | None (general) |
-| **Ablative Coating** | Sacrificial outer layer. | \-15% damage from ramming attacks | None (general) |
+| **Alloy Gears** | Precision-machined components. | \+25% physical damage | Rail Driver → Rail Cannon |
+| **Expanded Dish** | Wider sensor array. | \+25% frequency damage | Freq Scanner → Harmonic Disruptor |
+| **Magnetic Coils** | Enhanced pulling magnets. | Tractor range \+50% | Tractor Pulse → Gravity Well |
+| **Cooling Vents** | Heat dissipation system. | \+25% thermal damage | Thermal Lance → Plasma Cutter |
+| **Compressor Unit** | Cryogenic compression. | Slow duration \+50% | Cryo Projector → Absolute Zero |
+| **Capacitor Bank** | High-capacity storage. | \+25% electric damage | EMP Burst → Ion Storm |
+| **Probe Swarm** | Additional probe units. | \+2 probes per shot | Probe Launcher → Drone Carrier |
+| **Field Amplifier** | Repulsor boost. | Push force \+50% | Repulsor Field → Shockwave Gen |
+| **Targeting Matrix** | Homing accuracy boost. | \+30% homing accuracy | Mapping Drone → Perihelion Strike |
+| **Graviton Lens** | Orbital range boost. | \+50% orbital range | Singularity Core → Black Hole Gen |
+| **Fuel Injector** | Plasma damage boost. | \+25% plasma damage | Plasma Sprayer → Inferno Cannon |
+| **Arc Capacitors** | Chain lightning boost. | \+1 chain target | Tesla Coil → Storm Generator |
+| **Guidance Module** | Missile burst boost. | \+2 missiles per burst | Micro-Missile Pod → Swarm Launcher |
+| **Phase Modulators** | Phase damage boost. | \+25% phase damage | Phase Disruptor → Dimensional Rift |
+
+#### General Passive Items
+
+| Name | Description | Effect | Unlock |
+| :---- | :---- | :---- | :---- |
+| **Reinforced Hull** | Extra station plating. | \+20% max health | Start |
+| **Emergency Thrusters** | Projectile boost. | \+25% projectile speed | Start |
+| **Shield Capacitor** | Shield upgrade. | Upgrades shield by 1 level | Start |
+| **Overclocked Caps** | Faster energy cycling. | \+15% fire rate (all) | Episode 1 |
+| **Power Relay** | Damage amplifier. | \+10% all damage | Episode 1 |
+| **Fuel Injector** | Plasma enhancement. | \+25% plasma damage | Episode 1 |
+| **Salvage Drone** | Auto-collect RP. | Collects RP, 25% heals ship | Episode 1 |
+| **Rapid Repair** | Faster HP regen. | \-1s regen tick | Episode 2 |
+| **Quantum Stabilizer** | Damage reduction. | \-10% all damage | Episode 2 |
+| **Critical Matrix** | Critical hit system. | \+15% crit chance (2x dmg) | Episode 2 |
+| **Scrap Collector** | Debris analysis. | \+15% RP from MOBs | Episode 3 |
+| **BrainBuddy** | Neuro-implant. | \+15% fire rate | Episode 3 |
+| **Kinetic Absorber** | HP on kills. | \+1 HP per 10 kills | Episode 3 |
+| **Backup Generator** | Emergency power. | Regen 1 HP/5 sec | Episode 4 |
+| **Rapid Loader** | Cooldown on kill. | \-20% cooldown on kill | Episode 4 |
+| **Multi-Spectrum** | Damage per tool. | \+5% dmg per tool equipped | Episode 5 |
+| **Ablative Coating** | Sacrificial layer. | \-15% ram damage | All episodes |
+
+### Bonus Item Scaling
+
+All bonus items can be leveled up to Level 4 when selected multiple times. Each level increases the effect by the item's `effectPerLevel` value (or 50% of base effect by default).
 
 ### Bonus Item Unlock Progression
 
@@ -963,16 +1012,30 @@ When a Tool is paired with its matching Bonus Item, it becomes an Upgraded Tool 
 | Magnetic Coils | Available from start |
 | Reinforced Hull | Available from start |
 | Emergency Thrusters | Available from start |
+| Shield Capacitor | Available from start |
 | Cooling Vents | Complete Episode 1 |
-| Overclocked Capacitors | Complete Episode 1 |
+| Overclocked Caps | Complete Episode 1 |
+| Fuel Injector | Complete Episode 1 |
+| Power Relay | Complete Episode 1 |
+| Salvage Drone | Complete Episode 1 |
 | Compressor Unit | Complete Episode 2 |
-| Extended Sensors | Complete Episode 2 |
+| Rapid Repair | Complete Episode 2 |
+| Quantum Stabilizer | Complete Episode 2 |
+| Targeting Matrix | Complete Episode 2 |
+| Critical Matrix | Complete Episode 2 |
+| Micro-Missile Pod Guidance | Complete Episode 2 |
 | Capacitor Bank | Complete Episode 3 |
 | Scrap Collector | Complete Episode 3 |
+| BrainBuddy | Complete Episode 3 |
+| Graviton Lens | Complete Episode 3 |
+| Arc Capacitors | Complete Episode 3 |
+| Kinetic Absorber | Complete Episode 3 |
 | Probe Swarm | Complete Episode 4 |
 | Backup Generator | Complete Episode 4 |
+| Phase Modulators | Complete Episode 4 |
+| Rapid Loader | Complete Episode 4 |
 | Field Amplifier | Complete Episode 5 |
-| Targeting Computer | Complete Episode 5 |
+| Multi-Spectrum Rounds | Complete Episode 5 |
 | Ablative Coating | Complete all episodes |
 
 ---
@@ -994,18 +1057,18 @@ The station has **8 attachment points** arranged around its perimeter like a clo
 
 ### Tool Attachment Rules
 
-1. When a Tool is selected at level-up, it attaches to the **next available slot** (starting from Position 0\)  
-2. Maximum **6 Tools** can be attached (MAX\_TOOLS\_PER\_EPISODE \= 6\)  
+1. When a Tool is selected at level-up, it attaches to the **next available slot** (starting from Position 0\)
+2. Maximum **8 equipment slots** total for Tools + Bonus Items combined (MAX\_EQUIPMENT \= 8\)
 3. Tools cannot be removed or repositioned during gameplay  
 4. Each Tool fires **outward** from its position on the station  
 5. Radial-pattern Tools (EMP Burst, Repulsor Field) affect all directions regardless of position
 
 ### Rotation Mechanics
 
-1. Player uses the **crank** to rotate the entire station  
-2. All attached Tools rotate with the station  
-3. Rotation speed: 180° per full crank revolution (adjustable by Emergency Thrusters bonus)  
-4. Tools maintain their relative positions to each other  
+1. Player uses the **crank** to rotate the entire station
+2. All attached Tools rotate with the station
+3. Rotation speed: 360° per full crank revolution (1:1 ratio)
+4. Tools maintain their relative positions to each other
 5. Straight/beam/spread/cone patterns fire in the direction the Tool is facing after rotation
 
 ### Visual Feedback
@@ -1087,7 +1150,7 @@ Each card row displays:
 ### Special Cases
 
 - If player has a Tool and its matching Bonus Item appears, the synergy is shown inline (e.g., "→ Rail Cannon")  
-- If all Tools are attached (6), only Bonus Items appear  
+- If all equipment slots are full (8), show "MAXIMUM UPGRADES" and auto-continue
 - If all items unlocked, show "MAXIMUM UPGRADES" and auto-continue
 
 ### Advantages of Vertical Layout
@@ -1208,13 +1271,43 @@ Each episode consists of **7 waves** before the boss appears.
 
 ### Boss Table
 
-| Episode | Boss Name | Health | Behavior Phase 1 (100-50%) | Behavior Phase 2 (50-0%) |
-| :---- | :---- | :---- | :---- | :---- |
-| 1 | Cultural Attaché | 200 | Launches greeting drones (2 per 5 sec), fires slowing poetry scrolls | Faster drone spawns (3 per 4 sec), poetry scrolls home slightly |
-| 2 | Productivity Liaison | 250 | Deploys survey drones, fires feedback pulses (disable 1 Tool for 3 sec) | Movement speed \+50%, pulse fire rate doubled |
-| 3 | The Improbability Itself | 300 | Form A: Rams. Form B: Shoots. Changes every 10 sec. | Form C added: Teleports randomly, rapid shots. Cycles all 3 forms every 7 sec. |
-| 4 | Chomper | 350 | Circles station at distance, charges for ram every 8 sec | Charge frequency increased to every 5 sec, spawns debris chunks when hit |
-| 5 | The Distinguished Professor | 400 | Stays at max range, fires citation beams (high damage) | Summons debate drone squad (5) every 15 sec, citation beams chain |
+| Episode | Boss Name | HP | Base Dmg | RP | Phases |
+| :---- | :---- | :---- | :---- | :---- | :---- |
+| 1 | Cultural Attaché | 200 | 5 | 100 | Approach → Drone Deploy → Bombardment → Enraged (30%) |
+| 2 | Productivity Liaison | 300 | 6 | 120 | Approach → Audit → Restructure → Enraged (30%) |
+| 3 | Improbability Engine | 400 | 7 | 150 | Approach → Probability Storm → Reality Warp → Paradox → Enraged (30%) |
+| 4 | Chomper | 500 | 8 | 175 | Approach → Circling → Charge → Feeding Frenzy → Enraged (30%) |
+| 5 | Distinguished Professor | 600 | 8 | 200 | Approach → Lecture → Examination → Tenure Review → Enraged (30%) |
+
+### Boss Phase Details
+
+**Cultural Attaché (Episode 1):**
+- Drone Deploy: Spawns greeting drones periodically
+- Bombardment: Fires projectiles while orbiting
+- Enraged: Speed ×1.5, faster spawns, can teleport
+
+**Productivity Liaison (Episode 2):**
+- Audit: Orbits and spawns survey drones
+- Restructure: Fires feedback pulses while orbiting
+- Enraged: Speed ×1.5, fires micro-drones
+
+**Improbability Engine (Episode 3):**
+- Probability Storm: Erratic orbit, spawns probability fluctuations
+- Reality Warp: Inverts player controls, applies debuffs (slow rotation, slow fire rate)
+- Paradox: Spawns paradox nodes
+- Enraged: Speed ×1.8, random teleports, rapid chaotic attacks, all debuff abilities
+
+**Chomper (Episode 4):**
+- Circling: Orbits station, spawns debris chunks
+- Charge: Charges directly at station, spawns debris on hit
+- Feeding Frenzy: Rapid charges, debris spawns
+- Enraged: Speed ×1.5, charges every few seconds
+
+**Distinguished Professor (Episode 5):**
+- Lecture: Fires citation beams from range
+- Examination: Multi-beam attacks with angle offsets
+- Tenure Review: Summons debate drone squads
+- Enraged: Speed ×1.5, all attack types combined
 
 ### Boss Health Bar
 
@@ -1230,18 +1323,19 @@ Each episode consists of **7 waves** before the boss appears.
 
 ### Research Specs Table
 
-Research Specs are permanent meta-progression unlocks that affect all future playthroughs.
+Research Specs are permanent meta-progression unlocks that affect all future playthroughs. There are 9 total specs: 5 from episodes, 4 from special conditions.
 
 | Spec Name | Effect | Unlock Condition |
 | :---- | :---- | :---- |
-| **Silk Weave Plating** | Station takes 10% less damage from ramming attacks | Complete Episode 1 |
-| **Optimized Targeting** | All projectiles track 5% more accurately | Complete Episode 2 |
-| **Improbability Compensation** | 5% chance for any damage to be negated | Complete Episode 3 |
-| **Ancient Alloys** | Station max health increased by 15% | Complete Episode 4 |
-| **Peer Review** | Bonus Items appear 10% more frequently in level-up selection | Complete Episode 5 |
-| **Veteran Researcher** | Start each episode at Level 2 | Complete all episodes |
-| **Efficient Systems** | All Tools fire 5% faster | Complete any episode without taking damage |
-| **Completionist** | \+10% RP from all sources | Unlock all other Research Specs |
+| **Silk Weave Plating** | \+10% Station Health | Complete Episode 1 |
+| **Efficiency Protocols** | \+5% Fire Rate (all tools) | Complete Episode 2 |
+| **Probability Shield** | 5% chance to dodge hits | Complete Episode 3 |
+| **Ancient Alloys** | \+15% Station Health | Complete Episode 4 |
+| **Peer Review** | Bonus Items 10% more frequent | Complete Episode 5 |
+| **Emergency Reserves** | Start with \+25 Health | 3 total victories |
+| **Magnetic Attraction** | \+20% Collectible range | 5 total deaths |
+| **Veteran Instincts** | Start at Level 2 | Complete all episodes |
+| **Tool Mastery** | Choose starting tool | Complete all episodes |
 
 ### Research Specs UI
 
@@ -1255,19 +1349,23 @@ Research Specs are permanent meta-progression unlocks that affect all future pla
 
 ## 10\. Updated Game Constants
 
-BOSS\_SPAWN\_TIME \= 7min (420 seconds)
+BOSS\_SPAWN\_TIME \= 7min (420 seconds), 2min (120 seconds) in debug mode
 
-MAX\_TOOLS\_PER\_EPISODE \= 6
+MAX\_EQUIPMENT \= 8 (combined limit for tools + bonus items)
 
 MOB\_DAMAGE\_MULTIPLIER \= 1
 
-BASE\_XP \= 100
+BASE\_XP \= 50
 
-BASE\_LEVEL\_EXPONENT \= 1.2
+BASE\_LEVEL\_EXPONENT \= 1.15
 
-STATION\_BASE\_HEALTH \= 100
+STATION\_BASE\_HEALTH \= 500
 
-ROTATION\_SPEED \= 180° per crank revolution
+ROTATION\_RATIO \= 1:1 (360° crank = 360° station)
+
+ROTATION\_SMOOTHING \= 0.3 (lerp factor)
+
+CRANK\_DEAD\_ZONE \= 2°
 
 COLLECTIBLE\_DRIFT\_SPEED \= 0.5 px/frame
 
@@ -1278,6 +1376,12 @@ TRACTOR\_UPGRADED\_SPEED \= 5 px/frame
 STANDARD\_COLLECTIBLE\_RP \= 10
 
 RARE\_COLLECTIBLE\_RP \= 25
+
+MAX\_ACTIVE\_PROJECTILES \= 50
+
+MAX\_ACTIVE\_MOBS \= 30
+
+BOSS\_WARNING\_TIME \= 6:45 (405 seconds)
 
 ---
 
@@ -1675,22 +1779,29 @@ Based on 400×240 Playdate screen:
 
 | Tool | Fire Rate | Fires Every |
 | :---- | :---- | :---- |
-| Rail Driver | 1.0 | 1.0 sec |
-| Frequency Scanner | 0.8 | 1.25 sec |
-| Tractor Pulse | 0.5 | 2.0 sec |
-| Thermal Lance | 0.4 | 2.5 sec |
-| Cryo Projector | 0.7 | 1.43 sec |
-| EMP Burst | 0.3 | 3.33 sec |
-| Probe Launcher | 0.6 | 1.67 sec |
-| Repulsor Field | 0.2 | 5.0 sec |
+| Rail Driver | 2.0 | 0.5 sec |
+| Frequency Scanner | 1.2 | 0.83 sec |
+| Tractor Pulse | 0.8 | 1.25 sec |
+| Plasma Sprayer | 1.5 | 0.67 sec |
+| Thermal Lance | 0.6 | 1.67 sec |
+| Cryo Projector | 1.0 | 1.0 sec |
+| Mapping Drone | 0.5 | 2.0 sec |
+| Micro-Missile Pod | 0.6 | 1.67 sec |
+| EMP Burst | 0.5 | 2.0 sec |
+| Singularity Core | 0.3 | 3.33 sec |
+| Tesla Coil | 0.8 | 1.25 sec |
+| Probe Launcher | 0.8 | 1.25 sec |
+| Phase Disruptor | 0.4 | 2.5 sec |
+| Repulsor Field | 0.4 | 2.5 sec |
 
 ### Damage System
 
 **Station Health:**
 
-- Base Health: 100 HP  
-- No invincibility frames after damage  
+- Base Health: 500 HP
+- No invincibility frames after damage
 - All damage types subtract directly from health pool
+- Station has a shield system that blocks damage from one direction
 
 **MOB Damage to Station:**
 
@@ -1838,19 +1949,19 @@ Based on 400×240 Playdate screen:
 
 **Rotation Mapping:**
 
-- 1 full crank revolution (360°) \= 180° station rotation  
-- Ratio: 2:1 (crank : station)
+- 1 full crank revolution (360°) \= 360° station rotation
+- Ratio: 1:1 (crank : station)
 
 **Smoothing:**
 
-- Input smoothing enabled (not 1:1 raw input)  
-- Smoothing factor: 0.3 (30% of target per frame)  
-- Prevents jerky rotation, feels fluid  
+- Input smoothing enabled (not 1:1 raw input)
+- Smoothing factor: 0.3 (30% of target per frame)
+- Prevents jerky rotation, feels fluid
 - Dead zone: ±2° crank movement ignored (prevents drift)
 
 **Implementation:**
 
-target\_angle \+= crank\_delta \* 0.5  // 2:1 ratio
+target\_angle \+= crank\_delta \* 1.0  // 1:1 ratio
 
 current\_angle \= lerp(current\_angle, target\_angle, 0.3)  // smoothing
 
@@ -1858,10 +1969,10 @@ current\_angle \= lerp(current\_angle, target\_angle, 0.3)  // smoothing
 
 **Slot Assignment:**
 
-- 8 slots around station perimeter (0-7, clockwise from top)  
-- When Tool selected at level-up, assigned to **random available slot**  
-- Tools cannot be repositioned during gameplay  
-- Maximum 6 Tools per Episode (2 slots always empty)
+- 8 slots around station perimeter (0-7, clockwise from top)
+- When Tool selected at level-up, assigned to **next available slot**
+- Tools cannot be repositioned during gameplay
+- Maximum 8 equipment (tools + bonus items combined) per Episode
 
 **Slot Positions (on 64×64 station):**
 

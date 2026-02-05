@@ -126,7 +126,7 @@ function Chomper:updateApproach(dt)
     local dy = self.targetY - self.y
     local dist = math.sqrt(dx * dx + dy * dy)
 
-    if dist > self.range then
+    if dist > self.range and dist > 0 then
         local moveX = (dx / dist) * self.speed
         local moveY = (dy / dist) * self.speed
         self.x = self.x + moveX
@@ -136,8 +136,10 @@ function Chomper:updateApproach(dt)
         self:enterPhase(Chomper.PHASES.CIRCLING)
     end
 
-    local angle = Utils.vectorToAngle(dx, dy)
-    self:setRotation(angle)
+    if dist > 0 then
+        local angle = Utils.vectorToAngle(dx, dy)
+        self:setRotation(angle)
+    end
 end
 
 function Chomper:updateCircling(dt)
@@ -158,8 +160,13 @@ function Chomper:startCharge()
     local dx = self.chargeTarget.x - self.x
     local dy = self.chargeTarget.y - self.y
     local dist = math.sqrt(dx * dx + dy * dy)
-    self.chargeDirection.x = dx / dist
-    self.chargeDirection.y = dy / dist
+    if dist > 0 then
+        self.chargeDirection.x = dx / dist
+        self.chargeDirection.y = dy / dist
+    else
+        self.chargeDirection.x = 0
+        self.chargeDirection.y = -1
+    end
 
     self.chargeTimer = 0
     self:enterPhase(Chomper.PHASES.CHARGING)
@@ -197,23 +204,25 @@ function Chomper:updateRecovering(dt)
     local dy = self.targetY - self.y
     local dist = math.sqrt(dx * dx + dy * dy)
 
-    if dist > self.range then
-        local moveX = (dx / dist) * self.speed * 0.5
-        local moveY = (dy / dist) * self.speed * 0.5
-        self.x = self.x + moveX
-        self.y = self.y + moveY
-        self:moveTo(self.x, self.y)
-    elseif dist < self.range - 20 then
-        -- Too close, back up
-        local moveX = -(dx / dist) * self.speed * 0.5
-        local moveY = -(dy / dist) * self.speed * 0.5
-        self.x = self.x + moveX
-        self.y = self.y + moveY
-        self:moveTo(self.x, self.y)
-    end
+    if dist > 0 then
+        if dist > self.range then
+            local moveX = (dx / dist) * self.speed * 0.5
+            local moveY = (dy / dist) * self.speed * 0.5
+            self.x = self.x + moveX
+            self.y = self.y + moveY
+            self:moveTo(self.x, self.y)
+        elseif dist < self.range - 20 then
+            -- Too close, back up
+            local moveX = -(dx / dist) * self.speed * 0.5
+            local moveY = -(dy / dist) * self.speed * 0.5
+            self.x = self.x + moveX
+            self.y = self.y + moveY
+            self:moveTo(self.x, self.y)
+        end
 
-    local angle = Utils.vectorToAngle(dx, dy)
-    self:setRotation(angle)
+        local angle = Utils.vectorToAngle(dx, dy)
+        self:setRotation(angle)
+    end
 
     -- Return to circling after recovery time
     if self.phaseTimer >= 2 then

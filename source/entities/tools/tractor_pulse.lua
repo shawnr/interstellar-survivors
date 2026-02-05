@@ -12,8 +12,8 @@ TractorPulse.DATA = {
     projectileImage = "images/tools/tool_tractor_effect",
 
     baseDamage = 0,
-    fireRate = 0.5,
-    projectileSpeed = 6,
+    fireRate = 0.8,
+    projectileSpeed = 8,
     pattern = "cone",
     damageType = "none",
 

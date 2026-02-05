@@ -47,9 +47,9 @@ function DebrisChunk:update(dt)
 
     dt = dt or (1/30)
 
-    -- Tumble rotation for visual effect
+    -- Tumble rotation for visual effect (normalize to prevent unbounded growth)
     local currentRot = self:getRotation()
-    self:setRotation(currentRot + self.tumbleSpeed)
+    self:setRotation((currentRot + self.tumbleSpeed) % 360)
 
     -- Check for station collision
     if self:hasReachedStation() then

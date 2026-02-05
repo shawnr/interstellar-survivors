@@ -126,7 +126,6 @@ function Projectile:update()
 
     -- Check if off screen
     if not self:isOnScreen(20) then
-        print("Projectile OFF SCREEN at " .. self.x .. "," .. self.y .. " framesAlive=" .. self.framesAlive)
         self:deactivate("offscreen")
     end
 end
@@ -143,9 +142,6 @@ end
 
 -- Deactivate for pooling
 function Projectile:deactivate(reason)
-    if self.framesAlive and self.framesAlive < 5 then
-        print("EARLY DEACTIVATE: reason=" .. tostring(reason) .. " framesAlive=" .. tostring(self.framesAlive) .. " pos=" .. self.x .. "," .. self.y)
-    end
     self.active = false
     self:remove()
 end

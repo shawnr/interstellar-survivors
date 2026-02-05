@@ -1,5 +1,6 @@
 -- Tool Evolution Screen
 -- Shows dramatic transformation when a tool evolves to its upgraded form
+-- Retro terminal aesthetic: dark overlay, custom fonts, black panels with white borders
 
 local gfx <const> = playdate.graphics
 
@@ -169,7 +170,7 @@ function ToolEvolutionScreen:draw()
 
     -- Draw "TOOL EVOLVED!" title with flash effect
     local titleY = 25
-    local titleText = "*TOOL EVOLVED!*"
+    local titleText = "TOOL EVOLVED!"
 
     -- Flash effect during phase 2
     if self.phase == 2 and math.floor(self.flashTimer * 10) % 2 == 0 then
@@ -177,7 +178,8 @@ function ToolEvolutionScreen:draw()
         gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
     end
 
-    -- Draw title with thick 2px outline for bold effect
+    -- Draw title with thick 2px outline using title font
+    FontManager:setTitleFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
     for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_2PX) do
         gfx.drawTextAligned(titleText, centerX + offset[1], titleY + offset[2], kTextAlignment.center)
@@ -205,18 +207,13 @@ function ToolEvolutionScreen:draw()
         gfx.setColor(gfx.kColorBlack)
         gfx.fillRect(leftX - scaledW/2 - 2, iconY - scaledH/2 - 2, scaledW + 4, scaledH + 4)
 
-        -- Phase 1: draw icon inverted (1-bit icons render black-on-white in kDrawModeCopy;
-        -- kDrawModeInverted restores intended white-on-black appearance)
-        -- Phase 2+: fade original to white
-        if self.phase >= 2 then
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        else
-            gfx.setImageDrawMode(gfx.kDrawModeInverted)
-        end
+        -- Always draw icon as white on black background
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         self.originalIcon:drawScaled(leftX - scaledW/2, iconY - scaledH/2, iconScale)
     end
 
     -- Draw original name below icon with outline
+    FontManager:setBodyFont()
     local nameY = iconY + 45
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
     for _, offset in ipairs(TEXT_OUTLINE_OFFSETS) do
@@ -226,6 +223,7 @@ function ToolEvolutionScreen:draw()
     gfx.drawTextAligned(self.originalName, leftX, nameY, kTextAlignment.center)
 
     -- Draw arrow in center (animated) with outline
+    FontManager:setBoldFont()
     local arrowX = centerX + self.arrowOffset
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
     for _, offset in ipairs(TEXT_OUTLINE_OFFSETS) do
@@ -252,23 +250,25 @@ function ToolEvolutionScreen:draw()
             gfx.setColor(gfx.kColorBlack)
             gfx.fillRect(rightX - maxW/2 - 2, iconY - maxH/2 - 2, maxW + 4, maxH + 4)
 
-            gfx.setImageDrawMode(gfx.kDrawModeInverted)
+            -- Always draw icon as white on black background
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             self.evolvedIcon:drawScaled(rightX - pulseW/2, iconY - pulseH/2, pulseScale)
         end
 
-        -- Draw evolved name with emphasis and thick outline
-        local evolvedNameText = "*" .. self.evolvedName .. "*"
+        -- Draw evolved name with emphasis and thick outline using bold font
+        FontManager:setBoldFont()
         gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
         for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_2PX) do
-            gfx.drawTextAligned(evolvedNameText, rightX + offset[1], nameY + offset[2], kTextAlignment.center)
+            gfx.drawTextAligned(self.evolvedName, rightX + offset[1], nameY + offset[2], kTextAlignment.center)
         end
         for _, offset in ipairs(TEXT_OUTLINE_OFFSETS) do
-            gfx.drawTextAligned(evolvedNameText, rightX + offset[1], nameY + offset[2], kTextAlignment.center)
+            gfx.drawTextAligned(self.evolvedName, rightX + offset[1], nameY + offset[2], kTextAlignment.center)
         end
         gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        gfx.drawTextAligned(evolvedNameText, rightX, nameY, kTextAlignment.center)
+        gfx.drawTextAligned(self.evolvedName, rightX, nameY, kTextAlignment.center)
     else
         -- Show "???" before reveal with outline
+        FontManager:setBoldFont()
         gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
         for _, offset in ipairs(TEXT_OUTLINE_OFFSETS) do
             gfx.drawTextAligned("???", rightX + offset[1], iconY + 10 + offset[2], kTextAlignment.center)
@@ -280,7 +280,8 @@ function ToolEvolutionScreen:draw()
     -- Draw evolution bonus (phase 3 only)
     if self.phase >= 3 then
         local bonusY = centerY + 65
-        -- Bonus text with outline
+        -- Bonus text with outline using body font
+        FontManager:setBodyFont()
         gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
         for _, offset in ipairs(TEXT_OUTLINE_OFFSETS) do
             gfx.drawTextAligned(self.evolutionBonus, centerX + offset[1], bonusY + offset[2], kTextAlignment.center)
@@ -290,6 +291,7 @@ function ToolEvolutionScreen:draw()
 
         -- Draw continue hint
         if self.timer > 2.0 then
+            FontManager:setMenuFont()
             gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
             for _, offset in ipairs(TEXT_OUTLINE_OFFSETS) do
                 gfx.drawTextAligned("Press A to continue", centerX + offset[1], bonusY + 25 + offset[2], kTextAlignment.center)

@@ -1,5 +1,6 @@
 -- Upgrade Selection UI
 -- Shows 4 cards (2 tools, 2 bonus items) when player levels up
+-- Retro terminal aesthetic: black panels, white borders, inverted selection
 
 local gfx <const> = playdate.graphics
 
@@ -87,19 +88,19 @@ function UpgradeSelection:confirmSelection()
     self:hide()
 end
 
--- Helper function to draw A button icon (white circle with black A)
+-- Helper function to draw A button icon (black circle with white A)
 function UpgradeSelection:drawAButtonIcon(x, y, radius)
     radius = radius or 8
-    -- Draw white filled circle
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillCircleAtPoint(x, y, radius)
-    -- Draw black outline
+    -- Draw black filled circle
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillCircleAtPoint(x, y, radius)
+    -- Draw white outline
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawCircleAtPoint(x, y, radius)
-    -- Draw black "A" centered in circle
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    local font = gfx.getSystemFont(gfx.font.kVariantBold)
-    gfx.setFont(font)
+    -- Draw white "A" centered in circle
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    FontManager:setBoldFont()
+    local font = FontManager.boldFont
     local textW = font:getTextWidth("A")
     local textH = font:getHeight()
     gfx.drawText("A", x - textW/2, y - textH/2)
@@ -160,35 +161,37 @@ function UpgradeSelection:draw()
         self.scrollOffset = selectedCardBottom - contentAreaH
     end
 
-    -- 1. Dim the background
+    -- 1. Dim the background (50% dither overlay)
     gfx.setColor(gfx.kColorBlack)
     gfx.setDitherPattern(0.5)
     gfx.fillRect(0, 0, 400, 240)
     gfx.setDitherPattern(0)
 
-    -- 2. Draw solid white panel
-    gfx.setColor(gfx.kColorWhite)
+    -- 2. Draw solid BLACK panel background
+    gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(panelX, panelY, panelW, panelH)
 
-    -- 3. Draw panel border (double line)
-    gfx.setColor(gfx.kColorBlack)
+    -- 3. Draw WHITE panel border (double line for emphasis)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawRect(panelX, panelY, panelW, panelH)
     gfx.drawRect(panelX + 2, panelY + 2, panelW - 4, panelH - 4)
 
-    -- 4. Draw header background and text
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(panelX + 4, panelY + 4, panelW - 8, headerH - 4)
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned("*LEVEL UP!*", 200, panelY + 8, kTextAlignment.center)
+    -- 4. Draw header text: "LEVEL UP!" in white on black
+    FontManager:setTitleFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned("LEVEL UP!", 200, panelY + 8, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-    -- 5. Draw horizontal line under header
-    gfx.setColor(gfx.kColorBlack)
+    -- 5. Draw white horizontal rule under header
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(panelX + 4, panelY + headerH, panelX + panelW - 4, panelY + headerH)
 
     -- Set clip rect for scrolling content area
     local contentY = panelY + headerH + 2
     gfx.setClipRect(panelX + 4, contentY, panelW - 8, contentAreaH - 4)
+
+    -- Use body family for card text (supports *bold* markup)
+    FontManager:setBodyFamily()
 
     -- 6. Draw each card (with scroll offset and variable heights)
     for i, option in ipairs(self.options) do
@@ -202,33 +205,34 @@ function UpgradeSelection:draw()
             goto continue
         end
 
-        -- Card background
         if isSelected then
-            gfx.setColor(gfx.kColorBlack)
-            gfx.fillRoundRect(cardX, cardY, cardW, cardH - 4, 4)
-        else
+            -- Selected card: WHITE fill, BLACK text/border
             gfx.setColor(gfx.kColorWhite)
             gfx.fillRoundRect(cardX, cardY, cardW, cardH - 4, 4)
+        else
+            -- Unselected card: BLACK fill, WHITE border
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRoundRect(cardX, cardY, cardW, cardH - 4, 4)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRoundRect(cardX, cardY, cardW, cardH - 4, 4)
         end
 
-        -- Icon placeholder (left side) - use fixed size for consistency
+        -- Icon (left side) - use fixed size for consistency
         local iconX = cardX + 6
         local iconY = cardY + 4
         local iconSize = 38  -- Fixed icon size
 
-        -- Use pre-processed icons: on_black for selected (black bg), on_white for unselected (white bg)
-        local icon = isSelected and option.iconOnBlack or option.iconOnWhite
+        -- Always draw a black background behind the icon for consistent appearance
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(iconX, iconY, iconSize, iconSize)
+
+        -- Always use iconOnBlack (white icon on black background)
+        local icon = option.iconOnBlack
         if icon then
-            -- Pre-processed icons are ready to use directly
             icon:drawScaled(iconX, iconY, iconSize / 32)
         else
-            if isSelected then
-                gfx.setColor(gfx.kColorWhite)
-            else
-                gfx.setColor(gfx.kColorBlack)
-            end
+            -- Fallback: draw white border if no icon available
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(iconX, iconY, iconSize, iconSize)
         end
 
@@ -237,9 +241,11 @@ function UpgradeSelection:draw()
         local textY = cardY + 4
 
         if isSelected then
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        else
+            -- Selected: BLACK text on white card
             gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+        else
+            -- Unselected: WHITE text on black card
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         end
 
         -- Name and level (if tool)
@@ -260,7 +266,7 @@ function UpgradeSelection:draw()
             gfx.drawText(helpsText, textX, textY + 32)
         end
 
-        -- Type badge on right
+        -- Type badge on right: WHITE text on black (or BLACK text on white when selected)
         local badge = option.type == "tool" and "[TOOL]" or "[ITEM]"
         gfx.drawTextAligned(badge, cardX + cardW - 10, textY, kTextAlignment.right)
 
@@ -272,15 +278,13 @@ function UpgradeSelection:draw()
     -- Clear clip rect
     gfx.clearClipRect()
 
-    -- Draw footer line
-    gfx.setColor(gfx.kColorBlack)
+    -- Draw white horizontal rule above footer
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(panelX + 4, panelY + panelH - footerH, panelX + panelW - 4, panelY + panelH - footerH)
 
-    -- 7. Draw instructions at bottom (with padding from edges)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(panelX + 6, panelY + panelH - footerH + 2, panelW - 12, footerH - 6)
+    -- 7. Draw footer instructions: white text on black background
+    FontManager:setFooterFont()
 
-    -- Draw footer text with A button icon
     local footerTextY = panelY + panelH - footerH + 5
     local footerCenterX = 200
     local iconRadius = 7
@@ -288,23 +292,23 @@ function UpgradeSelection:draw()
     -- Calculate positions for centered layout: "Up/Down: Select  (A): Confirm"
     local leftText = "Up/Down: Select   "
     local rightText = ": Confirm"
-    local font = gfx.getSystemFont()
+    local font = FontManager.bodyFont
     local leftWidth = font:getTextWidth(leftText)
     local rightWidth = font:getTextWidth(rightText)
     local totalWidth = leftWidth + (iconRadius * 2) + rightWidth
 
     local startX = footerCenterX - totalWidth / 2
 
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     gfx.drawText(leftText, startX, footerTextY)
 
-    -- Draw A button icon
-    local iconX = startX + leftWidth + iconRadius
-    local iconY = footerTextY + font:getHeight() / 2
-    self:drawAButtonIcon(iconX, iconY, iconRadius)
+    -- Draw A button icon (black circle with white A)
+    local iconCenterX = startX + leftWidth + iconRadius
+    local iconCenterY = footerTextY + font:getHeight() / 2
+    self:drawAButtonIcon(iconCenterX, iconCenterY, iconRadius)
 
-    -- Draw rest of text
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    -- Draw rest of footer text
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     gfx.drawText(rightText, startX + leftWidth + (iconRadius * 2), footerTextY)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end

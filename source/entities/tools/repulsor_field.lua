@@ -11,8 +11,8 @@ RepulsorField.DATA = {
     iconPath = "images/tools/tool_repulsor_field",
     projectileImage = "images/tools/tool_repulsor_wave",
 
-    baseDamage = 0,
-    fireRate = 0.2,
+    baseDamage = 3,
+    fireRate = 0.4,
     projectileSpeed = 0,  -- Instant radial
     pattern = "radial",
     damageType = "force",

@@ -1131,12 +1131,6 @@ function GameplayScene:checkCollisions()
                         local distSq = Utils.distanceSquared(proj.x, proj.y, mob.x, mob.y)
 
                         if distSq < collisionDistSq then
-                            -- DEBUG: Log early collisions
-                            if proj.framesAlive and proj.framesAlive < 10 then
-                                local travelDist = math.sqrt(travelDistSq)
-                                print("COLLISION at framesAlive=" .. proj.framesAlive .. " travelDist=" .. travelDist .. " spawn=" .. spawnX .. "," .. spawnY .. " pos=" .. proj.x .. "," .. proj.y)
-                            end
-
                             -- For tick-based projectiles (like orbital), check if damage can be applied
                             if proj.usesTickDamage then
                                 local canDamage = proj:onHit(mob)
@@ -1453,6 +1447,20 @@ function GameplayScene:drawOverlay()
     -- Draw HUD
     self:drawHUD()
 
+    -- Draw frame rate if enabled in creative mode
+    if SaveManager and SaveManager:isDebugFeatureEnabled("showFrameRate") then
+        FontManager:setBodyFont()
+        local fps = playdate.getFPS()
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+        gfx.drawText(tostring(fps), 3, 3)
+        gfx.drawText(tostring(fps), 5, 3)
+        gfx.drawText(tostring(fps), 3, 5)
+        gfx.drawText(tostring(fps), 5, 5)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawText(tostring(fps), 4, 4)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    end
+
     -- Draw on-screen messages
     self:drawMessages()
 
@@ -1498,35 +1506,39 @@ function GameplayScene:drawOverlay()
 end
 
 function GameplayScene:drawHUD()
-    -- RP Bar (top of screen) - thin line
+    -- RP Bar (top of screen) - thin line on black
     local rpPercent = GameManager.currentRP / GameManager.rpToNextLevel
     rpPercent = Utils.clamp(rpPercent, 0, 1)
 
     gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 6)
     gfx.setColor(gfx.kColorWhite)
+    gfx.drawRect(0, 0, Constants.SCREEN_WIDTH, 6)
     gfx.fillRect(1, 1, (Constants.SCREEN_WIDTH - 2) * rpPercent, 4)
 
-    -- Top info bar background
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, 6, Constants.SCREEN_WIDTH, 18)
+    -- Top info bar: black fill, white text, white rule below
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, 6, Constants.SCREEN_WIDTH, 18)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, 24, Constants.SCREEN_WIDTH, 24)
 
-    -- Timer (top left) - larger and bold
+    -- Timer (top left) - bold
+    FontManager:setMenuFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     local timeStr = Utils.formatTime(self.elapsedTime)
-    gfx.drawText("*" .. timeStr .. "*", 8, 8)
+    gfx.drawText(timeStr, 8, 8)
 
     -- Wave (top center)
     gfx.drawTextAligned("Wave " .. self.currentWave, Constants.SCREEN_WIDTH / 2, 8, kTextAlignment.center)
 
     -- Level (top right)
-    gfx.drawTextAligned("*Lv." .. GameManager.playerLevel .. "*", Constants.SCREEN_WIDTH - 8, 8, kTextAlignment.right)
+    gfx.drawTextAligned("Lv." .. GameManager.playerLevel, Constants.SCREEN_WIDTH - 8, 8, kTextAlignment.right)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-    -- Bottom HUD bar background
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    -- Bottom HUD bar: black fill, white rule above
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
 
     -- Health Bar (bottom right)
@@ -1539,8 +1551,8 @@ function GameplayScene:drawHUD()
     local healthPercent = self.station.health / self.station.maxHealth
     healthPercent = Utils.clamp(healthPercent, 0, 1)
 
-    -- Draw health bar border
-    gfx.setColor(gfx.kColorBlack)
+    -- Draw health bar border (white on black)
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawRect(healthBarX - 1, healthBarY - 1, healthBarWidth + 2, healthBarHeight + 2)
 
     -- Draw health bar background (empty = black)
@@ -1552,8 +1564,10 @@ function GameplayScene:drawHUD()
     gfx.fillRect(healthBarX, healthBarY, healthBarWidth * healthPercent, healthBarHeight)
 
     -- Draw health text next to bar
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     local healthStr = math.floor(self.station.health) .. "/" .. self.station.maxHealth
     gfx.drawTextAligned(healthStr, healthBarX - 6, healthBarY, kTextAlignment.right)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Draw boss health bar AFTER the HUD (so it's not covered by the white background)
     if self.boss and self.boss.active then
@@ -1640,7 +1654,7 @@ function GameplayScene:drawEquipmentSlots()
             local letterImg = letterImageCache[letter]
             if not letterImg then
                 -- Create and cache letter image
-                local boldFont = gfx.getSystemFont(gfx.font.kVariantBold)
+                local boldFont = FontManager.boldFont
                 local fullW = boldFont:getTextWidth(letter)
                 local fullH = boldFont:getHeight()
                 letterImg = gfx.image.new(fullW, fullH)
@@ -1689,10 +1703,10 @@ function GameplayScene:drawEquipmentSlots()
             gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(leftX, slotY, slotSize, slotSize)
         else
-            -- Empty slot: white background with black border
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(leftX, slotY, slotSize, slotSize)
+            -- Empty slot: black background with white border
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(leftX, slotY, slotSize, slotSize)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(leftX, slotY, slotSize, slotSize)
         end
     end

@@ -1,6 +1,7 @@
 -- Tool Placement Screen
 -- Allows player to choose which slot to attach a new tool to
 -- Roulette-style: slots rotate past a fixed selection point at 3 o'clock
+-- Retro terminal aesthetic: black panels, white borders, inverted selection
 
 local gfx <const> = playdate.graphics
 
@@ -39,64 +40,36 @@ function ToolPlacementScreen:show(toolData, station, callback)
     self.usedSlots = {}
     self.slotIcons = {}
 
-    print("ToolPlacementScreen:show - " .. #station.tools .. " existing tools")
-
     for idx, tool in ipairs(station.tools) do
-        print("  Tool[" .. idx .. "]: slotIndex=" .. tostring(tool.slotIndex) .. ", data=" .. tostring(tool.data ~= nil))
         if tool.slotIndex ~= nil then
             -- Mark slot as used
             self.usedSlots[tool.slotIndex] = true
 
             -- Load icon with fallback chain - try multiple sources
             local iconPath = nil
-            local toolId = nil
 
             -- Try tool.data first (instance data)
             if tool.data then
                 iconPath = tool.data.iconPath or tool.data.imagePath
-                toolId = tool.data.id
-                print("    iconPath from data: " .. tostring(iconPath) .. " (id=" .. tostring(toolId) .. ")")
             end
 
             -- Fallback: try class DATA if instance data missing
             if not iconPath and tool.DATA then
                 iconPath = tool.DATA.iconPath or tool.DATA.imagePath
-                toolId = tool.DATA.id
-                print("    iconPath from DATA: " .. tostring(iconPath))
             end
 
             if iconPath then
                 local filename = iconPath:match("([^/]+)$")
                 local tryPath = "images/icons_on_black/" .. filename
-                print("    Loading: " .. tryPath)
                 -- Try icons_on_black first
                 local icon = gfx.image.new(tryPath)
                 -- Fall back to tools folder
                 if not icon then
-                    print("    Fallback: " .. iconPath)
                     icon = gfx.image.new(iconPath)
                 end
                 self.slotIcons[tool.slotIndex] = icon
-
-                if icon then
-                    print("    SUCCESS: icon loaded for slot " .. tool.slotIndex)
-                else
-                    print("WARNING: Failed to load icon for slot " .. tool.slotIndex .. " (tool: " .. (toolId or "unknown") .. ")")
-                end
-            else
-                print("WARNING: No iconPath for tool in slot " .. tool.slotIndex)
             end
         end
-    end
-
-    -- Debug: print slotIcons contents
-    print("  slotIcons:")
-    for k, v in pairs(self.slotIcons) do
-        print("    [" .. k .. "] = " .. tostring(v))
-    end
-    print("  usedSlots:")
-    for k, v in pairs(self.usedSlots) do
-        print("    [" .. k .. "] = " .. tostring(v))
     end
 
     -- Load the new tool icon (larger version for left panel) with fallback
@@ -218,23 +191,26 @@ function ToolPlacementScreen:draw()
     gfx.fillRect(0, 0, 400, 240)
     gfx.setDitherPattern(0)
 
-    -- Draw panel
+    -- Draw panel: BLACK fill
     local panelX, panelY = 40, 30
     local panelW, panelH = 320, 180
 
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(panelX, panelY, panelW, panelH)
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(panelX, panelY, panelW, panelH)
+
+    -- WHITE double-line border for emphasis
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawRect(panelX, panelY, panelW, panelH)
     gfx.drawRect(panelX + 2, panelY + 2, panelW - 4, panelH - 4)
 
-    -- Title
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned("*TOOL PLACEMENT*", 200, panelY + 10, kTextAlignment.center)
+    -- Title: WHITE text on black using title font
+    FontManager:setTitleFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned("TOOL PLACEMENT", 200, panelY + 10, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-    -- Horizontal line under title
-    gfx.setColor(gfx.kColorBlack)
+    -- WHITE horizontal line under title
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(panelX + 4, panelY + 28, panelX + panelW - 4, panelY + 28)
 
     -- LEFT SIDE: Tool info (icon on top, text below with wrapping)
@@ -253,22 +229,24 @@ function ToolPlacementScreen:draw()
         iconY = iconY + scaledH + 6
     end
 
-    -- Tool name (centered, below icon)
+    -- Tool name (centered, below icon) - WHITE text, menu font
     local toolName = self.toolData and self.toolData.name or "Tool"
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    FontManager:setMenuFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     gfx.drawTextAligned("*" .. toolName .. "*", leftCenterX, iconY, kTextAlignment.center)
 
-    -- Description (wrapped text, below name)
+    -- Description (wrapped text, below name) - WHITE text, body font
     local desc = self.toolData and self.toolData.description or ""
     local textX = panelX + 8
     local textY = iconY + 18
     local textWidth = leftColumnWidth
     local textHeight = 50  -- Allow for wrapping
+    FontManager:setBodyFont()
     gfx.drawTextInRect(desc, textX, textY, textWidth, textHeight, nil, nil, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-    -- Vertical divider line
-    gfx.setColor(gfx.kColorBlack)
+    -- WHITE vertical divider line
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(dividerX, panelY + 35, dividerX, panelY + panelH - 30)
 
     -- RIGHT SIDE: Rotating slot wheel
@@ -278,11 +256,12 @@ function ToolPlacementScreen:draw()
     local slotRadius = 38
     local slotSize = 20
 
-    -- Draw center dot
-    gfx.setColor(gfx.kColorBlack)
+    -- Draw center dot (WHITE on black panel)
+    gfx.setColor(gfx.kColorWhite)
     gfx.fillCircleAtPoint(centerX, centerY, 3)
 
     -- Draw each slot
+    FontManager:setMenuFont()
     for i = 0, Constants.STATION_SLOTS - 1 do
         local slotBaseAngle = Constants.TOOL_SLOTS[i].angle
         local slotAngle = Utils.degToRad(slotBaseAngle + self.rotation)
@@ -301,16 +280,15 @@ function ToolPlacementScreen:draw()
 
         local drawSize = slotSize + pulse
 
-        -- Draw connecting line
-        gfx.setColor(gfx.kColorBlack)
+        -- Draw connecting line (WHITE)
+        gfx.setColor(gfx.kColorWhite)
         local lineEndX = centerX + math.cos(slotAngle) * 6
         local lineEndY = centerY + math.sin(slotAngle) * 6
         gfx.drawLine(lineEndX, lineEndY, slotX - math.cos(slotAngle) * (drawSize/2), slotY - math.sin(slotAngle) * (drawSize/2))
 
         -- Draw slot
         if isUsed then
-            -- Occupied slot with tool icon
-            -- Draw black filled circle first (background for the icon)
+            -- Occupied slot: BLACK fill with white icon (already correct)
             gfx.setColor(gfx.kColorBlack)
             gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
 
@@ -328,25 +306,32 @@ function ToolPlacementScreen:draw()
                 gfx.setImageDrawMode(gfx.kDrawModeCopy)
             end
 
-            -- Draw circle outline on top
-            gfx.setColor(gfx.kColorBlack)
+            -- Draw WHITE circle outline on top
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawCircleAtPoint(slotX, slotY, drawSize / 2)
         elseif isAtSelectionPoint then
             -- Selected available slot (at 3 o'clock)
             if self.isConfirming then
+                -- Flash between white and black fill
                 if math.floor(self.pulseTimer * 8) % 2 == 0 then
-                    gfx.setColor(gfx.kColorBlack)
-                    gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
-                else
+                    -- Flash state 1: WHITE fill, BLACK border
                     gfx.setColor(gfx.kColorWhite)
                     gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
                     gfx.setColor(gfx.kColorBlack)
                     gfx.setLineWidth(2)
                     gfx.drawCircleAtPoint(slotX, slotY, drawSize / 2)
                     gfx.setLineWidth(1)
+                else
+                    -- Flash state 2: BLACK fill, WHITE border
+                    gfx.setColor(gfx.kColorBlack)
+                    gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
+                    gfx.setColor(gfx.kColorWhite)
+                    gfx.setLineWidth(2)
+                    gfx.drawCircleAtPoint(slotX, slotY, drawSize / 2)
+                    gfx.setLineWidth(1)
                 end
             else
-                -- Show new tool icon preview in selected slot
+                -- Selected slot: WHITE fill, BLACK border, tool icon preview
                 gfx.setColor(gfx.kColorWhite)
                 gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
                 gfx.setColor(gfx.kColorBlack)
@@ -361,24 +346,25 @@ function ToolPlacementScreen:draw()
                 end
             end
         else
-            -- Empty available slot
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
+            -- Empty slot: BLACK fill, WHITE outline, WHITE "+"
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillCircleAtPoint(slotX, slotY, drawSize / 2)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawCircleAtPoint(slotX, slotY, drawSize / 2)
 
-            gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             gfx.drawTextAligned("+", slotX, slotY - 5, kTextAlignment.center)
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
     end
 
-    -- Footer line
-    gfx.setColor(gfx.kColorBlack)
+    -- WHITE footer rule
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(panelX + 4, panelY + panelH - 24, panelX + panelW - 4, panelY + panelH - 24)
 
-    -- Instructions
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    -- Instructions: WHITE text on black, footer font
+    FontManager:setFooterFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     if self.isConfirming then
         gfx.drawTextAligned("A: Confirm   B: Back", 200, panelY + panelH - 18, kTextAlignment.center)
     else

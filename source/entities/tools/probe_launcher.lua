@@ -11,16 +11,16 @@ ProbeLauncher.DATA = {
     iconPath = "images/tools/tool_probe_launcher",
     projectileImage = "images/tools/tool_probe",
 
-    baseDamage = 1,
-    fireRate = 0.6,
-    projectileSpeed = 5,
+    baseDamage = 5,
+    fireRate = 0.8,
+    projectileSpeed = 6,
     pattern = "homing",
     damageType = "analysis",
 
     pairsWithBonus = "probe_swarm",
     upgradedName = "Drone Carrier",
     upgradedImagePath = "images/tools/tool_drone_carrier",
-    upgradedDamage = 2,
+    upgradedDamage = 12,
 }
 
 function ProbeLauncher:init()

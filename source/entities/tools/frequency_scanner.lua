@@ -11,16 +11,16 @@ FrequencyScanner.DATA = {
     iconPath = "images/tools/tool_frequency_scanner",
     projectileImage = "images/tools/tool_frequency_scanner_beam",
 
-    baseDamage = 4,
-    fireRate = 0.8,
-    projectileSpeed = 12,
+    baseDamage = 10,
+    fireRate = 1.2,
+    projectileSpeed = 14,
     pattern = "straight",
     damageType = "frequency",
 
     pairsWithBonus = "expanded_dish",
     upgradedName = "Harmonic Disruptor",
     upgradedImagePath = "images/tools/tool_harmonic_disruptor",
-    upgradedDamage = 10,
+    upgradedDamage = 25,
 }
 
 function FrequencyScanner:init()

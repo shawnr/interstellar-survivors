@@ -107,8 +107,7 @@ function ToolSelect:draw()
 
     -- Draw title
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    local titleFont = gfx.getSystemFont(gfx.font.kVariantBold)
-    gfx.setFont(titleFont)
+    FontManager:setTitleFont()
     gfx.drawTextAligned("*CHOOSE STARTING TOOL*", Constants.SCREEN_WIDTH / 2, 15, kTextAlignment.center)
 
     -- Grid layout
@@ -166,27 +165,25 @@ function ToolSelect:draw()
     if selectedTool then
         local infoY = Constants.SCREEN_HEIGHT - 50
 
-        -- Draw info background
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, infoY, Constants.SCREEN_WIDTH, 50)
+        -- Draw info background (black with white rule divider)
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(0, infoY, Constants.SCREEN_WIDTH, 50)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(0, infoY, Constants.SCREEN_WIDTH, infoY)
 
-        -- Draw tool name and description
-        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-        gfx.setFont(titleFont)
-        gfx.drawTextAligned("*" .. selectedTool.data.name .. "*", Constants.SCREEN_WIDTH / 2, infoY + 8, kTextAlignment.center)
+        -- Draw tool name and description (white text on black)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        FontManager:setMenuFont()
+        gfx.drawTextAligned(selectedTool.data.name, Constants.SCREEN_WIDTH / 2, infoY + 8, kTextAlignment.center)
 
-        local normalFont = gfx.getSystemFont()
-        gfx.setFont(normalFont)
+        FontManager:setBodyFont()
         gfx.drawTextAligned(selectedTool.data.description or "", Constants.SCREEN_WIDTH / 2, infoY + 28, kTextAlignment.center)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
     -- Draw instructions
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    local font = gfx.getSystemFont()
-    gfx.setFont(font)
+    FontManager:setFooterFont()
     gfx.drawTextAligned("D-Pad: Navigate   A: Select", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 55, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end

@@ -1,5 +1,6 @@
 -- Research Specs Screen UI
 -- Shows unlocked and locked Research Specs
+-- Retro terminal aesthetic: black background, white text/borders
 
 local gfx <const> = playdate.graphics
 
@@ -10,12 +11,9 @@ ResearchSpecsScreen = {
     scrollOffset = 0,
     maxVisibleItems = 3,  -- Only 3 items to fit taller rows properly
     fromState = nil,
-    patternBg = nil,
 }
 
 function ResearchSpecsScreen:init()
-    -- Load pattern background
-    self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 end
 
 function ResearchSpecsScreen:refreshSpecs()
@@ -50,10 +48,6 @@ function ResearchSpecsScreen:show(fromState)
     self.fromState = fromState or GameManager.states.EPISODE_SELECT
     self:refreshSpecs()
 
-    -- Load pattern if not already loaded
-    if not self.patternBg then
-        self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
-    end
 end
 
 function ResearchSpecsScreen:hide()
@@ -120,23 +114,23 @@ end
 function ResearchSpecsScreen:draw()
     if not self.isVisible then return end
 
-    -- Draw pattern background
-    if self.patternBg then
-        self.patternBg:draw(0, 0)
-    else
-        gfx.clear(gfx.kColorWhite)
-    end
+    gfx.clear(gfx.kColorBlack)
 
-    -- Title bar with white background
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    -- Header: BLACK bar with WHITE text
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    FontManager:setTitleFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned("RESEARCH SPECS", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
+    -- White horizontal rule below header
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
-    gfx.drawTextAligned("*RESEARCH SPECS*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
 
     -- Draw specs list
     local startY = 46
-    local itemHeight = 52  -- Taller rows for two lines of bold text with padding
+    local itemHeight = 52  -- Taller rows for two lines of text with padding
 
     local startIdx = self.scrollOffset + 1
     local endIdx = math.min(startIdx + self.maxVisibleItems - 1, #self.specs)
@@ -150,10 +144,10 @@ function ResearchSpecsScreen:draw()
         self:drawSpecItem(spec, y, isSelected)
     end
 
-    -- Draw scroll indicators if needed
+    -- Draw scroll indicators (WHITE triangles)
     if self.scrollOffset > 0 then
         -- Up arrow
-        gfx.setColor(gfx.kColorBlack)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillTriangle(
             Constants.SCREEN_WIDTH - 20, 44,
             Constants.SCREEN_WIDTH - 15, 40,
@@ -164,7 +158,7 @@ function ResearchSpecsScreen:draw()
     if self.scrollOffset + self.maxVisibleItems < #self.specs then
         -- Down arrow
         local arrowY = startY + self.maxVisibleItems * itemHeight - 4
-        gfx.setColor(gfx.kColorBlack)
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillTriangle(
             Constants.SCREEN_WIDTH - 20, arrowY,
             Constants.SCREEN_WIDTH - 15, arrowY + 6,
@@ -172,51 +166,53 @@ function ResearchSpecsScreen:draw()
         )
     end
 
-    -- Draw instructions at bottom with white background
+    -- Footer: white rule above, BLACK background with WHITE text
     gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
-    gfx.setColor(gfx.kColorBlack)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 21, Constants.SCREEN_WIDTH, 21)
 
     local unlockCount = 0
     for _, s in ipairs(self.specs) do
         if s.unlocked then unlockCount = unlockCount + 1 end
     end
+
+    FontManager:setFooterFont()
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     gfx.drawTextAligned(unlockCount .. "/" .. #self.specs .. " Unlocked   [B] Back",
         Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
 function ResearchSpecsScreen:drawSpecItem(spec, y, isSelected)
     local itemWidth = Constants.SCREEN_WIDTH - 40
-    local rowHeight = 46  -- Height for two lines of bold text with padding
+    local rowHeight = 46  -- Height for two lines of text with padding
 
-    -- Row background for readability
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRoundRect(20, y, itemWidth, rowHeight, 4)
-
-    -- Selection highlight or border
-    gfx.setColor(gfx.kColorBlack)
     if isSelected then
+        -- Selected: WHITE fill, BLACK text
+        gfx.setColor(gfx.kColorWhite)
         gfx.fillRoundRect(20, y, itemWidth, rowHeight, 4)
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
     else
+        -- Unselected: BLACK fill, WHITE border, WHITE text
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillRoundRect(20, y, itemWidth, rowHeight, 4)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawRoundRect(20, y, itemWidth, rowHeight, 4)
-    end
-
-    -- Set draw mode based on selection
-    if isSelected then
         gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    else
-        gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
     if spec.unlocked then
-        -- Show spec name (bold) on first line - 8px from top
-        gfx.drawText("*" .. spec.data.name .. "*", 28, y + 8)
+        -- Show spec name on first line
+        FontManager:setMenuFont()
+        gfx.drawText(spec.data.name, 28, y + 8)
 
-        -- Draw description (bold) on second line - 26px from top
-        gfx.drawText("*" .. spec.data.description .. "*", 28, y + 26)
+        -- Draw description on second line
+        FontManager:setBodyFont()
+        gfx.drawText(spec.data.description, 28, y + 26)
     else
-        -- Show locked indicator (bold) - centered vertically
+        -- Show locked indicator - centered vertically
+        FontManager:setMenuFont()
         local lockText = "[LOCKED]"
 
         -- Show hint about how to unlock
@@ -226,7 +222,7 @@ function ResearchSpecsScreen:drawSpecItem(spec, y, isSelected)
             lockText = "[LOCKED] - Special unlock"
         end
 
-        gfx.drawText("*" .. lockText .. "*", 28, y + 16)
+        gfx.drawText(lockText, 28, y + 16)
     end
 
     gfx.setImageDrawMode(gfx.kDrawModeCopy)

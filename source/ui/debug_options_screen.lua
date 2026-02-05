@@ -7,7 +7,6 @@ DebugOptionsScreen = {
     isVisible = false,
     selectedIndex = 1,
     fromState = nil,
-    patternBg = nil,
     scrollOffset = 0,
 }
 
@@ -28,6 +27,7 @@ DebugOptionsScreen.menuItems = {
     { label = "Unlock All Episodes", key = "unlockAllEpisodes", type = "toggle" },
     { label = "Unlock All Database", key = "unlockAllDatabase", type = "toggle" },
     { label = "Unlock All Research", key = "unlockAllResearchSpecs", type = "toggle" },
+    { label = "Show Frame Rate", key = "showFrameRate", type = "toggle" },
     { label = "Back", type = "action", action = "back" },
 }
 
@@ -36,12 +36,10 @@ function DebugOptionsScreen:show(fromState)
     self.selectedIndex = 1
     self.scrollOffset = 0
     self.fromState = fromState or GameManager.states.SETTINGS
-    self.patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 end
 
 function DebugOptionsScreen:hide()
     self.isVisible = false
-    self.patternBg = nil
 end
 
 function DebugOptionsScreen:update()
@@ -138,19 +136,19 @@ end
 function DebugOptionsScreen:draw()
     if not self.isVisible then return end
 
-    -- Draw pattern background
-    if self.patternBg then
-        self.patternBg:draw(0, 0)
-    else
-        gfx.clear(gfx.kColorWhite)
-    end
+    gfx.clear(gfx.kColorBlack)
 
-    -- Title bar with white background
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    -- Title bar with black background
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+    -- White horizontal rule below header
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
-    gfx.drawTextAligned("*CREATIVE OPTIONS*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    -- White header text
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    FontManager:setTitleFont()
+    gfx.drawTextAligned("CREATIVE OPTIONS", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Draw menu items with scrolling
     local startY = 48
@@ -161,29 +159,26 @@ function DebugOptionsScreen:draw()
     -- Set clip rect to content area (between title and footer)
     gfx.setClipRect(0, contentTop, Constants.SCREEN_WIDTH, contentBottom - contentTop)
 
+    FontManager:setMenuFont()
+
     for i, item in ipairs(self.menuItems) do
         local y = startY + (i - 1) * itemHeight - self.scrollOffset
         local isSelected = (i == self.selectedIndex)
 
         -- Skip if off-screen
         if y + 20 >= contentTop and y - 2 < contentBottom then
-            -- Row background
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20)
-
-            -- Selection indicator or border
-            gfx.setColor(gfx.kColorBlack)
             if isSelected then
+                -- Selected: WHITE fill, BLACK text
+                gfx.setColor(gfx.kColorWhite)
                 gfx.fillRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20, 3)
+                gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
             else
+                -- Unselected: BLACK fill, WHITE border, WHITE text
+                gfx.setColor(gfx.kColorBlack)
+                gfx.fillRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20, 3)
+                gfx.setColor(gfx.kColorWhite)
                 gfx.drawRoundRect(20, y - 2, Constants.SCREEN_WIDTH - 40, 20, 3)
-            end
-
-            -- Set text mode
-            if isSelected then
                 gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-            else
-                gfx.setImageDrawMode(gfx.kDrawModeCopy)
             end
 
             if item.type == "time" then
@@ -208,7 +203,7 @@ function DebugOptionsScreen:draw()
                 gfx.drawTextAligned(toggleText, Constants.SCREEN_WIDTH - 30, y, kTextAlignment.right)
 
             elseif item.type == "action" then
-                gfx.drawTextAligned("*" .. item.label .. "*", Constants.SCREEN_WIDTH / 2, y, kTextAlignment.center)
+                gfx.drawTextAligned(item.label, Constants.SCREEN_WIDTH / 2, y, kTextAlignment.center)
             end
 
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
@@ -217,12 +212,18 @@ function DebugOptionsScreen:draw()
 
     gfx.clearClipRect()
 
-    -- Instructions bar at bottom
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    -- Footer bar with black background
     gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    -- White rule above footer
+    gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
-    gfx.drawTextAligned("D-pad: Navigate/Adjust   A: Toggle   B: Back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    -- White footer text
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    FontManager:setFooterFont()
+    gfx.drawTextAligned("D-pad: Navigate/Adjust   A: Toggle   B: Back",
+        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
 -- Format seconds as M:SS

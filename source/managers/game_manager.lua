@@ -93,6 +93,7 @@ function GameManager:init()
 
     -- Initialize RP to next level
     self.rpToNextLevel = Utils.xpToNextLevel(1)
+
 end
 
 function GameManager:setState(newState, params)
@@ -198,6 +199,17 @@ function GameManager:endEpisode(victory)
     if victory then
         -- Mark episode as completed and save
         SaveManager:markEpisodeCompleted(self.currentEpisodeId)
+
+        -- Convert 2% of total RP earned to Grant Funds (same rate as defeat)
+        if GameplayScene then
+            local stats = GameplayScene:getStats()
+            local totalRP = stats and stats.totalRP or 0
+            local grantFundsEarned = math.floor(totalRP / 50)
+            if grantFundsEarned > 0 then
+                SaveManager:addGrantFunds(grantFundsEarned)
+            end
+        end
+
         SaveManager:flush()
         self:setState(self.states.VICTORY)
     else
@@ -211,7 +223,6 @@ function GameManager:endEpisode(victory)
             local grantFundsEarned = math.floor(totalRP / 50)
             if grantFundsEarned > 0 then
                 SaveManager:addGrantFunds(grantFundsEarned)
-                print("Converted " .. totalRP .. " RP to " .. grantFundsEarned .. " Grant Funds")
             end
         end
 
@@ -373,7 +384,7 @@ function GameManager:createTitleScene()
         if bgImage then
             bgImage:draw(0, 0)
         else
-            gfx.clear(gfx.kColorWhite)
+            gfx.clear(gfx.kColorBlack)
         end
 
         if titleState == STATE_SPLASH then
@@ -383,15 +394,19 @@ function GameManager:createTitleScene()
             local boxWidth = 145
             local boxHeight = 90
 
-            -- Format tagline with bold markers
+            -- Format tagline with Roobert body font
+            FontManager:setBodyFont()
             local taglineText = "*" .. currentTagline .. "*"
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             gfx.drawTextInRect(taglineText, boxX, boxY, boxWidth, boxHeight, nil, nil, kTextAlignment.left)
 
             -- Draw blinking prompt at bottom
             if showText then
-                gfx.drawTextAligned("*Press Any Button to Start*", Constants.SCREEN_WIDTH / 2, 210, kTextAlignment.center)
+                FontManager:setMenuFont()
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.drawTextAligned("Press Any Button to Start", Constants.SCREEN_WIDTH / 2, 210, kTextAlignment.center)
             end
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
         else
             -- Draw main menu in the tagline area
             local menuX = 250
@@ -399,30 +414,52 @@ function GameManager:createTitleScene()
             local menuWidth = 145
             local itemHeight = 22
 
+            FontManager:setMenuFont()
+
             for i, item in ipairs(menuItems) do
                 local y = menuY + (i - 1) * itemHeight
                 local isSelected = (i == selectedIndex)
 
                 if isSelected then
-                    -- Draw selection background
+                    -- Selected: white fill, black text
+                    gfx.setColor(gfx.kColorWhite)
+                    gfx.fillRoundRect(menuX - 4, y - 2, menuWidth, itemHeight - 2, 3)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+                else
+                    -- Unselected: black bg, white border, white text
                     gfx.setColor(gfx.kColorBlack)
                     gfx.fillRoundRect(menuX - 4, y - 2, menuWidth, itemHeight - 2, 3)
+                    gfx.setColor(gfx.kColorWhite)
+                    gfx.drawRoundRect(menuX - 4, y - 2, menuWidth, itemHeight - 2, 3)
                     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-                else
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
                 end
 
-                gfx.drawText("*" .. item .. "*", menuX, y)
+                gfx.drawText(item, menuX, y)
                 gfx.setImageDrawMode(gfx.kDrawModeCopy)
             end
 
             -- Draw navigation hint at bottom
+            FontManager:setBodyFont()
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             gfx.drawTextAligned("D-pad + A to select", Constants.SCREEN_WIDTH / 2, 210, kTextAlignment.center)
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
 
-        -- Draw version number in lower left corner
+        -- Draw version number in lower left corner (with outline for visibility)
+        FontManager:setBodyFont()
         local versionText = "v" .. Constants.VERSION
-        gfx.drawText(versionText, 4, Constants.SCREEN_HEIGHT - 14)
+        local vx, vy = 4, Constants.SCREEN_HEIGHT - 14
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+        for dx = -1, 1 do
+            for dy = -1, 1 do
+                if dx ~= 0 or dy ~= 0 then
+                    gfx.drawText(versionText, vx + dx, vy + dy)
+                end
+            end
+        end
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawText(versionText, vx, vy)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
     function titleScene:exit()
@@ -472,7 +509,6 @@ function GameManager:createGameOverScene()
     local scrollOffset = 0
     local maxScroll = 0
     local stats = nil
-    local patternBg = nil
     local grantFundsEarned = 0
     local toolIcons = {}  -- Cache for tool icons
     local itemIcons = {}  -- Cache for bonus item icons
@@ -492,9 +528,6 @@ function GameManager:createGameOverScene()
 
         -- Calculate grant funds earned (2% of total RP)
         grantFundsEarned = math.floor((stats.totalRP or 0) / 50)
-
-        -- Load pattern background
-        patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 
         -- Pre-load tool icons (use pre-processed icons on black background)
         for toolId, _ in pairs(stats.toolsObtained or {}) do
@@ -537,36 +570,33 @@ function GameManager:createGameOverScene()
     end
 
     function scene:drawOverlay()
-        -- Draw background
-        if patternBg then
-            patternBg:draw(0, 0)
-        else
-            gfx.clear(gfx.kColorWhite)
-        end
+        gfx.clear(gfx.kColorBlack)
 
         -- Get episode data
         local episodeData = EpisodesData.get(GameManager.currentEpisodeId)
 
-        -- Box styling constants (matching Grant Funds box)
+        -- Box styling constants
         local boxMargin = 10
         local boxPadding = 8
         local lineHeight = 20
         local headerHeight = 20
         local boxSpacing = 8
-        local iconSize = 14  -- Size for list item icons
-        local textIndent = iconSize + 4  -- Text starts after icon + spacing
+        local iconSize = 14
+        local textIndent = iconSize + 4
 
-        -- Header: "Episode X: Title" and GAME OVER
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 48)
+        -- Header: black bar, white text, white rule below
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 48)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(0, 48, Constants.SCREEN_WIDTH, 48)
 
+        FontManager:setTitleFont()
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         if episodeData then
             local episodeHeader = "Episode " .. GameManager.currentEpisodeId .. ": " .. episodeData.title
-            gfx.drawTextAligned("*" .. episodeHeader .. "*", Constants.SCREEN_WIDTH / 2, 8, kTextAlignment.center)
+            gfx.drawTextAligned(episodeHeader, Constants.SCREEN_WIDTH / 2, 8, kTextAlignment.center)
         end
-        gfx.drawTextAligned("*GAME OVER*", Constants.SCREEN_WIDTH / 2, 26, kTextAlignment.center)
+        gfx.drawTextAligned("GAME OVER", Constants.SCREEN_WIDTH / 2, 28, kTextAlignment.center)
 
         -- Scrollable content area
         gfx.setClipRect(0, 50, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 72)
@@ -575,15 +605,17 @@ function GameManager:createGameOverScene()
         local boxWidth = Constants.SCREEN_WIDTH - (boxMargin * 2)
 
         -- Stats box: Level, RP, Time
+        FontManager:setMenuFont()
         local timeStr = string.format("%d:%02d", math.floor((stats.elapsedTime or 0) / 60), math.floor((stats.elapsedTime or 0) % 60))
         local statsBoxHeight = headerHeight + boxPadding
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(boxMargin, contentY, boxWidth, statsBoxHeight)
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(boxMargin, contentY, boxWidth, statsBoxHeight)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawRect(boxMargin, contentY, boxWidth, statsBoxHeight)
-        gfx.drawText("*Level: " .. (stats.playerLevel or GameManager.playerLevel) .. "*", boxMargin + boxPadding, contentY + boxPadding)
-        gfx.drawTextAligned("*RP: " .. (stats.totalRP or 0) .. "*", Constants.SCREEN_WIDTH / 2, contentY + boxPadding, kTextAlignment.center)
-        gfx.drawTextAligned("*Time: " .. timeStr .. "*", Constants.SCREEN_WIDTH - boxMargin - boxPadding, contentY + boxPadding, kTextAlignment.right)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawText("Level: " .. (stats.playerLevel or GameManager.playerLevel), boxMargin + boxPadding, contentY + boxPadding)
+        gfx.drawTextAligned("RP: " .. (stats.totalRP or 0), Constants.SCREEN_WIDTH / 2, contentY + boxPadding, kTextAlignment.center)
+        gfx.drawTextAligned("Time: " .. timeStr, Constants.SCREEN_WIDTH - boxMargin - boxPadding, contentY + boxPadding, kTextAlignment.right)
         contentY = contentY + statsBoxHeight + boxSpacing
 
         -- Research Subjects box (mob kills)
@@ -593,26 +625,30 @@ function GameManager:createGameOverScene()
         end
 
         local mobBoxHeight = headerHeight + boxPadding + (mobCount > 0 and (mobCount * lineHeight) or lineHeight)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(boxMargin, contentY, boxWidth, mobBoxHeight)
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(boxMargin, contentY, boxWidth, mobBoxHeight)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawRect(boxMargin, contentY, boxWidth, mobBoxHeight)
 
         -- Header inside box
-        gfx.drawText("*Research Subjects*", boxMargin + boxPadding, contentY + 4)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawText("Research Subjects", boxMargin + boxPadding, contentY + 4)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(boxMargin + boxPadding, contentY + headerHeight, Constants.SCREEN_WIDTH - boxMargin - boxPadding, contentY + headerHeight)
 
         local itemY = contentY + headerHeight + 4
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         if mobCount > 0 then
             for mobType, count in pairs(stats.mobKills or {}) do
                 local displayName = mobType:gsub("_", " "):gsub("(%a)([%w_']*)", function(a, b) return string.upper(a) .. b end)
                 -- Draw bullet dot
                 local bulletRadius = 4
                 local bulletX = boxMargin + boxPadding + bulletRadius
-                local bulletY = itemY + 8  -- Center vertically in line
-                gfx.setColor(gfx.kColorBlack)
+                local bulletY = itemY + 8
+                gfx.setColor(gfx.kColorWhite)
                 gfx.fillCircleAtPoint(bulletX, bulletY, bulletRadius)
                 -- Draw text after bullet
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 gfx.drawText(displayName .. ": " .. count, boxMargin + boxPadding + textIndent, itemY)
                 itemY = itemY + lineHeight
             end
@@ -626,37 +662,39 @@ function GameManager:createGameOverScene()
         for _ in pairs(stats.toolsObtained or {}) do toolCount = toolCount + 1 end
 
         local toolBoxHeight = headerHeight + boxPadding + (toolCount > 0 and (toolCount * lineHeight) or lineHeight)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(boxMargin, contentY, boxWidth, toolBoxHeight)
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(boxMargin, contentY, boxWidth, toolBoxHeight)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawRect(boxMargin, contentY, boxWidth, toolBoxHeight)
 
         -- Header inside box
-        gfx.drawText("*Tools Obtained*", boxMargin + boxPadding, contentY + 4)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawText("Tools Obtained", boxMargin + boxPadding, contentY + 4)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(boxMargin + boxPadding, contentY + headerHeight, Constants.SCREEN_WIDTH - boxMargin - boxPadding, contentY + headerHeight)
 
         itemY = contentY + headerHeight + 4
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         if toolCount > 0 then
             for toolId, _ in pairs(stats.toolsObtained or {}) do
                 local toolData = ToolsData and ToolsData[toolId]
                 local toolName = toolData and toolData.name or toolId
-                -- Draw tool icon with black background box
+                -- Draw tool icon
                 local icon = toolIcons[toolId]
                 if icon then
                     local iconBoxX = boxMargin + boxPadding
                     local iconBoxY = itemY
-                    local iconBoxSize = iconSize + 2
 
-                    -- Pre-processed icons are already white on black, just draw them
                     local iconW, iconH = icon:getSize()
                     local scale = iconSize / math.max(iconW, iconH)
                     icon:drawScaled(iconBoxX + 1, iconBoxY + 1, scale)
                 else
                     -- Fallback bullet
                     local bulletRadius = 4
-                    gfx.setColor(gfx.kColorBlack)
+                    gfx.setColor(gfx.kColorWhite)
                     gfx.fillCircleAtPoint(boxMargin + boxPadding + bulletRadius, itemY + 8, bulletRadius)
                 end
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 gfx.drawText(toolName, boxMargin + boxPadding + textIndent, itemY)
                 itemY = itemY + lineHeight
             end
@@ -670,37 +708,39 @@ function GameManager:createGameOverScene()
         for _ in pairs(stats.itemsObtained or {}) do itemCount = itemCount + 1 end
 
         local itemsBoxHeight = headerHeight + boxPadding + (itemCount > 0 and (itemCount * lineHeight) or lineHeight)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(boxMargin, contentY, boxWidth, itemsBoxHeight)
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(boxMargin, contentY, boxWidth, itemsBoxHeight)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawRect(boxMargin, contentY, boxWidth, itemsBoxHeight)
 
         -- Header inside box
-        gfx.drawText("*Bonus Items Obtained*", boxMargin + boxPadding, contentY + 4)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawText("Bonus Items Obtained", boxMargin + boxPadding, contentY + 4)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(boxMargin + boxPadding, contentY + headerHeight, Constants.SCREEN_WIDTH - boxMargin - boxPadding, contentY + headerHeight)
 
         itemY = contentY + headerHeight + 4
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         if itemCount > 0 then
             for itemId, _ in pairs(stats.itemsObtained or {}) do
                 local itemData = BonusItemsData and BonusItemsData[itemId]
                 local itemName = itemData and itemData.name or itemId
-                -- Draw bonus item icon with black background box
+                -- Draw bonus item icon
                 local icon = itemIcons[itemId]
                 if icon then
                     local iconBoxX = boxMargin + boxPadding
                     local iconBoxY = itemY
-                    local iconBoxSize = iconSize + 2
 
-                    -- Pre-processed icons are already white on black, just draw them
                     local iconW, iconH = icon:getSize()
                     local scale = iconSize / math.max(iconW, iconH)
                     icon:drawScaled(iconBoxX + 1, iconBoxY + 1, scale)
                 else
                     -- Fallback bullet
                     local bulletRadius = 4
-                    gfx.setColor(gfx.kColorBlack)
+                    gfx.setColor(gfx.kColorWhite)
                     gfx.fillCircleAtPoint(boxMargin + boxPadding + bulletRadius, itemY + 8, bulletRadius)
                 end
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 gfx.drawText(itemName, boxMargin + boxPadding + textIndent, itemY)
                 itemY = itemY + lineHeight
             end
@@ -712,11 +752,12 @@ function GameManager:createGameOverScene()
         -- Grant Funds Earned box (displayed if any)
         if grantFundsEarned > 0 then
             local grantBoxHeight = headerHeight + boxPadding
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(boxMargin, contentY, boxWidth, grantBoxHeight)
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(boxMargin, contentY, boxWidth, grantBoxHeight)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(boxMargin, contentY, boxWidth, grantBoxHeight)
-            gfx.drawTextAligned("*+" .. grantFundsEarned .. " Grant Funds earned*", Constants.SCREEN_WIDTH / 2, contentY + boxPadding, kTextAlignment.center)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.drawTextAligned("+" .. grantFundsEarned .. " Grant Funds earned", Constants.SCREEN_WIDTH / 2, contentY + boxPadding, kTextAlignment.center)
             contentY = contentY + grantBoxHeight + boxSpacing
         end
 
@@ -724,19 +765,22 @@ function GameManager:createGameOverScene()
         maxScroll = math.max(0, contentY + scrollOffset - Constants.SCREEN_HEIGHT + 80)
 
         gfx.clearClipRect()
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-        -- Footer
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        -- Footer: white rule above, white text on black
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
-        gfx.drawTextAligned("*Press [A]   D-pad/Crank to scroll*", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        FontManager:setFooterFont()
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawTextAligned("Press [A]   D-pad/Crank to scroll", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
     function scene:exit()
         print("Exiting game over scene")
         stats = nil
-        patternBg = nil
     end
 
     return scene
@@ -846,8 +890,8 @@ function GameManager:createEpisodeTitleScene()
         local episodeData = EpisodesData.get(GameManager.currentEpisodeId)
         if not episodeData then return end
 
-        -- Get fonts (use bold for both title and tagline)
-        local boldFont = gfx.getSystemFont(gfx.font.kVariantBold)
+        -- Use Roobert Bold Halved for episode title
+        local boldFont = FontManager.titleFont
 
         -- Build episode title text: "EP X: Title"
         local titleText = "EP " .. GameManager.currentEpisodeId .. ": " .. string.upper(episodeData.title)
@@ -928,11 +972,10 @@ function GameManager:createEpisodeTitleScene()
             local iconY = 5 + radius  -- 5px from top edge
 
             -- Draw "Press" text before icon
+            FontManager:setBodyFont()
             gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-            local smallFont = gfx.getSystemFont()
-            gfx.setFont(smallFont)
-            local pressWidth = smallFont:getTextWidth("Press ")
-            gfx.drawText("Press ", iconX - pressWidth - 2, iconY - smallFont:getHeight()/2)
+            local pressWidth = FontManager.bodyFont:getTextWidth("Press ")
+            gfx.drawText("Press ", iconX - pressWidth - 2, iconY - FontManager.bodyFont:getHeight()/2)
 
             -- Draw white filled circle
             gfx.setColor(gfx.kColorWhite)
@@ -941,11 +984,10 @@ function GameManager:createEpisodeTitleScene()
             gfx.setColor(gfx.kColorBlack)
             gfx.drawCircleAtPoint(iconX, iconY, radius)
             -- Draw black "A" centered in circle
+            FontManager:setBoldFont()
             gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-            local iconFont = gfx.getSystemFont(gfx.font.kVariantBold)
-            gfx.setFont(iconFont)
-            local textW = iconFont:getTextWidth("A")
-            local textH = iconFont:getHeight()
+            local textW = FontManager.boldFont:getTextWidth("A")
+            local textH = FontManager.boldFont:getHeight()
             gfx.drawText("A", iconX - textW/2, iconY - textH/2)
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
@@ -1051,7 +1093,6 @@ function GameManager:createVictoryScene()
     local scrollOffset = 0
     local maxScroll = 0
     local stats = nil
-    local patternBg = nil
     local toolIcons = {}  -- Cache for tool icons
     local itemIcons = {}  -- Cache for bonus item icons
 
@@ -1069,9 +1110,6 @@ function GameManager:createVictoryScene()
         else
             stats = { mobKills = {}, toolsObtained = {}, itemsObtained = {}, totalRP = 0, elapsedTime = 0, playerLevel = 1 }
         end
-
-        -- Load pattern background
-        patternBg = gfx.image.new("images/ui/menu_pattern_bg")
 
         -- Pre-load tool icons (use pre-processed icons on black background)
         for toolId, _ in pairs(stats.toolsObtained or {}) do
@@ -1137,12 +1175,7 @@ function GameManager:createVictoryScene()
         if showingPanels then
             StoryPanel:draw()
         elseif victoryShown then
-            -- Draw background
-            if patternBg then
-                patternBg:draw(0, 0)
-            else
-                gfx.clear(gfx.kColorWhite)
-            end
+            gfx.clear(gfx.kColorBlack)
 
             -- Get episode and research spec data
             local episodeData = EpisodesData.get(GameManager.currentEpisodeId)
@@ -1155,42 +1188,51 @@ function GameManager:createVictoryScene()
             local contentY = 10 - scrollOffset
             local startY = contentY
 
-            -- Header: Episode Title
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 48)
+            -- Header: black bar, white text, white rule below
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 48)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawLine(0, 48, Constants.SCREEN_WIDTH, 48)
 
+            FontManager:setTitleFont()
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             if episodeData then
-                gfx.drawTextAligned("*" .. episodeData.title .. "*", Constants.SCREEN_WIDTH / 2, 8, kTextAlignment.center)
+                gfx.drawTextAligned(episodeData.title, Constants.SCREEN_WIDTH / 2, 8, kTextAlignment.center)
             end
-            gfx.drawTextAligned("*EPISODE COMPLETE!*", Constants.SCREEN_WIDTH / 2, 26, kTextAlignment.center)
+            gfx.drawTextAligned("EPISODE COMPLETE!", Constants.SCREEN_WIDTH / 2, 28, kTextAlignment.center)
 
             -- Scrollable content area
             gfx.setClipRect(0, 50, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 72)
 
             contentY = 55 - scrollOffset
+            FontManager:setMenuFont()
 
             -- Research Spec Unlocked
             if specData then
-                gfx.setColor(gfx.kColorWhite)
-                gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, 38)
                 gfx.setColor(gfx.kColorBlack)
+                gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, 38)
+                gfx.setColor(gfx.kColorWhite)
                 gfx.drawRect(10, contentY, Constants.SCREEN_WIDTH - 20, 38)
-                gfx.drawText("*Research Spec Unlocked:*", 18, contentY + 4)
-                gfx.drawText("*" .. specData.name .. "* - " .. specData.description, 18, contentY + 20)
+                -- Double border for emphasis
+                gfx.drawRect(9, contentY - 1, Constants.SCREEN_WIDTH - 18, 40)
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.drawText("Research Spec Unlocked:", 18, contentY + 4)
+                FontManager:setBodyFont()
+                gfx.drawText(specData.name .. " - " .. specData.description, 18, contentY + 20)
+                FontManager:setMenuFont()
                 contentY = contentY + 46
             end
 
             -- Stats row: Level, RP, Time
             local timeStr = string.format("%d:%02d", math.floor((stats.elapsedTime or 0) / 60), math.floor((stats.elapsedTime or 0) % 60))
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, 22)
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, 22)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(10, contentY, Constants.SCREEN_WIDTH - 20, 22)
-            gfx.drawText("*Level: " .. (stats.playerLevel or GameManager.playerLevel) .. "*", 18, contentY + 4)
-            gfx.drawTextAligned("*RP: " .. (stats.totalRP or 0) .. "*", Constants.SCREEN_WIDTH / 2, contentY + 4, kTextAlignment.center)
-            gfx.drawTextAligned("*Time: " .. timeStr .. "*", Constants.SCREEN_WIDTH - 18, contentY + 4, kTextAlignment.right)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.drawText("Level: " .. (stats.playerLevel or GameManager.playerLevel), 18, contentY + 4)
+            gfx.drawTextAligned("RP: " .. (stats.totalRP or 0), Constants.SCREEN_WIDTH / 2, contentY + 4, kTextAlignment.center)
+            gfx.drawTextAligned("Time: " .. timeStr, Constants.SCREEN_WIDTH - 18, contentY + 4, kTextAlignment.right)
             contentY = contentY + 30
 
             -- Layout constants for lists
@@ -1200,17 +1242,18 @@ function GameManager:createVictoryScene()
             local boxPadding = 6
             local boxMargin = 10
 
-            -- Calculate Grant Funds earned
-            local grantFundsEarned = math.floor((stats.totalRP or 0) / 100)
+            -- Calculate Grant Funds earned (2% of RP, same as defeat)
+            local grantFundsEarned = math.floor((stats.totalRP or 0) / 50)
 
-            -- Grant Funds Earned (new section)
+            -- Grant Funds Earned
             if grantFundsEarned > 0 then
                 local grantBoxHeight = 22
-                gfx.setColor(gfx.kColorWhite)
-                gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, grantBoxHeight)
                 gfx.setColor(gfx.kColorBlack)
+                gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, grantBoxHeight)
+                gfx.setColor(gfx.kColorWhite)
                 gfx.drawRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, grantBoxHeight)
-                gfx.drawTextAligned("*+" .. grantFundsEarned .. " Grant Funds earned*", Constants.SCREEN_WIDTH / 2, contentY + boxPadding, kTextAlignment.center)
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.drawTextAligned("+" .. grantFundsEarned .. " Grant Funds earned", Constants.SCREEN_WIDTH / 2, contentY + boxPadding, kTextAlignment.center)
                 contentY = contentY + grantBoxHeight + 8
             end
 
@@ -1221,25 +1264,26 @@ function GameManager:createVictoryScene()
             end
 
             local mobBoxHeight = boxPadding + 16 + (mobCount > 0 and mobCount * lineHeight or lineHeight) + boxPadding
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, mobBoxHeight)
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, mobBoxHeight)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, mobBoxHeight)
-            gfx.drawText("*Research Subjects:*", boxMargin + boxPadding, contentY + boxPadding)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.drawText("Research Subjects:", boxMargin + boxPadding, contentY + boxPadding)
 
             if mobCount > 0 then
                 local mobY = contentY + boxPadding + 16
                 for mobType, count in pairs(stats.mobKills or {}) do
-                    -- Get display name
                     local displayName = mobType:gsub("_", " "):gsub("(%a)([%w_']*)", function(a, b) return string.upper(a) .. b end)
-                    -- Draw bullet dot
                     local bulletRadius = 4
-                    gfx.setColor(gfx.kColorBlack)
+                    gfx.setColor(gfx.kColorWhite)
                     gfx.fillCircleAtPoint(boxMargin + boxPadding + bulletRadius, mobY + 8, bulletRadius)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                     gfx.drawText(displayName .. ": " .. count, boxMargin + boxPadding + textIndent, mobY)
                     mobY = mobY + lineHeight
                 end
             else
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 gfx.drawText("None", boxMargin + boxPadding + textIndent, contentY + boxPadding + 16)
             end
             contentY = contentY + mobBoxHeight + 8
@@ -1249,37 +1293,36 @@ function GameManager:createVictoryScene()
             for _ in pairs(stats.toolsObtained or {}) do toolCount = toolCount + 1 end
 
             local toolBoxHeight = boxPadding + 16 + (toolCount > 0 and toolCount * lineHeight or lineHeight) + boxPadding
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, toolBoxHeight)
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, toolBoxHeight)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, toolBoxHeight)
-            gfx.drawText("*Tools Obtained:*", boxMargin + boxPadding, contentY + boxPadding)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.drawText("Tools Obtained:", boxMargin + boxPadding, contentY + boxPadding)
 
             if toolCount > 0 then
                 local toolY = contentY + boxPadding + 16
                 for toolId, _ in pairs(stats.toolsObtained or {}) do
                     local toolData = ToolsData and ToolsData[toolId]
                     local toolName = toolData and toolData.name or toolId
-                    -- Draw tool icon with black background box
                     local icon = toolIcons[toolId]
                     if icon then
                         local iconBoxX = boxMargin + boxPadding
                         local iconBoxY = toolY
-
-                        -- Pre-processed icons are already white on black, just draw them
                         local iconW, iconH = icon:getSize()
                         local scale = iconSize / math.max(iconW, iconH)
                         icon:drawScaled(iconBoxX + 1, iconBoxY + 1, scale)
                     else
-                        -- Fallback bullet
                         local bulletRadius = 4
-                        gfx.setColor(gfx.kColorBlack)
+                        gfx.setColor(gfx.kColorWhite)
                         gfx.fillCircleAtPoint(boxMargin + boxPadding + bulletRadius, toolY + 8, bulletRadius)
                     end
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                     gfx.drawText(toolName, boxMargin + boxPadding + textIndent, toolY)
                     toolY = toolY + lineHeight
                 end
             else
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 gfx.drawText("None", boxMargin + boxPadding + textIndent, contentY + boxPadding + 16)
             end
             contentY = contentY + toolBoxHeight + 8
@@ -1289,37 +1332,36 @@ function GameManager:createVictoryScene()
             for _ in pairs(stats.itemsObtained or {}) do itemCount = itemCount + 1 end
 
             local itemBoxHeight = boxPadding + 16 + (itemCount > 0 and itemCount * lineHeight or lineHeight) + boxPadding
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, itemBoxHeight)
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, itemBoxHeight)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(boxMargin, contentY, Constants.SCREEN_WIDTH - boxMargin * 2, itemBoxHeight)
-            gfx.drawText("*Bonus Items Obtained:*", boxMargin + boxPadding, contentY + boxPadding)
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.drawText("Bonus Items Obtained:", boxMargin + boxPadding, contentY + boxPadding)
 
             if itemCount > 0 then
                 local itemY = contentY + boxPadding + 16
                 for itemId, _ in pairs(stats.itemsObtained or {}) do
                     local itemData = BonusItemsData and BonusItemsData[itemId]
                     local itemName = itemData and itemData.name or itemId
-                    -- Draw bonus item icon with black background box
                     local icon = itemIcons[itemId]
                     if icon then
                         local iconBoxX = boxMargin + boxPadding
                         local iconBoxY = itemY
-
-                        -- Pre-processed icons are already white on black, just draw them
                         local iconW, iconH = icon:getSize()
                         local scale = iconSize / math.max(iconW, iconH)
                         icon:drawScaled(iconBoxX + 1, iconBoxY + 1, scale)
                     else
-                        -- Fallback bullet
                         local bulletRadius = 4
-                        gfx.setColor(gfx.kColorBlack)
+                        gfx.setColor(gfx.kColorWhite)
                         gfx.fillCircleAtPoint(boxMargin + boxPadding + bulletRadius, itemY + 8, bulletRadius)
                     end
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                     gfx.drawText(itemName, boxMargin + boxPadding + textIndent, itemY)
                     itemY = itemY + lineHeight
                 end
             else
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 gfx.drawText("None", boxMargin + boxPadding + textIndent, contentY + boxPadding + 16)
             end
             contentY = contentY + itemBoxHeight + 8
@@ -1328,13 +1370,17 @@ function GameManager:createVictoryScene()
             maxScroll = math.max(0, contentY + scrollOffset - Constants.SCREEN_HEIGHT + 80)
 
             gfx.clearClipRect()
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-            -- Footer
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+            -- Footer: white rule above, white text on black
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
-            gfx.drawTextAligned("*[A] Continue   D-pad/Crank to scroll*", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+            FontManager:setFooterFont()
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.drawTextAligned("[A] Continue   D-pad/Crank to scroll", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
     end
 
@@ -1343,7 +1389,6 @@ function GameManager:createVictoryScene()
         showingPanels = false
         victoryShown = false
         stats = nil
-        patternBg = nil
     end
 
     return scene
@@ -1367,7 +1412,6 @@ function GameManager:createSettingsScene()
     local selectedIndex = 1
     local confirmingReset = false
     local confirmIndex = 2  -- Default to "No"
-    local patternBg = nil
     local previousState = nil  -- Track where we came from
 
     function scene:enter(params)
@@ -1376,8 +1420,6 @@ function GameManager:createSettingsScene()
         confirmingReset = false
         -- Track where we came from so we can return there
         previousState = params and params.fromState or GameManager.states.EPISODE_SELECT
-        -- Load pattern background
-        patternBg = gfx.image.new("images/ui/menu_pattern_bg")
     end
 
     function scene:update()
@@ -1514,21 +1556,20 @@ function GameManager:createSettingsScene()
     end
 
     function scene:drawOverlay()
-        -- Draw pattern background
-        if patternBg then
-            patternBg:draw(0, 0)
-        else
-            gfx.clear(gfx.kColorWhite)
-        end
+        gfx.clear(gfx.kColorBlack)
 
-        -- Title bar with white background for readability
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+        -- Title bar: black bg, white text, white rule below
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
-        gfx.drawTextAligned("*SETTINGS*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+        FontManager:setTitleFont()
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawTextAligned("SETTINGS", Constants.SCREEN_WIDTH / 2, 14, kTextAlignment.center)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
         -- Draw menu items
+        FontManager:setMenuFont()
         local startY = 52
         local itemHeight = 32
 
@@ -1536,15 +1577,15 @@ function GameManager:createSettingsScene()
             local y = startY + (i - 1) * itemHeight
             local isSelected = (i == selectedIndex)
 
-            -- Row background for readability
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26)
-
-            -- Selection indicator or border
-            gfx.setColor(gfx.kColorBlack)
             if isSelected then
+                -- Selected: white fill, black text
+                gfx.setColor(gfx.kColorWhite)
                 gfx.fillRoundRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26, 4)
             else
+                -- Unselected: black fill, white border, white text
+                gfx.setColor(gfx.kColorBlack)
+                gfx.fillRoundRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26, 4)
+                gfx.setColor(gfx.kColorWhite)
                 gfx.drawRoundRect(20, y - 4, Constants.SCREEN_WIDTH - 40, 26, 4)
             end
 
@@ -1552,11 +1593,10 @@ function GameManager:createSettingsScene()
                 local value = SaveManager:getSetting(item.key, 0.7)
                 local percent = math.floor(value * 100)
 
-                -- Label (white if selected, black otherwise)
                 if isSelected then
-                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 else
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 end
                 gfx.drawText(item.label, 30, y)
 
@@ -1567,42 +1607,36 @@ function GameManager:createSettingsScene()
 
                 gfx.setImageDrawMode(gfx.kDrawModeCopy)
                 if isSelected then
-                    -- White outer stroke for emphasis when selected
-                    gfx.setColor(gfx.kColorWhite)
-                    gfx.setLineWidth(2)
-                    gfx.drawRect(sliderX - 2, sliderY - 2, sliderWidth + 4, 14)
-                    gfx.setLineWidth(1)
-                    -- White fill for slider track
-                    gfx.fillRect(sliderX, sliderY, sliderWidth, 10)
-                    -- Black border inside
+                    -- Black border on white bg
                     gfx.setColor(gfx.kColorBlack)
                     gfx.drawRect(sliderX, sliderY, sliderWidth, 10)
                     -- Black fill for progress
                     local fillWidth = math.floor(value * (sliderWidth - 2))
                     gfx.fillRect(sliderX + 1, sliderY + 1, fillWidth, 8)
                 else
-                    gfx.setColor(gfx.kColorBlack)
+                    -- White border on black bg
+                    gfx.setColor(gfx.kColorWhite)
                     gfx.drawRect(sliderX, sliderY, sliderWidth, 10)
+                    -- White fill for progress
                     local fillWidth = math.floor(value * (sliderWidth - 2))
                     gfx.fillRect(sliderX + 1, sliderY + 1, fillWidth, 8)
                 end
 
                 -- Percentage text
                 if isSelected then
-                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 else
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 end
                 gfx.drawText(percent .. "%", sliderX + sliderWidth + 10, y)
 
             elseif item.type == "toggle" then
                 local value = SaveManager:getSetting(item.key, false)
 
-                -- Text mode
                 if isSelected then
-                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 else
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 end
 
                 gfx.drawText(item.label, 30, y)
@@ -1612,11 +1646,10 @@ function GameManager:createSettingsScene()
             elseif item.type == "debug_toggle" then
                 local value = SaveManager:getSetting(item.key, false)
 
-                -- Text mode for label
                 if isSelected then
-                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 else
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 end
 
                 gfx.drawText(item.label, 30, y)
@@ -1627,14 +1660,13 @@ function GameManager:createSettingsScene()
 
                 -- Highlight toggle if selected and not on gear
                 if isSelected and not debugGearSelected then
-                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-                    -- Draw selection box around toggle
-                    gfx.setColor(gfx.kColorWhite)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+                    gfx.setColor(gfx.kColorBlack)
                     gfx.drawRoundRect(toggleX - 4, y - 2, 40, 18, 2)
                 elseif isSelected then
-                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 else
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 end
                 gfx.drawText(toggleText, toggleX, y)
 
@@ -1646,22 +1678,19 @@ function GameManager:createSettingsScene()
 
                     -- Draw gear selection highlight if selected
                     if isSelected and debugGearSelected then
-                        gfx.setColor(gfx.kColorWhite)
+                        gfx.setColor(gfx.kColorBlack)
                         gfx.fillCircleAtPoint(gearX + gearSize/2, gearY + gearSize/2, gearSize/2 + 3)
                     end
 
-                    -- Draw gear icon (simple representation)
-                    gfx.setColor(isSelected and gfx.kColorWhite or gfx.kColorBlack)
+                    -- Draw gear icon
+                    gfx.setColor(isSelected and gfx.kColorBlack or gfx.kColorWhite)
                     local cx = gearX + gearSize/2
                     local cy = gearY + gearSize/2
                     local outerR = gearSize/2
                     local innerR = gearSize/4
 
-                    -- Draw outer circle
                     gfx.drawCircleAtPoint(cx, cy, outerR)
-                    -- Draw inner circle (filled)
                     gfx.fillCircleAtPoint(cx, cy, innerR)
-                    -- Draw gear teeth (8 lines)
                     for angle = 0, 315, 45 do
                         local rad = math.rad(angle)
                         local x1 = cx + math.cos(rad) * innerR
@@ -1675,11 +1704,10 @@ function GameManager:createSettingsScene()
                 gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
             elseif item.type == "action" then
-                -- Text mode
                 if isSelected then
-                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 else
-                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 end
 
                 gfx.drawText(item.label, 30, y)
@@ -1694,20 +1722,26 @@ function GameManager:createSettingsScene()
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
 
-        -- Instructions bar at bottom
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        -- Footer: white rule above, white text on black
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+        FontManager:setFooterFont()
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         gfx.drawTextAligned("D-pad to navigate, A to select", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-        -- Reset confirmation dialog
+        -- Reset confirmation dialog (terminal style)
         if confirmingReset then
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(50, 80, 300, 80)
             gfx.setColor(gfx.kColorBlack)
+            gfx.fillRect(50, 80, 300, 80)
+            gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(50, 80, 300, 80)
+            gfx.drawRect(49, 79, 302, 82)  -- Double border
 
+            FontManager:setMenuFont()
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             gfx.drawTextAligned("Reset all progress?", Constants.SCREEN_WIDTH / 2, 95, kTextAlignment.center)
             gfx.drawTextAligned("This cannot be undone!", Constants.SCREEN_WIDTH / 2, 115, kTextAlignment.center)
 
@@ -1716,18 +1750,21 @@ function GameManager:createSettingsScene()
             local buttonY = 138
 
             if confirmIndex == 1 then
+                gfx.setColor(gfx.kColorWhite)
                 gfx.fillRoundRect(yesX - 10, buttonY - 2, 60, 20, 4)
-                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 gfx.drawText("Yes", yesX, buttonY)
-                gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
                 gfx.drawText("No", noX, buttonY)
             else
-                gfx.drawText("Yes", yesX, buttonY)
-                gfx.fillRoundRect(noX - 10, buttonY - 2, 60, 20, 4)
                 gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.drawText("Yes", yesX, buttonY)
+                gfx.setColor(gfx.kColorWhite)
+                gfx.fillRoundRect(noX - 10, buttonY - 2, 60, 20, 4)
+                gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 gfx.drawText("No", noX, buttonY)
-                gfx.setImageDrawMode(gfx.kDrawModeCopy)
             end
+            gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
     end
 
@@ -1793,13 +1830,11 @@ function GameManager:createResearchMenuScene()
     local scene = {}
     local menuItems = { "Research Specs", "Grant Funding", "Back" }
     local selectedIndex = 1
-    local patternBg = nil
     local previousState = nil
 
     function scene:enter(params)
         selectedIndex = 1
         previousState = params and params.fromState or GameManager.states.TITLE
-        patternBg = gfx.image.new("images/ui/menu_pattern_bg")
     end
 
     function scene:update()
@@ -1835,27 +1870,28 @@ function GameManager:createResearchMenuScene()
     end
 
     function scene:drawOverlay()
-        -- Draw background
-        if patternBg then
-            patternBg:draw(0, 0)
-        else
-            gfx.clear(gfx.kColorWhite)
-        end
+        gfx.clear(gfx.kColorBlack)
 
-        -- Title bar
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+        -- Title bar: black bg, white text, white rule
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, 40)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
-        gfx.drawTextAligned("*RESEARCH*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+        FontManager:setTitleFont()
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawTextAligned("RESEARCH", Constants.SCREEN_WIDTH / 2, 14, kTextAlignment.center)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
         -- Grant Funds display
         local funds = SaveManager:getGrantFunds()
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(10, 50, Constants.SCREEN_WIDTH - 20, 24)
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(10, 50, Constants.SCREEN_WIDTH - 20, 24)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawRect(10, 50, Constants.SCREEN_WIDTH - 20, 24)
-        gfx.drawTextAligned("*Grant Funds: " .. funds .. "*", Constants.SCREEN_WIDTH / 2, 56, kTextAlignment.center)
+        FontManager:setMenuFont()
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawTextAligned("Grant Funds: " .. funds, Constants.SCREEN_WIDTH / 2, 56, kTextAlignment.center)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
         -- Menu items
         local startY = 90
@@ -1865,33 +1901,33 @@ function GameManager:createResearchMenuScene()
             local y = startY + (i - 1) * itemHeight
             local isSelected = (i == selectedIndex)
 
-            -- Row background
-            gfx.setColor(gfx.kColorWhite)
-            gfx.fillRoundRect(60, y - 4, Constants.SCREEN_WIDTH - 120, 30, 4)
-
-            gfx.setColor(gfx.kColorBlack)
             if isSelected then
+                -- Selected: white fill, black text
+                gfx.setColor(gfx.kColorWhite)
                 gfx.fillRoundRect(60, y - 4, Constants.SCREEN_WIDTH - 120, 30, 4)
-                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
             else
+                -- Unselected: black fill, white border
+                gfx.setColor(gfx.kColorBlack)
+                gfx.fillRoundRect(60, y - 4, Constants.SCREEN_WIDTH - 120, 30, 4)
+                gfx.setColor(gfx.kColorWhite)
                 gfx.drawRoundRect(60, y - 4, Constants.SCREEN_WIDTH - 120, 30, 4)
-                gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             end
 
-            gfx.drawTextAligned("*" .. item .. "*", Constants.SCREEN_WIDTH / 2, y + 2, kTextAlignment.center)
+            gfx.drawTextAligned(item, Constants.SCREEN_WIDTH / 2, y + 2, kTextAlignment.center)
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
 
-        -- Instructions
-        gfx.setColor(gfx.kColorWhite)
-        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        -- Footer: white rule above, white text on black
         gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
-        gfx.drawTextAligned("*D-pad navigate   A select   B back*", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
-    end
-
-    function scene:exit()
-        patternBg = nil
+        FontManager:setFooterFont()
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawTextAligned("D-pad navigate   A select   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
     return scene
