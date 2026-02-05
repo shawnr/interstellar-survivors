@@ -103,7 +103,7 @@ function Station:init()
     -- Add to sprite system
     self:add()
 
-    print("Station initialized at " .. self.x .. ", " .. self.y)
+    Utils.debugPrint("Station initialized at " .. self.x .. ", " .. self.y)
 end
 
 function Station:updateShieldStats()
@@ -140,7 +140,7 @@ function Station:upgradeShield()
     if self.shieldLevel < 4 then
         self.shieldLevel = self.shieldLevel + 1
         self:updateShieldStats()
-        print("Shield upgraded to level " .. self.shieldLevel)
+        Utils.debugPrint("Shield upgraded to level " .. self.shieldLevel)
         return true
     end
     return false
@@ -272,12 +272,12 @@ function Station:attachTool(tool, slotIndex)
     end
 
     if slotIndex == nil then
-        print("No available slots for tool!")
+        Utils.debugPrint("No available slots for tool!")
         return false
     end
 
     if #self.tools >= Constants.MAX_EQUIPMENT then
-        print("Maximum tools reached!")
+        Utils.debugPrint("Maximum tools reached!")
         return false
     end
 
@@ -298,7 +298,7 @@ function Station:attachTool(tool, slotIndex)
     -- Add tool to sprite system
     tool:add()
 
-    print("Tool attached to slot " .. slotIndex)
+    Utils.debugPrint("Tool attached to slot " .. slotIndex)
     return true
 end
 
@@ -405,7 +405,7 @@ end
 
 -- Called when station is destroyed
 function Station:onDestroyed()
-    print("Station destroyed!")
+    Utils.debugPrint("Station destroyed!")
 
     -- Play destruction sound
     if AudioManager then

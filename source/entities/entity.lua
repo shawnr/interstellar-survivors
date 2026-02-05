@@ -20,9 +20,9 @@ function Entity:init(x, y, imagePath)
     self.active = true
     self.rotation = 0
 
-    -- Load image if provided
+    -- Load image if provided (use cached image for performance)
     if imagePath then
-        local image = gfx.image.new(imagePath)
+        local image = Utils.getCachedImage(imagePath)
         if image then
             self:setImage(image)
         end

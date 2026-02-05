@@ -76,13 +76,13 @@ function TeslaCoil:findNearestEnemy(fromX, fromY, preferredAngle)
     end
 
     local nearest = nil
-    local nearestDist = 180  -- Max targeting range
+    local nearestDistSq = 180 * 180  -- Max targeting range squared
 
     for _, mob in ipairs(GameplayScene.mobs) do
         if mob.active then
-            local dist = Utils.distance(fromX, fromY, mob.x, mob.y)
-            if dist < nearestDist then
-                nearestDist = dist
+            local distSq = Utils.distanceSquared(fromX, fromY, mob.x, mob.y)
+            if distSq < nearestDistSq then
+                nearestDistSq = distSq
                 nearest = mob
             end
         end
@@ -128,14 +128,14 @@ function TeslaCoil:createChainProjectile(x, y, angle, target)
 
                 -- Find next nearest enemy (not already hit)
                 local nextTarget = nil
-                local nearestDist = self.chainRange
+                local nearestDistSq = self.chainRange * self.chainRange
 
                 if GameplayScene and GameplayScene.mobs then
                     for _, mob in ipairs(GameplayScene.mobs) do
                         if mob.active and not self.hitTargets[mob] then
-                            local dist = Utils.distance(hitTarget.x, hitTarget.y, mob.x, mob.y)
-                            if dist < nearestDist then
-                                nearestDist = dist
+                            local distSq = Utils.distanceSquared(hitTarget.x, hitTarget.y, mob.x, mob.y)
+                            if distSq < nearestDistSq then
+                                nearestDistSq = distSq
                                 nextTarget = mob
                             end
                         end

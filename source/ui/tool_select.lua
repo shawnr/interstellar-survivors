@@ -51,7 +51,7 @@ function ToolSelect:show(callback)
         end
     end
 
-    print("ToolSelect: Loaded " .. #self.tools .. " tools")
+    Utils.debugPrint("ToolSelect: Loaded " .. #self.tools .. " tools")
 end
 
 function ToolSelect:hide()

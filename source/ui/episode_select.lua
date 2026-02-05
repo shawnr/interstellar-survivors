@@ -14,7 +14,7 @@ EpisodeSelect = {
 function EpisodeSelect:init()
     -- Load episode data
     self:refreshEpisodes()
-    print("EpisodeSelect initialized")
+    Utils.debugPrint("EpisodeSelect initialized")
 end
 
 function EpisodeSelect:refreshEpisodes()

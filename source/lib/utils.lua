@@ -18,6 +18,24 @@ function Utils.clearImageCache()
     Utils.imageCache = {}
 end
 
+-- Debug print (only outputs when Creative Mode is enabled)
+-- Use this for development/debug logging that shouldn't clutter normal gameplay
+Utils._debugModeCache = nil
+Utils._debugModeCacheTime = 0
+
+function Utils.debugPrint(...)
+    -- Cache the debug mode check for 1 second to avoid repeated save manager calls
+    local currentTime = playdate.getCurrentTimeMilliseconds()
+    if Utils._debugModeCache == nil or (currentTime - Utils._debugModeCacheTime) > 1000 then
+        Utils._debugModeCache = SaveManager and SaveManager:getSetting("debugMode", false)
+        Utils._debugModeCacheTime = currentTime
+    end
+
+    if Utils._debugModeCache then
+        print(...)
+    end
+end
+
 -- Linear interpolation
 function Utils.lerp(a, b, t)
     return a + (b - a) * t

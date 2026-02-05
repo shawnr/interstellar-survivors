@@ -363,8 +363,9 @@ function MOB:getRadius()
     return self.cachedRadius or 8
 end
 
--- Check if MOB has reached the station
+-- Check if MOB has reached the station (uses squared distance for performance)
 function MOB:hasReachedStation()
-    local dist = Utils.distance(self.x, self.y, self.targetX, self.targetY)
-    return dist < (Constants.STATION_RADIUS + self:getRadius())
+    local distSq = Utils.distanceSquared(self.x, self.y, self.targetX, self.targetY)
+    local threshold = Constants.STATION_RADIUS + self:getRadius()
+    return distSq < (threshold * threshold)
 end

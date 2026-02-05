@@ -75,7 +75,7 @@ function UpgradeSystem:refreshAvailablePools()
         end
     end
 
-    print("Available tools: " .. #self.availableTools .. ", bonus items: " .. #self.availableBonusItems)
+    Utils.debugPrint("Available tools: " .. #self.availableTools .. ", bonus items: " .. #self.availableBonusItems)
 end
 
 -- Check if an unlock condition is met
@@ -274,7 +274,7 @@ function UpgradeSystem:applyToolSelection(toolData, station, slotIndex)
                 SaveManager:unlockDatabaseEntry("tools", toolData.id)
             end
 
-            print("Attached new tool: " .. toolData.name .. " (Lv1)")
+            Utils.debugPrint("Attached new tool: " .. toolData.name .. " (Lv1)")
             return true
         end
     else
@@ -284,7 +284,7 @@ function UpgradeSystem:applyToolSelection(toolData, station, slotIndex)
                 tool.level = toolData.nextLevel
                 self.toolLevels[toolData.id] = toolData.nextLevel
                 tool:recalculateStats()
-                print("Upgraded tool: " .. toolData.originalData.id .. " to Lv" .. tool.level)
+                Utils.debugPrint("Upgraded tool: " .. toolData.originalData.id .. " to Lv" .. tool.level)
 
                 -- Check if reached max level with matching bonus
                 if tool.level >= MAX_LEVEL and toolData.originalData.pairsWithBonus then
@@ -337,7 +337,7 @@ function UpgradeSystem:applyBonusSelection(bonusData, station)
         for _, tool in ipairs(station.tools) do
             if tool.data.id == actualBonusData.pairsWithTool and tool.level >= MAX_LEVEL and not tool.isEvolved then
                 tool:evolve(tool.data)
-                print("Tool evolved: " .. tool.data.id)
+                Utils.debugPrint("Tool evolved: " .. tool.data.id)
                 evolutionInfo = {
                     evolved = true,
                     originalData = tool.data,
@@ -347,7 +347,7 @@ function UpgradeSystem:applyBonusSelection(bonusData, station)
         end
     end
 
-    print("Applied bonus item: " .. actualBonusData.name .. " (Lv" .. newLevel .. ")")
+    Utils.debugPrint("Applied bonus item: " .. actualBonusData.name .. " (Lv" .. newLevel .. ")")
     return true, evolutionInfo
 end
 
@@ -478,12 +478,12 @@ function UpgradeSystem:applyBonusEffect(bonusData, station, level)
             drone.searchRadius = 200 + level * 50
             drone:add()
             GameplayScene.salvageDrone = drone
-            print("Salvage Drone deployed! Speed: " .. drone.speed .. ", Range: " .. drone.searchRadius)
+            Utils.debugPrint("Salvage Drone deployed! Speed: " .. drone.speed .. ", Range: " .. drone.searchRadius)
         elseif GameplayScene and GameplayScene.salvageDrone then
             -- Upgrade existing drone
             GameplayScene.salvageDrone.speed = 4.0 + level * 0.5
             GameplayScene.salvageDrone.searchRadius = 200 + level * 50
-            print("Salvage Drone upgraded! Speed: " .. GameplayScene.salvageDrone.speed .. ", Range: " .. GameplayScene.salvageDrone.searchRadius)
+            Utils.debugPrint("Salvage Drone upgraded! Speed: " .. GameplayScene.salvageDrone.speed .. ", Range: " .. GameplayScene.salvageDrone.searchRadius)
         end
 
     elseif effect == "hp_on_kill" then

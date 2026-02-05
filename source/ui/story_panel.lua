@@ -18,7 +18,7 @@ StoryPanel = {
 }
 
 function StoryPanel:init()
-    print("StoryPanel initialized")
+    Utils.debugPrint("StoryPanel initialized")
 end
 
 -- Show story panels
@@ -49,7 +49,7 @@ function StoryPanel:show(panelData, callback)
         table.insert(self.panels, panel)
     end
 
-    print("StoryPanel showing " .. #self.panels .. " panels")
+    Utils.debugPrint("StoryPanel showing " .. #self.panels .. " panels")
 
     -- Start showing first line (will also play audio hit)
     self:startNextLine()

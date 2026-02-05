@@ -170,7 +170,7 @@ function ProjectilePool:init(initialSize)
         table.insert(self.pool, proj)
     end
 
-    print("ProjectilePool initialized with " .. initialSize .. " projectiles")
+    Utils.debugPrint("ProjectilePool initialized with " .. initialSize .. " projectiles")
 end
 
 -- Get a projectile from the pool
@@ -187,7 +187,7 @@ function ProjectilePool:get(x, y, angle, speed, damage, imagePath, piercing, opt
         -- Only print warning occasionally to avoid log spam
         self.exhaustedCount = (self.exhaustedCount or 0) + 1
         if self.exhaustedCount <= 5 or self.exhaustedCount % 50 == 0 then
-            print("ProjectilePool: Created new projectile (pool exhausted, count: " .. self.exhaustedCount .. ")")
+            Utils.debugPrint("ProjectilePool: Created new projectile (pool exhausted, count: " .. self.exhaustedCount .. ")")
         end
     end
 
@@ -379,7 +379,7 @@ function EnemyProjectilePool:init(initialSize)
         table.insert(self.pool, proj)
     end
 
-    print("EnemyProjectilePool initialized with " .. initialSize .. " projectiles")
+    Utils.debugPrint("EnemyProjectilePool initialized with " .. initialSize .. " projectiles")
 end
 
 function EnemyProjectilePool:get(x, y, angle, speed, damage, imagePath, effect)

@@ -89,6 +89,13 @@ function GameplayScene:init()
 
     -- Lightning arc effects (for Tesla Coil chain lightning)
     self.lightningArcs = {}
+
+    -- Spatial partitioning grid for collision optimization
+    -- Grid divides screen into cells to reduce collision checks
+    self.gridCellSize = 50  -- 50x50 pixel cells
+    self.gridCols = math.ceil(Constants.SCREEN_WIDTH / 50)   -- 8 columns
+    self.gridRows = math.ceil(Constants.SCREEN_HEIGHT / 50)  -- 5 rows
+    self.mobGrid = {}  -- Will be populated each frame: mobGrid[cellIndex] = {mob1, mob2, ...}
 end
 
 -- Track a mob kill
@@ -188,7 +195,7 @@ function GameplayScene:updateMissionIntro(dt)
             -- Intro complete, start gameplay
             self.showingMissionIntro = false
             self.isPaused = false
-            print("Mission intro complete - starting gameplay")
+            Utils.debugPrint("Mission intro complete - starting gameplay")
 
             -- Check if crank is docked and show indicator if so
             if playdate.isCrankDocked() and playdate.ui and playdate.ui.crankIndicator then
@@ -250,7 +257,7 @@ end
 
 -- Called when a boss is defeated (instead of calling GameManager:endEpisode directly)
 function GameplayScene:onBossDefeated(bossName, bossImage)
-    print("Boss defeated! Starting celebration for: " .. bossName)
+    Utils.debugPrint("Boss defeated! Starting celebration for: " .. bossName)
 
     -- Play boss defeated sound
     if AudioManager then
@@ -297,7 +304,7 @@ end
 
 -- End boss celebration and proceed to ending panels
 function GameplayScene:endBossCelebration()
-    print("Boss celebration complete - proceeding to ending")
+    Utils.debugPrint("Boss celebration complete - proceeding to ending")
     self.showingBossDefeated = false
     self.isPaused = false
     GameManager:endEpisode(true)
@@ -364,7 +371,7 @@ end
 
 -- Start station destroyed sequence
 function GameplayScene:startStationDestroyedSequence()
-    print("Starting station destroyed sequence")
+    Utils.debugPrint("Starting station destroyed sequence")
 
     -- Load the destroyed animation image table
     self.stationDestroyedAnim = gfx.imagetable.new("images/shared/station_destroyed_anim")
@@ -424,7 +431,7 @@ end
 
 -- End station destroyed sequence and go to game over
 function GameplayScene:endStationDestroyedSequence()
-    print("Station destroyed sequence complete - proceeding to game over")
+    Utils.debugPrint("Station destroyed sequence complete - proceeding to game over")
     self.showingStationDestroyed = false
     self.isPaused = false
 
@@ -772,7 +779,7 @@ function GameplayScene:updateWave()
 end
 
 function GameplayScene:onWaveStart(waveNum)
-    print("Wave " .. waveNum .. " started!")
+    Utils.debugPrint("Wave " .. waveNum .. " started!")
 
     -- Play wave start sound
     AudioManager:playSFX("wave_start")
@@ -796,7 +803,7 @@ function GameplayScene:onWaveStart(waveNum)
 
     -- Calculate final spawn interval
     self.spawnInterval = baseInterval * episodeMult * levelMult
-    print("Spawn interval: " .. string.format("%.2f", self.spawnInterval) ..
+    Utils.debugPrint("Spawn interval: " .. string.format("%.2f", self.spawnInterval) ..
           " (ep" .. episodeId .. " mult=" .. episodeMult ..
           ", level " .. playerLevel .. " mult=" .. string.format("%.2f", levelMult) .. ")")
 
@@ -911,7 +918,7 @@ function GameplayScene:chooseMOBType(x, y, multipliers)
 
     -- Debug: Log episode ID occasionally
     if math.random(100) <= 5 then
-        print("Spawning MOB for Episode " .. episodeId)
+        Utils.debugPrint("Spawning MOB for Episode " .. episodeId)
     end
 
     -- Episode-specific MOB spawning
@@ -1102,8 +1109,84 @@ function GameplayScene:chooseEpisode5MOB(x, y, multipliers, roll)
     end
 end
 
+-- Build spatial grid for collision optimization
+-- Assigns each active mob to the grid cell(s) it occupies
+function GameplayScene:buildMobGrid()
+    -- Clear grid
+    local grid = self.mobGrid
+    for i = 1, self.gridCols * self.gridRows do
+        grid[i] = nil
+    end
+
+    local cellSize = self.gridCellSize
+    local cols = self.gridCols
+
+    -- Assign mobs to cells
+    for _, mob in ipairs(self.mobs) do
+        if mob.active then
+            -- Get cell coordinates for mob center
+            local cellX = math.floor(mob.x / cellSize)
+            local cellY = math.floor(mob.y / cellSize)
+
+            -- Clamp to grid bounds
+            cellX = math.max(0, math.min(cols - 1, cellX))
+            cellY = math.max(0, math.min(self.gridRows - 1, cellY))
+
+            -- Calculate cell index (1-based)
+            local cellIndex = cellY * cols + cellX + 1
+
+            -- Add mob to cell
+            if not grid[cellIndex] then
+                grid[cellIndex] = {}
+            end
+            grid[cellIndex][#grid[cellIndex] + 1] = mob
+        end
+    end
+end
+
+-- Get mobs in cells near a position (for collision checking)
+-- Returns iterator over nearby mobs to avoid table allocation
+function GameplayScene:getMobsNearPosition(x, y)
+    local cellSize = self.gridCellSize
+    local cols = self.gridCols
+    local rows = self.gridRows
+    local grid = self.mobGrid
+
+    -- Get center cell
+    local cellX = math.floor(x / cellSize)
+    local cellY = math.floor(y / cellSize)
+
+    -- Collect mobs from 3x3 neighborhood of cells
+    local nearbyMobs = {}
+    local count = 0
+
+    for dy = -1, 1 do
+        for dx = -1, 1 do
+            local nx = cellX + dx
+            local ny = cellY + dy
+
+            -- Check bounds
+            if nx >= 0 and nx < cols and ny >= 0 and ny < rows then
+                local cellIndex = ny * cols + nx + 1
+                local cellMobs = grid[cellIndex]
+                if cellMobs then
+                    for _, mob in ipairs(cellMobs) do
+                        count = count + 1
+                        nearbyMobs[count] = mob
+                    end
+                end
+            end
+        end
+    end
+
+    return nearbyMobs
+end
+
 function GameplayScene:checkCollisions()
-    -- Projectiles vs MOBs
+    -- Build spatial grid for this frame
+    self:buildMobGrid()
+
+    -- Projectiles vs MOBs (using spatial partitioning)
     local projectiles = self.projectilePool:getActive()
 
     -- Minimum distance projectile must travel from spawn before collision is enabled
@@ -1118,7 +1201,10 @@ function GameplayScene:checkCollisions()
             local travelDistSq = Utils.distanceSquared(proj.x, proj.y, spawnX, spawnY)
 
             if travelDistSq >= minTravelDistSq then
-                for _, mob in ipairs(self.mobs) do
+                -- Get only mobs near this projectile (spatial partitioning)
+                local nearbyMobs = self:getMobsNearPosition(proj.x, proj.y)
+
+                for _, mob in ipairs(nearbyMobs) do
                     if mob.active then
                         -- Use MOB radius + projectile radius (6) + small speed bonus
                         -- The speed bonus helps fast projectiles hit targets without tunneling
@@ -1722,12 +1808,12 @@ function GameplayScene:onLevelUp()
         if self.station.health < self.station.maxHealth then
             -- Restore HP (up to max)
             self.station.health = math.min(self.station.health + hpBonus, self.station.maxHealth)
-            print("Level up: Restored " .. hpBonus .. " HP")
+            Utils.debugPrint("Level up: Restored " .. hpBonus .. " HP")
         else
             -- Increase max HP (and current HP)
             self.station.maxHealth = self.station.maxHealth + hpBonus
             self.station.health = self.station.health + hpBonus
-            print("Level up: Increased max HP by " .. hpBonus)
+            Utils.debugPrint("Level up: Increased max HP by " .. hpBonus)
         end
     end
 
@@ -1736,11 +1822,11 @@ function GameplayScene:onLevelUp()
 
     -- If no options available, skip the level up UI (sound already played)
     if #toolOptions == 0 and #bonusOptions == 0 then
-        print("Level up! No upgrades available - skipping UI (8/8 tools and items maxed)")
+        Utils.debugPrint("Level up! No upgrades available - skipping UI (8/8 tools and items maxed)")
         return
     end
 
-    print("Level up! Showing upgrade selection...")
+    Utils.debugPrint("Level up! Showing upgrade selection...")
     self.isLevelingUp = true
 
     -- Show the upgrade selection UI
@@ -1752,14 +1838,14 @@ end
 
 -- Called when player selects an upgrade
 function GameplayScene:onUpgradeSelected(selectionType, selectionData)
-    print("Selected " .. selectionType .. ": " .. (selectionData.name or "unknown"))
+    Utils.debugPrint("Selected " .. selectionType .. ": " .. (selectionData.name or "unknown"))
 
     if selectionType == "tool" then
         -- Check if tool placement is enabled and this is a NEW tool
         local toolPlacementEnabled = SaveManager and SaveManager:getDebugSetting("toolPlacementEnabled", true)
 
         -- Debug logging
-        print("Tool Placement Check: toolPlacementEnabled=" .. tostring(toolPlacementEnabled) ..
+        Utils.debugPrint("Tool Placement Check: toolPlacementEnabled=" .. tostring(toolPlacementEnabled) ..
               ", isNew=" .. tostring(selectionData.isNew))
 
         if toolPlacementEnabled and selectionData.isNew then
@@ -1819,7 +1905,7 @@ function GameplayScene:showToolEvolution(evolutionInfo)
 end
 
 function GameplayScene:exit()
-    print("Exiting gameplay scene")
+    Utils.debugPrint("Exiting gameplay scene")
 
     -- Clean up pools
     self.projectilePool:releaseAll()

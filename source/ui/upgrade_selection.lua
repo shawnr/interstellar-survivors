@@ -13,7 +13,7 @@ UpgradeSelection = {
 }
 
 function UpgradeSelection:init()
-    print("UpgradeSelection initialized")
+    Utils.debugPrint("UpgradeSelection initialized")
 end
 
 function UpgradeSelection:show(tools, bonusItems, callback)
@@ -55,7 +55,7 @@ function UpgradeSelection:show(tools, bonusItems, callback)
         })
     end
 
-    print("UpgradeSelection showing " .. #self.options .. " options")
+    Utils.debugPrint("UpgradeSelection showing " .. #self.options .. " options")
 end
 
 function UpgradeSelection:hide()

@@ -58,7 +58,7 @@ SaveManager = {
 function SaveManager:init()
     -- Load game data on init
     self:loadGameData()
-    print("SaveManager initialized")
+    Utils.debugPrint("SaveManager initialized")
 end
 
 -- ============================================
@@ -112,16 +112,16 @@ function SaveManager:loadGameData()
             self.gameData.grantFundingLevels.research = data.grantFundingLevels.research or 0
         end
 
-        print("Game data loaded successfully")
+        Utils.debugPrint("Game data loaded successfully")
     else
-        print("No saved game data found, using defaults")
+        Utils.debugPrint("No saved game data found, using defaults")
     end
 end
 
 function SaveManager:saveGameData()
     playdate.datastore.write(self.gameData, self.GAME_DATA_FILE)
     self.gameDataDirty = false
-    print("Game data saved")
+    Utils.debugPrint("Game data saved")
 end
 
 function SaveManager:markGameDataDirty()
@@ -201,7 +201,7 @@ function SaveManager:unlockResearchSpec(specId)
     if not self:isResearchSpecUnlocked(specId) then
         table.insert(self.gameData.unlockedResearchSpecs, specId)
         self:markGameDataDirty()
-        print("Research Spec unlocked: " .. specId)
+        Utils.debugPrint("Research Spec unlocked: " .. specId)
     end
 end
 
@@ -347,14 +347,14 @@ end
 function SaveManager:saveEpisodeState(state)
     self.episodeState = state
     playdate.datastore.write(state, self.EPISODE_STATE_FILE)
-    print("Episode state saved")
+    Utils.debugPrint("Episode state saved")
 end
 
 function SaveManager:loadEpisodeState()
     local state = playdate.datastore.read(self.EPISODE_STATE_FILE)
     if state then
         self.episodeState = state
-        print("Episode state loaded")
+        Utils.debugPrint("Episode state loaded")
     end
     return state
 end
@@ -362,7 +362,7 @@ end
 function SaveManager:clearEpisodeState()
     self.episodeState = nil
     playdate.datastore.delete(self.EPISODE_STATE_FILE)
-    print("Episode state cleared")
+    Utils.debugPrint("Episode state cleared")
 end
 
 function SaveManager:hasEpisodeState()
@@ -420,7 +420,7 @@ function SaveManager:resetAllData()
     }
     playdate.datastore.delete(self.GAME_DATA_FILE)
     playdate.datastore.delete(self.EPISODE_STATE_FILE)
-    print("All save data reset")
+    Utils.debugPrint("All save data reset")
 end
 
 -- ============================================
@@ -431,7 +431,7 @@ end
 function SaveManager:addGrantFunds(amount)
     self.gameData.grantFunds = self.gameData.grantFunds + amount
     self:markGameDataDirty()
-    print("Added " .. amount .. " grant funds. Total: " .. self.gameData.grantFunds)
+    Utils.debugPrint("Added " .. amount .. " grant funds. Total: " .. self.gameData.grantFunds)
 end
 
 -- Spend grant funds (returns true if successful)
@@ -470,7 +470,7 @@ function SaveManager:upgradeGrantFunding(stat, cost)
 
     self.gameData.grantFundingLevels[stat] = currentLevel + 1
     self:markGameDataDirty()
-    print("Upgraded " .. stat .. " to level " .. (currentLevel + 1))
+    Utils.debugPrint("Upgraded " .. stat .. " to level " .. (currentLevel + 1))
     return true
 end
 

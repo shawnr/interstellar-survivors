@@ -23,7 +23,7 @@ ResearchSpecSystem = {
 function ResearchSpecSystem:init()
     -- Load equipped specs from save
     self:loadEquipped()
-    print("ResearchSpecSystem initialized")
+    Utils.debugPrint("ResearchSpecSystem initialized")
 end
 
 function ResearchSpecSystem:loadEquipped()
@@ -65,7 +65,7 @@ function ResearchSpecSystem:recalculateBonuses()
         end
     end
 
-    print("Research bonuses recalculated")
+    Utils.debugPrint("Research bonuses recalculated")
 end
 
 function ResearchSpecSystem:applyEffect(effect)

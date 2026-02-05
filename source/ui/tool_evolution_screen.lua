@@ -29,7 +29,7 @@ ToolEvolutionScreen = {
 }
 
 function ToolEvolutionScreen:init()
-    print("ToolEvolutionScreen initialized")
+    Utils.debugPrint("ToolEvolutionScreen initialized")
 end
 
 function ToolEvolutionScreen:show(originalToolData, evolvedToolData, callback)
@@ -105,7 +105,7 @@ function ToolEvolutionScreen:show(originalToolData, evolvedToolData, callback)
         AudioManager:playSFX("level_up", 0.8)
     end
 
-    print("Showing evolution: " .. self.originalName .. " -> " .. self.evolvedName)
+    Utils.debugPrint("Showing evolution: " .. self.originalName .. " -> " .. self.evolvedName)
 end
 
 function ToolEvolutionScreen:hide()

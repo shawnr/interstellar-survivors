@@ -26,7 +26,7 @@ ToolPlacementScreen = {
 }
 
 function ToolPlacementScreen:init()
-    print("ToolPlacementScreen initialized")
+    Utils.debugPrint("ToolPlacementScreen initialized")
 end
 
 function ToolPlacementScreen:show(toolData, station, callback)

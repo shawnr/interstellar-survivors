@@ -264,7 +264,7 @@ function CollectiblePool:init(initialSize)
         table.insert(self.pool, c)
     end
 
-    print("CollectiblePool initialized with " .. initialSize .. " collectibles")
+    Utils.debugPrint("CollectiblePool initialized with " .. initialSize .. " collectibles")
 end
 
 -- Get a collectible from the pool
@@ -280,7 +280,7 @@ function CollectiblePool:get(x, y, collectibleType, value)
         c.active = false
         c:setVisible(false)
         c:remove()
-        print("CollectiblePool: Created new collectible (pool exhausted)")
+        Utils.debugPrint("CollectiblePool: Created new collectible (pool exhausted)")
     end
 
     -- Reset and configure

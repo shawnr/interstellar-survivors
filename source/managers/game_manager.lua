@@ -514,7 +514,7 @@ function GameManager:createGameOverScene()
     local itemIcons = {}  -- Cache for bonus item icons
 
     function scene:enter(params)
-        print("Entering game over scene")
+        Utils.debugPrint("Entering game over scene")
         scrollOffset = 0
         toolIcons = {}
         itemIcons = {}
@@ -779,7 +779,7 @@ function GameManager:createGameOverScene()
     end
 
     function scene:exit()
-        print("Exiting game over scene")
+        Utils.debugPrint("Exiting game over scene")
         stats = nil
     end
 
@@ -793,7 +793,7 @@ function GameManager:createEpisodeTitleScene()
     local elapsedTime = 0
     local fadeAlpha = 0
     local inputDelayTime = 1.0      -- 1 second before input accepted
-    local autoAdvanceTime = 3.0     -- Auto-advance after 3 seconds
+    local autoAdvanceTime = 2.0     -- Auto-advance after 2 seconds
     local fadeDuration = 0.5        -- 0.5 second fade
     local isFading = false
     local fadeComplete = false
@@ -830,7 +830,7 @@ function GameManager:createEpisodeTitleScene()
     end
 
     function scene:enter(params)
-        print("Entering episode title scene")
+        Utils.debugPrint("Entering episode title scene")
         elapsedTime = 0
         fadeAlpha = 0
         isFading = false
@@ -1008,7 +1008,7 @@ function GameManager:createEpisodeTitleScene()
     end
 
     function scene:exit()
-        print("Exiting episode title scene")
+        Utils.debugPrint("Exiting episode title scene")
         bgImage = nil
     end
 
@@ -1038,7 +1038,7 @@ function GameManager:createStoryIntroScene()
     end
 
     function scene:enter(params)
-        print("Entering story intro scene")
+        Utils.debugPrint("Entering story intro scene")
         showingToolSelect = false
 
         -- Stop title theme music when starting an episode
@@ -1078,7 +1078,7 @@ function GameManager:createStoryIntroScene()
     end
 
     function scene:exit()
-        print("Exiting story intro scene")
+        Utils.debugPrint("Exiting story intro scene")
         showingToolSelect = false
     end
 
@@ -1097,7 +1097,7 @@ function GameManager:createVictoryScene()
     local itemIcons = {}  -- Cache for bonus item icons
 
     function scene:enter(params)
-        print("Entering victory scene")
+        Utils.debugPrint("Entering victory scene")
         showingPanels = false
         victoryShown = false
         scrollOffset = 0
@@ -1385,7 +1385,7 @@ function GameManager:createVictoryScene()
     end
 
     function scene:exit()
-        print("Exiting victory scene")
+        Utils.debugPrint("Exiting victory scene")
         showingPanels = false
         victoryShown = false
         stats = nil
@@ -1415,7 +1415,7 @@ function GameManager:createSettingsScene()
     local previousState = nil  -- Track where we came from
 
     function scene:enter(params)
-        print("Entering settings scene")
+        Utils.debugPrint("Entering settings scene")
         selectedIndex = 1
         confirmingReset = false
         -- Track where we came from so we can return there
@@ -1769,7 +1769,7 @@ function GameManager:createSettingsScene()
     end
 
     function scene:exit()
-        print("Exiting settings scene")
+        Utils.debugPrint("Exiting settings scene")
         confirmingReset = false
     end
 

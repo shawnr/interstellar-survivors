@@ -57,6 +57,8 @@ function TractorPulse:pullCollectibles(firingAngle)
     if not GameplayScene or not GameplayScene.collectibles then return false end
 
     local range = self.pullRange * (1 + self.rangeBonus)
+    local rangeSq = range * range
+    local minDistSq = 15 * 15  -- Minimum distance squared
     local pullStrength = self.upgraded and 8 or 5
     local pulledAny = false
 
@@ -65,10 +67,10 @@ function TractorPulse:pullCollectibles(firingAngle)
         if collectible.active then
             local dx = collectible.x - Constants.STATION_CENTER_X
             local dy = collectible.y - Constants.STATION_CENTER_Y
-            local dist = math.sqrt(dx * dx + dy * dy)
+            local distSq = dx * dx + dy * dy
 
-            -- Pull if within range
-            if dist < range and dist > 15 then
+            -- Pull if within range (use squared distance for performance)
+            if distSq < rangeSq and distSq > minDistSq then
                 collectible:pullToward(Constants.STATION_CENTER_X, Constants.STATION_CENTER_Y, pullStrength)
                 pulledAny = true
             end
