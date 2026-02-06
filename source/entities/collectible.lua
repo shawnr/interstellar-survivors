@@ -89,6 +89,7 @@ function Collectible:update(dt)
     if not self.active then return end
 
     -- Don't update if game is paused/leveling up
+    -- (needed because gfx.sprite.update() calls this even during pause)
     if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
         return
     end
@@ -288,8 +289,8 @@ function CollectiblePool:get(x, y, collectibleType, value)
     -- Reset and configure (pass cached range bonus)
     c:reset(x, y, collectibleType, value, self.cachedRangeBonus)
 
-    -- Add to active list
-    table.insert(self.active, c)
+    -- Add to active list (direct assignment faster than table.insert)
+    self.active[#self.active + 1] = c
 
     return c
 end
@@ -351,6 +352,11 @@ end
 
 -- Update all active collectibles (swap-and-pop for O(1) removal)
 function CollectiblePool:update(dt)
+    -- Move pause check outside loop (optimization: avoid checking for each collectible)
+    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
+        return
+    end
+
     -- Update range bonus cache once per frame
     self:updateRangeBonusCache()
 

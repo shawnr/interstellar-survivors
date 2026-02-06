@@ -3,8 +3,8 @@
 
 Constants = {
     -- Version info (keep in sync with pdxinfo)
-    VERSION = "0.1.183",
-    BUILD = 184,
+    VERSION = "0.1.187",
+    BUILD = 188,
 
     -- Screen dimensions
     SCREEN_WIDTH = 400,
@@ -44,7 +44,7 @@ Constants = {
 
     -- Wave spawn limits (for performance)
     MAX_ACTIVE_PROJECTILES = 50,
-    MAX_ACTIVE_MOBS = 30,
+    MAX_ACTIVE_MOBS = 24,  -- Reduced from 30 for performance (mobs are tougher to compensate)
 
     -- UI positions
     RP_BAR_Y = 0,
@@ -54,7 +54,7 @@ Constants = {
     BOSS_HEALTH_BAR_HEIGHT = 6,
 
     -- Timing
-    HEALTH_BAR_SHOW_DURATION = 1.0, -- seconds
+    HEALTH_BAR_SHOW_DURATION = 0.5, -- seconds (reduced from 1.0 for performance)
     WAVE_INDICATOR_DURATION = 0.5,  -- seconds
     STARTING_MESSAGE_DURATION = 1.5,-- seconds
     BOSS_WARNING_TIME = 405,        -- 6:45 in seconds

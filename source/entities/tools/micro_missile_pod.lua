@@ -90,34 +90,50 @@ function MicroMissilePod:createMissileProjectile(x, y, angle)
                 return
             end
 
-            -- Slight homing toward nearest enemy
-            local nearestDist = 100
-            local nearestMob = nil
+            -- Slight homing toward nearest enemy (optimized: check every 3 frames)
+            -- Only perform homing search on frames divisible by 3
+            if self.lifetime % 3 == 0 then
+                local nearestDistSq = 10000  -- 100^2
+                local nearestMob = nil
 
-            if GameplayScene and GameplayScene.mobs then
-                for _, mob in ipairs(GameplayScene.mobs) do
-                    if mob.active then
-                        local dist = Utils.distance(self.x, self.y, mob.x, mob.y)
-                        if dist < nearestDist then
-                            nearestDist = dist
-                            nearestMob = mob
+                if GameplayScene and GameplayScene.mobs then
+                    -- Numeric for loop (8x faster than ipairs)
+                    local mobs = GameplayScene.mobs
+                    local mobCount = #mobs
+                    for i = 1, mobCount do
+                        local mob = mobs[i]
+                        if mob and mob.active then
+                            -- Use squared distance (avoid sqrt)
+                            local dx = mob.x - self.x
+                            local dy = mob.y - self.y
+                            local distSq = dx * dx + dy * dy
+                            if distSq < nearestDistSq then
+                                nearestDistSq = distSq
+                                nearestMob = mob
+                            end
                         end
                     end
                 end
+
+                -- Cache target for frames between searches
+                self.homingTarget = nearestMob
             end
 
-            if nearestMob then
+            local nearestMob = self.homingTarget
+            if nearestMob and nearestMob.active then
                 local targetAngle = Utils.vectorToAngle(nearestMob.x - self.x, nearestMob.y - self.y)
                 local angleDiff = targetAngle - self.angle
-                while angleDiff > 180 do angleDiff = angleDiff - 360 end
-                while angleDiff < -180 do angleDiff = angleDiff + 360 end
+                -- Normalize angle diff
+                if angleDiff > 180 then angleDiff = angleDiff - 360
+                elseif angleDiff < -180 then angleDiff = angleDiff + 360 end
 
-                if math.abs(angleDiff) < self.homingStrength then
-                    self.angle = targetAngle
-                elseif angleDiff > 0 then
-                    self.angle = self.angle + self.homingStrength
+                -- Tripled homing strength to compensate for less frequent updates
+                local effectiveHoming = self.homingStrength * 3
+
+                if angleDiff > 0 then
+                    self.angle = self.angle + math.min(angleDiff, effectiveHoming)
                 else
-                    self.angle = self.angle - self.homingStrength
+                    self.angle = self.angle + math.max(angleDiff, -effectiveHoming)
                 end
 
                 self.dx, self.dy = Utils.angleToVector(self.angle)

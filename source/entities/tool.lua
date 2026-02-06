@@ -12,6 +12,11 @@ function Tool:init(toolData)
     -- Initialize without position (will be set when attached)
     Tool.super.init(self, 0, 0, toolData.imagePath)
 
+    -- Pre-cache rotated images for performance (avoids expensive setRotation calls)
+    self.currentImagePath = toolData.imagePath
+    self.rotatedImages = Utils.getRotatedImages(toolData.imagePath)
+    self.currentRotationStep = 0
+
     -- Station reference (set when attached)
     self.station = nil
     self.slotIndex = nil
@@ -91,15 +96,27 @@ function Tool:updatePosition(stationRotation)
     self.y = self.station.y + rotatedY
     self:moveTo(self.x, self.y)
 
-    -- Rotate tool sprite to face outward (only if angle changed significantly)
+    -- Rotate tool sprite using pre-cached rotated images (much faster than setRotation)
     -- Tool sprites are drawn facing RIGHT (0°), but game uses 0°=UP coordinate system
     local toolAngle = stationRotation + self.slotData.angle - 90
 
-    -- Performance: only call expensive setRotation if angle changed by > 2 degrees
-    local angleDiff = math.abs((toolAngle - (self.lastToolAngle or 0) + 180) % 360 - 180)
-    if angleDiff > 2 or self.lastToolAngle == nil then
-        self:setRotation(toolAngle)
-        self.lastToolAngle = toolAngle
+    -- Use pre-cached rotated images if available
+    if self.rotatedImages then
+        local rotationStep = Utils.getRotationStep(toolAngle)
+        if rotationStep ~= self.currentRotationStep then
+            local rotatedImage = self.rotatedImages[rotationStep]
+            if rotatedImage then
+                self:setImage(rotatedImage)
+                self.currentRotationStep = rotationStep
+            end
+        end
+    else
+        -- Fallback to setRotation if no cached images (shouldn't happen normally)
+        local angleDiff = math.abs((toolAngle - (self.lastToolAngle or 0) + 180) % 360 - 180)
+        if angleDiff > 2 or self.lastToolAngle == nil then
+            self:setRotation(toolAngle)
+            self.lastToolAngle = toolAngle
+        end
     end
 end
 
@@ -186,10 +203,11 @@ function Tool:evolve(toolData)
         self.projectileSpeed = toolData.upgradedSpeed
     end
 
-    -- Change to evolved image
+    -- Change to evolved image and update rotation cache
     if toolData.upgradedImagePath then
-        local img = gfx.image.new(toolData.upgradedImagePath)
-        if img then self:setImage(img) end
+        self.currentImagePath = toolData.upgradedImagePath
+        self.rotatedImages = Utils.getRotatedImages(toolData.upgradedImagePath)
+        self.currentRotationStep = -1  -- Force image update on next frame
     end
 
     -- Update projectile image to evolved version

@@ -45,9 +45,12 @@ function SilkWeaver:update(dt)
     -- Update firing
     self.fireCooldown = self.fireCooldown - dt
     if self.fireCooldown <= 0 then
-        -- Only fire if in range
-        local dist = Utils.distance(self.x, self.y, self.targetX, self.targetY)
-        if dist <= self.range + 20 then
+        -- Only fire if in range (use squared distance to avoid sqrt)
+        local dx = self.targetX - self.x
+        local dy = self.targetY - self.y
+        local distSq = dx * dx + dy * dy
+        local rangeSq = (self.range + 20) * (self.range + 20)
+        if distSq <= rangeSq then
             self:fire()
             self.fireCooldown = self.fireInterval
         end

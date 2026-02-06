@@ -3,6 +3,9 @@
 
 local gfx <const> = playdate.graphics
 
+-- Localize math functions for performance
+local math_min <const> = math.min
+
 class('Projectile').extends(Entity)
 
 function Projectile:init()
@@ -112,6 +115,7 @@ function Projectile:update()
     self.lastUpdateFrame = Projectile.frameCounter
 
     -- Don't update if game is paused/leveling up
+    -- (needed because gfx.sprite.update() calls this even during pause)
     if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
         return
     end
@@ -194,8 +198,8 @@ function ProjectilePool:get(x, y, angle, speed, damage, imagePath, piercing, opt
     -- Reset and configure
     proj:reset(x, y, angle, speed, damage, imagePath, piercing, options)
 
-    -- Add to active list
-    table.insert(self.active, proj)
+    -- Add to active list (direct assignment faster than table.insert)
+    self.active[#self.active + 1] = proj
 
     return proj
 end
@@ -218,6 +222,11 @@ end
 
 -- Update all active projectiles (swap-and-pop for O(1) removal)
 function ProjectilePool:update()
+    -- Move pause check outside loop (optimization: avoid checking for each projectile)
+    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
+        return
+    end
+
     local active = self.active
     local pool = self.pool
     local n = #active
@@ -333,6 +342,7 @@ function EnemyProjectile:update()
     self.lastUpdateFrame = Projectile.frameCounter
 
     -- Don't update if game is paused
+    -- (needed because gfx.sprite.update() calls this even during pause)
     if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
         return
     end
@@ -392,12 +402,18 @@ function EnemyProjectilePool:get(x, y, angle, speed, damage, imagePath, effect)
     end
 
     proj:reset(x, y, angle, speed, damage, imagePath, effect)
-    table.insert(self.active, proj)
+    -- Direct assignment faster than table.insert
+    self.active[#self.active + 1] = proj
 
     return proj
 end
 
 function EnemyProjectilePool:update()
+    -- Move pause check outside loop (optimization: avoid checking for each projectile)
+    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
+        return
+    end
+
     local active = self.active
     local pool = self.pool
     local n = #active

@@ -11,7 +11,7 @@ PlasmaSprayer.DATA = {
     iconPath = "images/tools/tool_plasma_sprayer",
     projectileImage = "images/tools/tool_plasma_droplet",
 
-    baseDamage = 3,
+    baseDamage = 4,  -- Increased from 3 to compensate for fewer projectiles
     fireRate = 1.5,
     projectileSpeed = 8,
     pattern = "cone",
@@ -26,9 +26,10 @@ PlasmaSprayer.DATA = {
 
 function PlasmaSprayer:init()
     PlasmaSprayer.super.init(self, PlasmaSprayer.DATA)
-    self.projectilesPerShot = 5
+    self.projectilesPerShot = 4  -- Reduced from 5 for performance
     self.spreadAngle = 45  -- Total cone angle
     self.maxRange = 80  -- Short range
+    self.maxRangeSq = 80 * 80  -- Pre-computed for performance
 end
 
 function PlasmaSprayer:fire()
@@ -49,9 +50,8 @@ function PlasmaSprayer:fire()
 
         local proj = self:createProjectile(fireX, fireY, angle)
         if proj then
-            -- Short range - deactivate after traveling maxRange
-            proj.maxTravelDist = self.maxRange
-            proj.travelDist = 0
+            -- Short range - deactivate after traveling maxRange (squared for performance)
+            proj.maxTravelDistSq = self.maxRangeSq
             -- Use spawnX/spawnY for consistency with collision protection
             -- (createProjectile already sets these, but we ensure they're correct)
             proj.spawnX = fireX
@@ -78,9 +78,11 @@ function PlasmaSprayer:fire()
                 self.y = self.y + self.dy * self.speed
                 self:moveTo(self.x, self.y)
 
-                -- Check distance traveled (use spawnX/spawnY for consistency)
-                self.travelDist = Utils.distance(self.spawnX, self.spawnY, self.x, self.y)
-                if self.travelDist > self.maxTravelDist then
+                -- Check distance traveled (use squared distance for performance)
+                local tdx = self.x - self.spawnX
+                local tdy = self.y - self.spawnY
+                local travelDistSq = tdx * tdx + tdy * tdy
+                if travelDistSq > self.maxTravelDistSq then
                     self:deactivate("max_range")
                     return
                 end
@@ -97,9 +99,10 @@ end
 function PlasmaSprayer:upgrade(bonusItem)
     local success = PlasmaSprayer.super.upgrade(self, bonusItem)
     if success then
-        self.projectilesPerShot = 7
+        self.projectilesPerShot = 5  -- Reduced from 7 for performance
         self.spreadAngle = 60
         self.maxRange = 100
+        self.maxRangeSq = 100 * 100  -- Pre-computed for performance
     end
     return success
 end

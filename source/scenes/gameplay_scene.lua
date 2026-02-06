@@ -3,6 +3,15 @@
 
 local gfx <const> = playdate.graphics
 
+-- Localize math functions for performance (avoids table lookups in hot paths)
+local math_floor <const> = math.floor
+local math_ceil <const> = math.ceil
+local math_max <const> = math.max
+local math_min <const> = math.min
+local math_abs <const> = math.abs
+local math_random <const> = math.random
+local math_sqrt <const> = math.sqrt
+
 -- Pre-computed text outline offsets (performance: avoid table creation every frame)
 local TEXT_OUTLINE_OFFSETS_1PX = { {-1,-1}, {0,-1}, {1,-1}, {-1,0}, {1,0}, {-1,1}, {0,1}, {1,1} }
 local TEXT_OUTLINE_OFFSETS_2PX = { {-2,-2}, {0,-2}, {2,-2}, {-2,0}, {2,0}, {-2,2}, {0,2}, {2,2} }
@@ -23,6 +32,16 @@ function GameplayScene:init()
     self.station = nil
     self.mobs = {}
     self.collectibles = {}
+
+    -- DOD: Parallel arrays for mob hot data (faster collision detection)
+    -- These are synced after mob updates for cache-efficient collision loops
+    self.mobX = {}           -- mob positions
+    self.mobY = {}
+    self.mobActive = {}      -- is mob alive
+    self.mobRadius = {}      -- collision radius
+    self.mobEmits = {}       -- is shooter type (skip station collision)
+    self.mobDamage = {}      -- damage on station collision
+    self.mobCount = 0        -- number of mobs in arrays
 
     -- Object pools
     self.projectilePool = nil
@@ -96,6 +115,8 @@ function GameplayScene:init()
     self.gridCols = math.ceil(Constants.SCREEN_WIDTH / 50)   -- 8 columns
     self.gridRows = math.ceil(Constants.SCREEN_HEIGHT / 50)  -- 5 rows
     self.mobGrid = {}  -- Will be populated each frame: mobGrid[cellIndex] = {mob1, mob2, ...}
+    self.dirtyCells = {}  -- Track which cells have mobs for lazy clearing (performance optimization)
+    self.dirtyCellCount = 0
     self.nearbyMobsCache = {}  -- Reusable table for getMobsNearPosition (avoids allocation per call)
 end
 
@@ -742,6 +763,47 @@ function GameplayScene:updateMOBs(dt)
             n = n - 1
         end
     end
+
+    -- Sync parallel arrays for fast collision detection
+    self:syncMobArrays()
+end
+
+-- DOD: Sync mob data to parallel arrays for cache-efficient collision loops
+-- This trades a small sync cost for much faster collision detection
+function GameplayScene:syncMobArrays()
+    local mobs = self.mobs
+    local count = #mobs
+
+    -- Local references for faster access
+    local mobX = self.mobX
+    local mobY = self.mobY
+    local mobActive = self.mobActive
+    local mobRadius = self.mobRadius
+    local mobEmits = self.mobEmits
+    local mobDamage = self.mobDamage
+
+    -- Sync all mob data to arrays
+    for i = 1, count do
+        local mob = mobs[i]
+        mobX[i] = mob.x
+        mobY[i] = mob.y
+        mobActive[i] = mob.active
+        mobRadius[i] = mob.cachedRadius or 8
+        mobEmits[i] = mob.emits
+        mobDamage[i] = mob.damage
+    end
+
+    -- Clear any stale entries beyond current count
+    for i = count + 1, self.mobCount do
+        mobX[i] = nil
+        mobY[i] = nil
+        mobActive[i] = nil
+        mobRadius[i] = nil
+        mobEmits[i] = nil
+        mobDamage[i] = nil
+    end
+
+    self.mobCount = count
 end
 
 function GameplayScene:updateCollectibles(dt)
@@ -791,9 +853,9 @@ function GameplayScene:onWaveStart(waveNum)
     local baseInterval = spawnRates[waveNum] or 0.5
 
     -- Episode difficulty multiplier (lower = faster spawns = harder)
-    -- Episode 1: baseline, Episodes 2-3: faster, Episode 4: slower (TrashBlobs = fewer entities)
+    -- Episode 1: baseline, Episodes 2-3: faster, Episode 4: much slower (TrashBlobs = fewer, tougher entities)
     local episodeId = GameManager.currentEpisodeId or 1
-    local episodeMultipliers = { 1.0, 0.5, 0.45, 0.65, 0.35 }  -- Ep4 slower due to TrashBlobs
+    local episodeMultipliers = { 1.0, 0.5, 0.45, 0.80, 0.35 }  -- Ep4 slower for performance
     local episodeMult = episodeMultipliers[episodeId] or 0.35
 
     -- Player level scaling (higher level = more mobs)
@@ -1045,9 +1107,11 @@ end
 -- Episode 4: Debris field - Trash Blobs and Defense Turrets
 -- Uses TrashBlob (larger, consolidated) instead of many small DebrisChunks for performance
 function GameplayScene:chooseEpisode4MOB(x, y, multipliers, roll)
-    -- Episode 4 is salvage themed - slightly reduced multipliers since TrashBlob is stronger
-    multipliers.health = multipliers.health * 1.2
-    multipliers.damage = multipliers.damage * 1.1
+    -- Episode 4: Increased multipliers to compensate for reduced mob count (MAX_ACTIVE_MOBS = 24)
+    -- Mobs are tougher but fewer, maintaining similar difficulty
+    multipliers.health = multipliers.health * 1.5  -- Was 1.2
+    multipliers.damage = multipliers.damage * 1.2  -- Was 1.1
+    multipliers.rp = (multipliers.rp or 1.0) * 1.25  -- +25% RP to maintain progression
 
     if self.currentWave <= 2 then
         -- Early waves: Mostly Trash Blobs with some small debris
@@ -1115,37 +1179,63 @@ end
 
 -- Build spatial grid for collision optimization
 -- Assigns each active mob to the grid cell(s) it occupies
+-- Uses lazy clearing: only clears cells that had mobs last frame (performance optimization)
 function GameplayScene:buildMobGrid()
-    -- Clear grid
     local grid = self.mobGrid
-    for i = 1, self.gridCols * self.gridRows do
-        grid[i] = nil
+    local dirtyCells = self.dirtyCells
+    local oldDirtyCount = self.dirtyCellCount
+
+    -- Clear only cells that had mobs last frame (lazy clearing)
+    for i = 1, oldDirtyCount do
+        local cellIndex = dirtyCells[i]
+        if cellIndex then
+            grid[cellIndex] = nil
+        end
     end
 
     local cellSize = self.gridCellSize
     local cols = self.gridCols
+    local rows = self.gridRows
+    local newDirtyCount = 0
 
-    -- Assign mobs to cells
-    for _, mob in ipairs(self.mobs) do
-        if mob.active then
-            -- Get cell coordinates for mob center
-            local cellX = math.floor(mob.x / cellSize)
-            local cellY = math.floor(mob.y / cellSize)
+    -- Assign mobs to cells using DOD parallel arrays for position data
+    -- Use numeric for loop (8x faster than ipairs per Playdate optimization guides)
+    local mobs = self.mobs
+    local mobX = self.mobX
+    local mobY = self.mobY
+    local mobActive = self.mobActive
+    local mobCount = self.mobCount
+
+    for i = 1, mobCount do
+        if mobActive[i] then
+            -- Get cell coordinates using cached position arrays (no table lookup)
+            local cellX = math_floor(mobX[i] / cellSize)
+            local cellY = math_floor(mobY[i] / cellSize)
 
             -- Clamp to grid bounds
-            cellX = math.max(0, math.min(cols - 1, cellX))
-            cellY = math.max(0, math.min(self.gridRows - 1, cellY))
+            cellX = math_max(0, math_min(cols - 1, cellX))
+            cellY = math_max(0, math_min(rows - 1, cellY))
 
             -- Calculate cell index (1-based)
             local cellIndex = cellY * cols + cellX + 1
 
-            -- Add mob to cell
+            -- Add mob to cell and track dirty cell
+            -- Still store mob object (needed for damage calls)
             if not grid[cellIndex] then
                 grid[cellIndex] = {}
+                newDirtyCount = newDirtyCount + 1
+                dirtyCells[newDirtyCount] = cellIndex
             end
-            grid[cellIndex][#grid[cellIndex] + 1] = mob
+            grid[cellIndex][#grid[cellIndex] + 1] = mobs[i]
         end
     end
+
+    -- Clear any stale entries in dirty cells list
+    for i = newDirtyCount + 1, oldDirtyCount do
+        dirtyCells[i] = nil
+    end
+
+    self.dirtyCellCount = newDirtyCount
 end
 
 -- Get mobs in cells near a position (for collision checking)
@@ -1156,9 +1246,9 @@ function GameplayScene:getMobsNearPosition(x, y)
     local rows = self.gridRows
     local grid = self.mobGrid
 
-    -- Get center cell
-    local cellX = math.floor(x / cellSize)
-    local cellY = math.floor(y / cellSize)
+    -- Get center cell (use localized math functions)
+    local cellX = math_floor(x / cellSize)
+    local cellY = math_floor(y / cellSize)
 
     -- Reuse cached table (clear it first)
     local nearbyMobs = self.nearbyMobsCache
@@ -1174,9 +1264,11 @@ function GameplayScene:getMobsNearPosition(x, y)
                 local cellIndex = ny * cols + nx + 1
                 local cellMobs = grid[cellIndex]
                 if cellMobs then
-                    for _, mob in ipairs(cellMobs) do
+                    -- Numeric for loop (8x faster than ipairs)
+                    local cellCount = #cellMobs
+                    for j = 1, cellCount do
                         count = count + 1
-                        nearbyMobs[count] = mob
+                        nearbyMobs[count] = cellMobs[j]
                     end
                 end
             end
@@ -1202,28 +1294,39 @@ function GameplayScene:checkCollisions()
     -- This prevents instant collision with mobs parked near tools
     local minTravelDistSq = 10 * 10  -- 10 pixels from spawn point
 
-    for _, proj in ipairs(projectiles) do
-        if proj.active then
+    -- Numeric for loop (8x faster than ipairs)
+    local projCount = #projectiles
+    for pi = 1, projCount do
+        local proj = projectiles[pi]
+        if proj and proj.active then
             -- Check if projectile has traveled far enough from its spawn point
             local spawnX = proj.spawnX or proj.x
             local spawnY = proj.spawnY or proj.y
-            local travelDistSq = Utils.distanceSquared(proj.x, proj.y, spawnX, spawnY)
+            -- Inline distance squared calculation (avoid function call overhead)
+            local tdx = proj.x - spawnX
+            local tdy = proj.y - spawnY
+            local travelDistSq = tdx * tdx + tdy * tdy
 
             if travelDistSq >= minTravelDistSq then
                 -- Get only mobs near this projectile (spatial partitioning)
                 local nearbyMobs = self:getMobsNearPosition(proj.x, proj.y)
 
-                for _, mob in ipairs(nearbyMobs) do
+                -- Numeric for loop for mob collision checks
+                local nearbyCount = #nearbyMobs
+                for mi = 1, nearbyCount do
+                    local mob = nearbyMobs[mi]
                     if mob.active then
+                        -- Inline distance calculation for performance (avoid function call overhead)
+                        local dx = proj.x - mob.x
+                        local dy = proj.y - mob.y
+                        local distSq = dx * dx + dy * dy
+
                         -- Use MOB radius + projectile radius (6) + small speed bonus
                         -- The speed bonus helps fast projectiles hit targets without tunneling
                         local mobRadius = mob.cachedRadius or 8
                         local projSpeed = proj.speed or 8
                         local collisionDist = mobRadius + 6 + (projSpeed * 0.25)
                         local collisionDistSq = collisionDist * collisionDist
-
-                        -- Simple distance check (squared to avoid sqrt)
-                        local distSq = Utils.distanceSquared(proj.x, proj.y, mob.x, mob.y)
 
                         if distSq < collisionDistSq then
                             -- For tick-based projectiles (like orbital), check if damage can be applied
@@ -1249,20 +1352,41 @@ function GameplayScene:checkCollisions()
         end
     end
 
-    -- MOBs vs Station (circular collision, squared to avoid sqrt)
-    for _, mob in ipairs(self.mobs) do
-        if mob.active and not mob.emits then
-            local distSq = Utils.distanceSquared(mob.x, mob.y, self.station.x, self.station.y)
-            local mobRadius = mob:getRadius()
-            local collisionDist = Constants.STATION_RADIUS + mobRadius
+    -- MOBs vs Station (using DOD parallel arrays for cache efficiency)
+    -- Cache station position to avoid repeated property lookups
+    local stationX, stationY = self.station.x, self.station.y
+    local stationRadius = Constants.STATION_RADIUS
+
+    -- DOD: Use parallel arrays for fast iteration (no table hash lookups)
+    local mobX = self.mobX
+    local mobY = self.mobY
+    local mobActive = self.mobActive
+    local mobRadius = self.mobRadius
+    local mobEmits = self.mobEmits
+    local mobDamage = self.mobDamage
+    local mobCount = self.mobCount
+    local mobs = self.mobs  -- Still need for onDestroyed call
+
+    for i = 1, mobCount do
+        -- Fast array access (no hash lookups)
+        if mobActive[i] and not mobEmits[i] then
+            local mx = mobX[i]
+            local my = mobY[i]
+            local dx = mx - stationX
+            local dy = my - stationY
+            local distSq = dx * dx + dy * dy
+            local radius = mobRadius[i]
+            local collisionDist = stationRadius + radius
             local collisionDistSq = collisionDist * collisionDist
 
             if distSq < collisionDistSq then
-                -- Calculate attack angle (direction MOB approached from)
-                local attackAngle = Utils.vectorToAngle(mob.x - self.station.x, mob.y - self.station.y)
-                -- MOB hit station (ram damage - shield is less effective)
-                self.station:takeDamage(mob.damage, attackAngle, "ram")
-                mob:onDestroyed()
+                -- Hit! Need mob object for attack angle and destroy
+                local mob = mobs[i]
+                if mob then
+                    local attackAngle = Utils.vectorToAngle(dx, dy)
+                    self.station:takeDamage(mobDamage[i], attackAngle, "ram")
+                    mob:onDestroyed()
+                end
             end
         end
     end
@@ -1270,12 +1394,18 @@ function GameplayScene:checkCollisions()
     -- Enemy Projectiles vs Station (squared to avoid sqrt)
     local enemyProjectiles = self.enemyProjectilePool:getActive()
     local stationCollisionDistSq = (Constants.STATION_RADIUS + 4) * (Constants.STATION_RADIUS + 4)
-    for _, proj in ipairs(enemyProjectiles) do
-        if proj.active then
-            local distSq = Utils.distanceSquared(proj.x, proj.y, self.station.x, self.station.y)
+    -- Numeric for loop (8x faster than ipairs)
+    local enemyProjCount = #enemyProjectiles
+    for i = 1, enemyProjCount do
+        local proj = enemyProjectiles[i]
+        if proj and proj.active then
+            -- Inline distance calculation for performance
+            local dx = proj.x - stationX
+            local dy = proj.y - stationY
+            local distSq = dx * dx + dy * dy
             if distSq < stationCollisionDistSq then
                 -- Calculate attack angle for shield check
-                local attackAngle = Utils.vectorToAngle(proj.x - self.station.x, proj.y - self.station.y)
+                local attackAngle = Utils.vectorToAngle(dx, dy)  -- Reuse dx, dy
                 -- Hit station! (projectile damage - shield is more effective)
                 self.station:takeDamage(proj:getDamage(), attackAngle, "projectile")
 
@@ -1615,7 +1745,7 @@ function GameplayScene:drawHUD()
     gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(0, 6, Constants.SCREEN_WIDTH, 18)
     gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(0, 24, Constants.SCREEN_WIDTH, 24)
+    gfx.fillRect(0, 24, Constants.SCREEN_WIDTH, 1)  -- fillRect faster than drawLine for horizontal
 
     -- Timer (top left) - bold
     FontManager:setMenuFont()
@@ -1634,7 +1764,7 @@ function GameplayScene:drawHUD()
     gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
     gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 1)  -- fillRect faster than drawLine
 
     -- Health Bar (bottom right)
     local healthBarWidth = 100

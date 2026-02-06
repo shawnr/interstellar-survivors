@@ -16,6 +16,50 @@ end
 
 function Utils.clearImageCache()
     Utils.imageCache = {}
+    Utils.rotatedImageCache = {}
+end
+
+-- Pre-rendered rotated image cache (for tools that rotate frequently)
+-- Uses 24 angles (15° increments) for smooth rotation without excessive memory
+Utils.rotatedImageCache = {}
+Utils.ROTATION_STEPS = 24  -- 360 / 24 = 15° per step
+
+-- Get pre-cached rotated images for a given image path
+-- Returns a table of 24 pre-rotated images indexed by angle step (0-23)
+function Utils.getRotatedImages(path)
+    if Utils.rotatedImageCache[path] then
+        return Utils.rotatedImageCache[path]
+    end
+
+    -- Load the base image
+    local baseImage = Utils.getCachedImage(path)
+    if not baseImage then
+        return nil
+    end
+
+    -- Pre-render rotated versions
+    local rotatedImages = {}
+    local angleStep = 360 / Utils.ROTATION_STEPS
+
+    for i = 0, Utils.ROTATION_STEPS - 1 do
+        local angle = i * angleStep
+        rotatedImages[i] = baseImage:rotatedImage(angle)
+    end
+
+    Utils.rotatedImageCache[path] = rotatedImages
+    return rotatedImages
+end
+
+-- Get the appropriate angle step index for a given angle
+function Utils.getRotationStep(angle)
+    -- Normalize angle to 0-360
+    angle = angle % 360
+    if angle < 0 then angle = angle + 360 end
+
+    -- Calculate step (0-23)
+    local angleStep = 360 / Utils.ROTATION_STEPS
+    local step = math.floor((angle + angleStep / 2) / angleStep) % Utils.ROTATION_STEPS
+    return step
 end
 
 -- Debug print (only outputs when Creative Mode is enabled)

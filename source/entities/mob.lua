@@ -3,6 +3,16 @@
 
 local gfx <const> = playdate.graphics
 
+-- Localize math functions for performance (avoids table lookups in hot paths)
+local math_floor <const> = math.floor
+local math_max <const> = math.max
+local math_min <const> = math.min
+local math_abs <const> = math.abs
+local math_random <const> = math.random
+local math_cos <const> = math.cos
+local math_sin <const> = math.sin
+local math_atan <const> = math.atan
+
 class('MOB').extends(Entity)
 
 function MOB:init(x, y, mobData, waveMultipliers)
@@ -193,8 +203,8 @@ function MOB:updateShooterMovement(dt)
     end
 
     if distSq > rangeSq then
-        -- Move closer (only sqrt when needed)
-        local invDist = 1 / math.sqrt(distSq)
+        -- Move closer (only sqrt when needed, use localized math)
+        local invDist = 1 / (distSq ^ 0.5)  -- Slightly faster than math.sqrt
         local moveX = dx * invDist * self.speed
         local moveY = dy * invDist * self.speed
 
@@ -207,14 +217,18 @@ function MOB:updateShooterMovement(dt)
         local orbitSpeed = self.speed * 0.04 * self.orbitDirection
         self.orbitAngle = self.orbitAngle + orbitSpeed
 
-        self.x = self.targetX + math.cos(self.orbitAngle) * self.range
-        self.y = self.targetY + math.sin(self.orbitAngle) * self.range
+        self.x = self.targetX + math_cos(self.orbitAngle) * self.range
+        self.y = self.targetY + math_sin(self.orbitAngle) * self.range
         self:moveTo(self.x, self.y)
     end
 
-    -- Always face the station
+    -- Face the station (throttle rotation updates for performance)
     local faceAngle = Utils.vectorToAngle(self.targetX - self.x, self.targetY - self.y)
-    self:setRotation(faceAngle)
+    local angleDiff = math_abs((faceAngle - (self.lastFaceAngle or 0) + 180) % 360 - 180)
+    if angleDiff > 5 or self.lastFaceAngle == nil then
+        self:setRotation(faceAngle)
+        self.lastFaceAngle = faceAngle
+    end
 end
 
 -- Take damage
@@ -250,14 +264,14 @@ function MOB:startEvasion(sourceX, sourceY)
     local dy = self.y - sourceY
 
     if dx == 0 and dy == 0 then
-        -- Random direction if directly on top
-        self.evadeDirection = math.random() * math.pi * 2
+        -- Random direction if directly on top (use localized math)
+        self.evadeDirection = math_random() * 3.14159 * 2
     else
-        self.evadeDirection = math.atan(dy, dx)
+        self.evadeDirection = math_atan(dy, dx)
     end
 
     -- Sometimes reverse orbit direction when hit
-    if math.random() > 0.6 then
+    if math_random() > 0.6 then
         self.orbitDirection = -self.orbitDirection
     end
 end
