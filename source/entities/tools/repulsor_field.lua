@@ -62,18 +62,25 @@ function RepulsorField:pushEnemies()
 
     local force = self.pushForce * (1 + self.pushForceBonus)
 
-    for _, mob in ipairs(GameplayScene.mobs) do
+    local mobs = GameplayScene.mobs
+    local mobCount = #mobs
+    local pushRadiusSq = self.pushRadius * self.pushRadius
+    local pushRadius = self.pushRadius
+    for i = 1, mobCount do
+        local mob = mobs[i]
         if mob.active then
-            local dist = Utils.distance(self.x, self.y, mob.x, mob.y)
-            if dist < self.pushRadius and dist > 0 then
+            local dx = mob.x - self.x
+            local dy = mob.y - self.y
+            local distSq = dx * dx + dy * dy
+            if distSq < pushRadiusSq and distSq > 1 then
                 -- Calculate push direction (away from tool)
-                local dx = (mob.x - self.x) / dist
-                local dy = (mob.y - self.y) / dist
+                local dist = distSq ^ 0.5
+                local invDist = 1 / dist
 
                 -- Apply push (stronger when closer)
-                local pushStrength = force * (1 - dist / self.pushRadius)
-                mob.x = mob.x + dx * pushStrength * 10
-                mob.y = mob.y + dy * pushStrength * 10
+                local pushStrength = force * (1 - dist / pushRadius) * 10
+                mob.x = mob.x + dx * invDist * pushStrength
+                mob.y = mob.y + dy * invDist * pushStrength
                 mob:moveTo(mob.x, mob.y)
             end
         end

@@ -376,8 +376,6 @@ function Station:takeDamage(amount, attackAngle, damageType)
     end
 
     -- Check shield coverage
-    local shieldCenter = (self.currentRotation + self.shieldAngleOffset) % 360
-
     if attackAngle and self:isShieldCovering(attackAngle) then
         -- Calculate how much damage the shield blocks based on damage type
         local blockEffectiveness = damageType == "projectile" and self.shieldProjectileBlock or self.shieldRamBlock

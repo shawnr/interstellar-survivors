@@ -210,11 +210,12 @@ end
 function Collectible:pullToward(targetX, targetY, strength)
     local dx = targetX - self.x
     local dy = targetY - self.y
-    local dist = math.sqrt(dx * dx + dy * dy)
+    local distSq = dx * dx + dy * dy
 
-    if dist > 1 then
-        self.x = self.x + (dx / dist) * strength
-        self.y = self.y + (dy / dist) * strength
+    if distSq > 1 then
+        local factor = strength / (distSq ^ 0.5)
+        self.x = self.x + dx * factor
+        self.y = self.y + dy * factor
     end
 end
 
@@ -239,7 +240,10 @@ function Collectible:reset(x, y, collectibleType, value, rangeBonus)
     local baseCollectRadius = 50
     rangeBonus = rangeBonus or 0
     self.collectRadius = baseCollectRadius * (1 + rangeBonus)
-    self.pickupRadius = 30  -- Increased for station auto-collect
+    self.pickupRadius = 45     -- Station auto-collects at this distance (near station edge)
+    -- Pre-compute squared radii (used every frame in update)
+    self.collectRadiusSq = self.collectRadius * self.collectRadius
+    self.pickupRadiusSq = self.pickupRadius * self.pickupRadius
 
     -- Animation
     self.bobOffset = math.random() * math.pi * 2

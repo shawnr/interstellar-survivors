@@ -33,8 +33,8 @@ DebateDrone.VARIANTS = {
 function DebateDrone:init(x, y, waveMultipliers, variant)
     -- Choose a random variant if not specified
     variant = variant or math.random(1, 3)
-    local data = table.deepcopy(DebateDrone.DATA)
-    data.imagePath = DebateDrone.VARIANTS[variant]
+    -- Lightweight override (avoids table.deepcopy GC on every spawn)
+    local data = setmetatable({ imagePath = DebateDrone.VARIANTS[variant] }, { __index = DebateDrone.DATA })
 
     DebateDrone.super.init(self, x, y, data, waveMultipliers)
     self.variant = variant

@@ -107,7 +107,10 @@ function SalvageDrone:findClosestCollectible()
     local closest = nil
     local closestDistSq = self.searchRadius * self.searchRadius  -- Use squared distance
 
-    for _, collectible in ipairs(GameplayScene.collectibles) do
+    local collectibles = GameplayScene.collectibles
+    local count = #collectibles
+    for i = 1, count do
+        local collectible = collectibles[i]
         if collectible.active then
             local distSq = Utils.distanceSquared(self.x, self.y, collectible.x, collectible.y)
             if distSq < closestDistSq then

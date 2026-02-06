@@ -1426,7 +1426,7 @@ function GameplayScene:checkCollisions()
     -- Enemy Projectiles vs Station
     -- Performance: only check on odd frames (enemy projectiles move slowly at speed 3,
     -- station is 64px wide - no tunneling risk, 1-frame delay is imperceptible)
-    if not isEvenFrame then
+    if collisionFrame % 2 == 1 then
         local enemyProjectiles = self.enemyProjectilePool:getActive()
         local stationCollisionDistSq = (stationRadius + 4) * (stationRadius + 4)
         local enemyProjCount = #enemyProjectiles
@@ -1470,10 +1470,7 @@ function GameplayScene:checkGameConditions()
         self:spawnBoss()
     end
 
-    -- Update boss if active
-    if self.boss and self.boss.active then
-        self.boss:update(1/30)
-    end
+    -- Boss is updated via the mobs array in updateMOBs() (no separate update needed)
 end
 
 function GameplayScene:spawnBoss()
@@ -1869,16 +1866,26 @@ function GameplayScene:drawHUD()
     gfx.fillRect(0, 24, Constants.SCREEN_WIDTH, 1)  -- fillRect faster than drawLine for horizontal
 
     -- Timer (top left) - bold
+    -- Cache formatted strings to avoid per-frame string concatenation garbage
+    local timeSeconds = math_floor(self.elapsedTime)
+    if timeSeconds ~= self._cachedTimeSeconds then
+        self._cachedTimeSeconds = timeSeconds
+        self._cachedTimeStr = Utils.formatTime(self.elapsedTime)
+    end
+    if self.currentWave ~= self._cachedWave then
+        self._cachedWave = self.currentWave
+        self._cachedWaveStr = "Wave " .. self.currentWave
+    end
+    if GameManager.playerLevel ~= self._cachedLevel then
+        self._cachedLevel = GameManager.playerLevel
+        self._cachedLevelStr = "Lv." .. GameManager.playerLevel
+    end
+
     FontManager:setMenuFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    local timeStr = Utils.formatTime(self.elapsedTime)
-    gfx.drawText(timeStr, 8, 8)
-
-    -- Wave (top center)
-    gfx.drawTextAligned("Wave " .. self.currentWave, Constants.SCREEN_WIDTH / 2, 8, kTextAlignment.center)
-
-    -- Level (top right)
-    gfx.drawTextAligned("Lv." .. GameManager.playerLevel, Constants.SCREEN_WIDTH - 8, 8, kTextAlignment.right)
+    gfx.drawText(self._cachedTimeStr or "0:00", 8, 8)
+    gfx.drawTextAligned(self._cachedWaveStr or "Wave 1", Constants.SCREEN_WIDTH / 2, 8, kTextAlignment.center)
+    gfx.drawTextAligned(self._cachedLevelStr or "Lv.1", Constants.SCREEN_WIDTH - 8, 8, kTextAlignment.right)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Bottom HUD bar: black fill, white rule above
@@ -1909,10 +1916,15 @@ function GameplayScene:drawHUD()
     gfx.setColor(gfx.kColorWhite)
     gfx.fillRect(healthBarX, healthBarY, healthBarWidth * healthPercent, healthBarHeight)
 
-    -- Draw health text next to bar
+    -- Draw health text next to bar (cached to avoid per-frame string concat)
+    local healthFloor = math_floor(self.station.health)
+    if healthFloor ~= self._cachedHealthVal or self.station.maxHealth ~= self._cachedMaxHealth then
+        self._cachedHealthVal = healthFloor
+        self._cachedMaxHealth = self.station.maxHealth
+        self._cachedHealthStr = healthFloor .. "/" .. self.station.maxHealth
+    end
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    local healthStr = math.floor(self.station.health) .. "/" .. self.station.maxHealth
-    gfx.drawTextAligned(healthStr, healthBarX - 6, healthBarY, kTextAlignment.right)
+    gfx.drawTextAligned(self._cachedHealthStr or "100/100", healthBarX - 6, healthBarY, kTextAlignment.right)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Draw boss health bar AFTER the HUD (so it's not covered by the white background)

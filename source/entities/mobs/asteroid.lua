@@ -27,27 +27,39 @@ Asteroid.DATA = {
     levels = 3,
 }
 
+-- Pre-computed level data (avoids table.deepcopy on every spawn)
+Asteroid.LEVEL_DATA = {
+    [1] = Asteroid.DATA,
+}
+
 function Asteroid:init(x, y, waveMultipliers, level)
-    -- Adjust stats based on level
     level = level or 1
-    local data = table.deepcopy(Asteroid.DATA)
-
-    -- Scale stats by level
-    if level == 2 then
-        data.baseHealth = data.baseHealth * 1.5
-        data.baseDamage = data.baseDamage * 1.3
-        data.rpValue = data.rpValue * 1.5
-        data.width = 20
-        data.height = 20
-    elseif level == 3 then
-        data.baseHealth = data.baseHealth * 2.5
-        data.baseDamage = data.baseDamage * 1.8
-        data.rpValue = data.rpValue * 2.5
-        data.width = 24
-        data.height = 24
-    end
-
     self.level = level
+
+    -- Use pre-computed level data or base DATA (no deep copy needed)
+    local data = Asteroid.LEVEL_DATA[level]
+    if not data then
+        -- Build level-specific override table once, cache it
+        local base = Asteroid.DATA
+        if level == 2 then
+            data = setmetatable({
+                baseHealth = base.baseHealth * 1.5,
+                baseDamage = base.baseDamage * 1.3,
+                rpValue = base.rpValue * 1.5,
+                width = 20, height = 20,
+            }, { __index = base })
+        elseif level == 3 then
+            data = setmetatable({
+                baseHealth = base.baseHealth * 2.5,
+                baseDamage = base.baseDamage * 1.8,
+                rpValue = base.rpValue * 2.5,
+                width = 24, height = 24,
+            }, { __index = base })
+        else
+            data = base
+        end
+        Asteroid.LEVEL_DATA[level] = data
+    end
 
     -- Call parent init
     Asteroid.super.init(self, x, y, data, waveMultipliers)

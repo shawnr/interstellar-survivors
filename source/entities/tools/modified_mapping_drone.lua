@@ -58,7 +58,10 @@ function ModifiedMappingDrone:findHighestHPTarget()
     local highestHP = 0
     local target = nil
 
-    for _, mob in ipairs(GameplayScene.mobs) do
+    local mobs = GameplayScene.mobs
+    local mobCount = #mobs
+    for i = 1, mobCount do
+        local mob = mobs[i]
         if mob.active and mob.health and mob.health > highestHP then
             highestHP = mob.health
             target = mob
@@ -138,7 +141,10 @@ function ModifiedMappingDrone:createHomingProjectile(x, y, angle, target)
                 self.homingTarget = nil
                 if GameplayScene and GameplayScene.mobs then
                     local highestHP = 0
-                    for _, mob in ipairs(GameplayScene.mobs) do
+                    local mobs = GameplayScene.mobs
+                    local mobCount = #mobs
+                    for i = 1, mobCount do
+                        local mob = mobs[i]
                         if mob.active and mob.health and mob.health > highestHP then
                             highestHP = mob.health
                             self.homingTarget = mob

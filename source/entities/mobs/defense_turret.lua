@@ -21,8 +21,8 @@ DefenseTurret.DATA = {
     rpValue = 20,
 
     -- Collision
-    width = 20,
-    height = 20,
+    width = 28,
+    height = 28,
     range = 100,    -- Stays at range
     emits = true,   -- Shooting MOB
 

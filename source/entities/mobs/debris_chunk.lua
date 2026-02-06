@@ -33,8 +33,8 @@ DebrisChunk.VARIANTS = {
 function DebrisChunk:init(x, y, waveMultipliers, variant)
     -- Choose a random variant if not specified
     variant = variant or math.random(1, 3)
-    local data = table.deepcopy(DebrisChunk.DATA)
-    data.imagePath = DebrisChunk.VARIANTS[variant]
+    -- Lightweight override (avoids table.deepcopy GC on every spawn)
+    local data = setmetatable({ imagePath = DebrisChunk.VARIANTS[variant] }, { __index = DebrisChunk.DATA })
 
     DebrisChunk.super.init(self, x, y, data, waveMultipliers)
     self.variant = variant

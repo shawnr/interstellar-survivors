@@ -80,7 +80,9 @@ function TeslaCoil:findNearestEnemy(fromX, fromY, preferredAngle)
 
     -- Use spatial grid for efficient targeting (only checks nearby cells)
     local nearbyMobs = GameplayScene:getMobsNearPosition(fromX, fromY)
-    for _, mob in ipairs(nearbyMobs) do
+    local mobCount = #nearbyMobs
+    for i = 1, mobCount do
+        local mob = nearbyMobs[i]
         if mob.active then
             local distSq = Utils.distanceSquared(fromX, fromY, mob.x, mob.y)
             if distSq < nearestDistSq then
@@ -134,7 +136,9 @@ function TeslaCoil:createChainProjectile(x, y, angle, target)
 
                 if GameplayScene and GameplayScene.getMobsNearPosition then
                     local nearbyMobs = GameplayScene:getMobsNearPosition(hitTarget.x, hitTarget.y)
-                    for _, mob in ipairs(nearbyMobs) do
+                    local nearbyCount = #nearbyMobs
+                    for i = 1, nearbyCount do
+                        local mob = nearbyMobs[i]
                         if mob.active and not self.hitTargets[mob] then
                             local distSq = Utils.distanceSquared(hitTarget.x, hitTarget.y, mob.x, mob.y)
                             if distSq < nearestDistSq then

@@ -150,7 +150,8 @@ function MOB:init(x, y, mobData, waveMultipliers)
     end
 
     -- Pre-cache rotated images for non-animated mobs (avoids runtime drawRotated)
-    if not self.animImageTable then
+    -- Skip if imagePath is nil (e.g. TrashBlob generates images programmatically)
+    if not self.animImageTable and mobData.imagePath then
         local path = mobData.imagePath
         self._rotatedImages = Utils.getRotatedImages(path)
         if self._rotatedImages then
@@ -238,14 +239,10 @@ function MOB:updateRammerMovement(dt)
     local distSq = dx * dx + dy * dy
 
     if distSq > 1 then
-        -- Normalize and apply speed (speedScale compensates for frame guard halving updates)
-        local speedScale = self._speedScale
-        local invDist = 1 / math.sqrt(distSq)
-        local moveX = dx * invDist * self.speed * speedScale
-        local moveY = dy * invDist * self.speed * speedScale
-
-        self.x = self.x + moveX
-        self.y = self.y + moveY
+        -- Combined factor: speed * scale / dist (fewer multiplications per axis)
+        local factor = self.speed * self._speedScale / (distSq ^ 0.5)
+        self.x = self.x + dx * factor
+        self.y = self.y + dy * factor
 
         -- Rotate to face movement direction (throttled for performance)
         if not self.skipRotation then
@@ -289,13 +286,10 @@ function MOB:updateShooterMovement(dt)
     end
 
     if distSq > rangeSq then
-        -- Move closer (only sqrt when needed, use localized math)
-        local invDist = 1 / (distSq ^ 0.5)  -- Slightly faster than math.sqrt
-        local moveX = dx * invDist * self.speed * speedScale
-        local moveY = dy * invDist * self.speed * speedScale
-
-        self.x = self.x + moveX
-        self.y = self.y + moveY
+        -- Combined factor: speed * scale / dist (fewer multiplications per axis)
+        local factor = self.speed * speedScale / (distSq ^ 0.5)
+        self.x = self.x + dx * factor
+        self.y = self.y + dy * factor
     else
         -- Active orbit behavior - circle around the station
         local orbitSpeed = self.speed * 0.04 * self.orbitDirection * speedScale
@@ -437,7 +431,7 @@ end
 
 -- DEBUG: Draw MOB type label (for debugging sprite issues)
 -- Set DEBUG_MOB_LABELS = true to enable
-DEBUG_MOB_LABELS = false
+local DEBUG_MOB_LABELS = false
 
 function MOB:drawDebugLabel()
     if not DEBUG_MOB_LABELS or not self.active then return end

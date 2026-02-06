@@ -63,7 +63,10 @@ function TractorPulse:pullCollectibles(firingAngle)
     local pulledAny = false
 
     -- Pull ALL collectibles within range (no cone restriction)
-    for _, collectible in ipairs(GameplayScene.collectibles) do
+    local collectibles = GameplayScene.collectibles
+    local count = #collectibles
+    for i = 1, count do
+        local collectible = collectibles[i]
         if collectible.active then
             local dx = collectible.x - Constants.STATION_CENTER_X
             local dy = collectible.y - Constants.STATION_CENTER_Y
