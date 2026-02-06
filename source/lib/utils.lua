@@ -4,6 +4,31 @@ local gfx <const> = playdate.graphics
 
 Utils = {}
 
+-- Fast trig lookup tables (performance: avoid expensive math.sin/cos on Playdate CPU)
+-- 64 entries = 5.625° resolution, sufficient for orbit calculations
+local TRIG_ENTRIES <const> = 64
+local TWO_PI <const> = math.pi * 2
+local TRIG_SCALE <const> = TRIG_ENTRIES / TWO_PI
+
+Utils.SIN_TABLE = {}
+Utils.COS_TABLE = {}
+for _i = 0, TRIG_ENTRIES - 1 do
+    local angle = (_i / TRIG_ENTRIES) * TWO_PI
+    Utils.SIN_TABLE[_i] = math.sin(angle)
+    Utils.COS_TABLE[_i] = math.cos(angle)
+end
+
+-- Fast sin/cos using lookup table (radians input)
+function Utils.fastSin(radians)
+    local idx = math.floor((radians % TWO_PI) * TRIG_SCALE) % TRIG_ENTRIES
+    return Utils.SIN_TABLE[idx]
+end
+
+function Utils.fastCos(radians)
+    local idx = math.floor((radians % TWO_PI) * TRIG_SCALE) % TRIG_ENTRIES
+    return Utils.COS_TABLE[idx]
+end
+
 -- Image cache for performance (avoid repeated disk I/O)
 Utils.imageCache = {}
 

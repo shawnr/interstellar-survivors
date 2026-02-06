@@ -2,6 +2,8 @@
 -- Fires focused data streams. They're sharing their research. Aggressively.
 
 local gfx <const> = playdate.graphics
+local math_atan <const> = math.atan
+local RAD_TO_DEG <const> = 180 / math.pi
 
 class('CitationPlatform').extends(MOB)
 
@@ -45,9 +47,12 @@ function CitationPlatform:update(dt)
     -- Update firing
     self.fireCooldown = self.fireCooldown - dt
     if self.fireCooldown <= 0 then
-        -- Only fire if in range
-        local dist = Utils.distance(self.x, self.y, self.targetX, self.targetY)
-        if dist <= self.range + 20 then
+        -- Only fire if in range (use squared distance to avoid sqrt)
+        local ddx = self.targetX - self.x
+        local ddy = self.targetY - self.y
+        local distSq = ddx * ddx + ddy * ddy
+        local rangePlusPad = self.range + 20
+        if distSq <= rangePlusPad * rangePlusPad then
             self:fire()
             self.fireCooldown = self.fireInterval
         end
@@ -58,7 +63,7 @@ function CitationPlatform:fire()
     -- Calculate angle to station
     local dx = self.targetX - self.x
     local dy = self.targetY - self.y
-    local angle = Utils.vectorToAngle(dx, dy)
+    local angle = math_atan(dx, -dy) * RAD_TO_DEG
 
     -- Create projectile aimed at station
     if GameplayScene and GameplayScene.createEnemyProjectile then

@@ -2,6 +2,8 @@
 -- Hovers at range and fires sticky webbing that slows rotation
 
 local gfx <const> = playdate.graphics
+local math_atan <const> = math.atan
+local RAD_TO_DEG <const> = 180 / math.pi
 
 class('SilkWeaver').extends(MOB)
 
@@ -61,7 +63,7 @@ function SilkWeaver:fire()
     -- Calculate angle to station
     local dx = self.targetX - self.x
     local dy = self.targetY - self.y
-    local angle = Utils.vectorToAngle(dx, dy)
+    local angle = math_atan(dx, -dy) * RAD_TO_DEG
 
     -- Create projectile aimed at station
     if GameplayScene and GameplayScene.createEnemyProjectile then

@@ -2,6 +2,8 @@
 -- Automated systems from an old war, still functional, still shooting
 
 local gfx <const> = playdate.graphics
+local math_atan <const> = math.atan
+local RAD_TO_DEG <const> = 180 / math.pi
 
 class('DefenseTurret').extends(MOB)
 
@@ -46,7 +48,10 @@ function DefenseTurret:update(dt)
     self.fireCooldown = self.fireCooldown - dt
     if self.fireCooldown <= 0 then
         -- Only fire if in range (use squared distance for performance)
-        local distSq = Utils.distanceSquared(self.x, self.y, self.targetX, self.targetY)
+        -- Inline distanceSquared (avoid function call overhead)
+        local ddx = self.targetX - self.x
+        local ddy = self.targetY - self.y
+        local distSq = ddx * ddx + ddy * ddy
         local rangeSq = (self.range + 20) * (self.range + 20)
         if distSq <= rangeSq then
             self:fire()
@@ -56,10 +61,10 @@ function DefenseTurret:update(dt)
 end
 
 function DefenseTurret:fire()
-    -- Calculate angle to station
+    -- Calculate angle to station (inline vectorToAngle)
     local dx = self.targetX - self.x
     local dy = self.targetY - self.y
-    local angle = Utils.vectorToAngle(dx, dy)
+    local angle = math_atan(dx, -dy) * RAD_TO_DEG
 
     -- Create projectile aimed at station
     if GameplayScene and GameplayScene.createEnemyProjectile then

@@ -2,6 +2,10 @@
 -- Items dropped by MOBs that can be collected
 
 local gfx <const> = playdate.graphics
+local math_floor <const> = math.floor
+local math_sqrt <const> = math.sqrt
+local math_min <const> = math.min
+local math_sin <const> = math.sin
 
 class('Collectible').extends(gfx.sprite)
 
@@ -46,6 +50,10 @@ function Collectible:init(x, y, collectibleType, value)
     -- Lifetime (despawn after a while if not collected)
     self.lifetime = 15  -- seconds
     self.age = 0
+
+    -- Pixel position tracking (only call moveTo when pixel position changes)
+    self.lastPixelX = math_floor(x)
+    self.lastPixelY = math_floor(y)
 
     -- Create visual based on type
     self:createVisual()
@@ -96,13 +104,6 @@ function Collectible:update(dt)
 
     dt = dt or (1/30)
 
-    -- Age and check lifetime
-    self.age = self.age + dt
-    if self.age >= self.lifetime then
-        self:collect(false)  -- Despawn without effect
-        return
-    end
-
     -- Calculate distance to station (use squared for comparisons)
     local dx = Constants.STATION_CENTER_X - self.x
     local dy = Constants.STATION_CENTER_Y - self.y
@@ -110,38 +111,88 @@ function Collectible:update(dt)
     local collectRadiusSq = self.collectRadius * self.collectRadius
     local pickupRadiusSq = self.pickupRadius * self.pickupRadius
 
-    -- Move toward station
-    if distSq > 1 then
-        if distSq < collectRadiusSq then
-            -- Within collect radius: accelerate toward station
-            local dist = math.sqrt(distSq)  -- Only sqrt when needed
-            local speedMult = 1 + (1 - dist / self.collectRadius) * 3
-            local currentSpeed = math.min(self.speed * speedMult, self.maxSpeed)
-            local invDist = 1 / dist
-            self.x = self.x + dx * invDist * currentSpeed
-            self.y = self.y + dy * invDist * currentSpeed
-        elseif self.collectibleType == Collectible.TYPES.RP then
-            -- RP collectibles: very slow passive drift toward station
-            local invDist = 1 / math.sqrt(distSq)  -- Only sqrt when needed
-            self.x = self.x + dx * invDist * self.passiveDrift
-            self.y = self.y + dy * invDist * self.passiveDrift
+    -- Check for pickup first (fast path)
+    if distSq < pickupRadiusSq then
+        self:collect(true)
+        return
+    end
+
+    -- Distant collectible optimization: reduce update frequency
+    -- Collectibles beyond collect radius barely need per-frame updates
+    if distSq > collectRadiusSq then
+        local frameNum = Projectile.frameCounter
+
+        -- Age check only every 4 frames (catch up on accumulated time)
+        if frameNum % 4 == 0 then
+            self.age = self.age + dt * 4
+            if self.age >= self.lifetime then
+                self:collect(false)
+                return
+            end
+
+            -- Fade out near end of lifetime (check during age update)
+            if self.age > self.lifetime - 2 then
+                if math_floor(self.age * 10) % 2 == 0 then
+                    self:setVisible(true)
+                else
+                    self:setVisible(false)
+                end
+            end
         end
+
+        -- Passive drift only every other frame (doubled speed to compensate)
+        if self.collectibleType == Collectible.TYPES.RP and distSq > 1 and frameNum % 2 == 0 then
+            local invDist = 1 / (distSq ^ 0.5)
+            self.x = self.x + dx * invDist * self.passiveDrift * 2
+            self.y = self.y + dy * invDist * self.passiveDrift * 2
+
+            -- Only call moveTo if pixel position changed
+            local pixelX = math_floor(self.x)
+            local pixelY = math_floor(self.y)
+            if pixelX ~= self.lastPixelX or pixelY ~= self.lastPixelY then
+                self:moveTo(self.x, self.y)
+                self.lastPixelX = pixelX
+                self.lastPixelY = pixelY
+            end
+        end
+
+        return  -- Skip bobbing and detailed updates for distant collectibles
+    end
+
+    -- Near collectibles: full update
+    self.age = self.age + dt
+    if self.age >= self.lifetime then
+        self:collect(false)
+        return
+    end
+
+    -- Within collect radius: accelerate toward station
+    if distSq > 1 then
+        local dist = math_sqrt(distSq)
+        local speedMult = 1 + (1 - dist / self.collectRadius) * 3
+        local currentSpeed = math_min(self.speed * speedMult, self.maxSpeed)
+        local invDist = 1 / dist
+        self.x = self.x + dx * invDist * currentSpeed
+        self.y = self.y + dy * invDist * currentSpeed
     end
 
     -- Bobbing animation
-    local bob = math.sin(self.age * self.bobSpeed + self.bobOffset) * self.bobAmount
-    self:moveTo(self.x, self.y + bob)
+    local bob = math_sin(self.age * self.bobSpeed + self.bobOffset) * self.bobAmount
+    local finalX = self.x
+    local finalY = self.y + bob
 
-    -- Check for pickup
-    if distSq < pickupRadiusSq then
-        self:collect(true)
+    -- Only call moveTo if pixel position changed
+    local pixelX = math_floor(finalX)
+    local pixelY = math_floor(finalY)
+    if pixelX ~= self.lastPixelX or pixelY ~= self.lastPixelY then
+        self:moveTo(finalX, finalY)
+        self.lastPixelX = pixelX
+        self.lastPixelY = pixelY
     end
 
     -- Fade out near end of lifetime
     if self.age > self.lifetime - 2 then
-        -- Blink effect
-        local blinkRate = 10
-        if math.floor(self.age * blinkRate) % 2 == 0 then
+        if math_floor(self.age * 10) % 2 == 0 then
             self:setVisible(true)
         else
             self:setVisible(false)
@@ -225,6 +276,10 @@ function Collectible:reset(x, y, collectibleType, value, rangeBonus)
     -- Lifetime
     self.lifetime = 15
     self.age = 0
+
+    -- Pixel position tracking
+    self.lastPixelX = math_floor(x)
+    self.lastPixelY = math_floor(y)
 
     -- Update visual
     self:createVisual()

@@ -11,6 +11,7 @@ local math_min <const> = math.min
 local math_abs <const> = math.abs
 local math_random <const> = math.random
 local math_sqrt <const> = math.sqrt
+local math_atan <const> = math.atan
 
 -- Pre-computed text outline offsets (performance: avoid table creation every frame)
 local TEXT_OUTLINE_OFFSETS_1PX = { {-1,-1}, {0,-1}, {1,-1}, {-1,0}, {1,0}, {-1,1}, {0,1}, {1,1} }
@@ -41,7 +42,11 @@ function GameplayScene:init()
     self.mobRadius = {}      -- collision radius
     self.mobEmits = {}       -- is shooter type (skip station collision)
     self.mobDamage = {}      -- damage on station collision
+    self.mobCollisionBase = {} -- pre-cached (cachedRadius + 6) for collision
     self.mobCount = 0        -- number of mobs in arrays
+
+    -- Frame counter for alternating collision checks (performance optimization)
+    self.collisionFrame = 0
 
     -- Object pools
     self.projectilePool = nil
@@ -90,6 +95,10 @@ function GameplayScene:init()
     self.stationDestroyedAnim = nil
     self.stationDestroyedFrame = 1
     self.stationDestroyedFrameTimer = 0
+
+    -- Cached equipment HUD strip (performance: only re-render when equipment changes)
+    self.equipmentStripImage = nil
+    self.equipmentStripDirty = true
 
     -- Episode statistics tracking
     self.stats = {
@@ -662,9 +671,8 @@ end
 function GameplayScene:update()
     local dt = 1/30
 
-    -- Increment projectile frame counter to prevent double updates
-    -- (projectiles are updated by both pool and sprite system)
-    Projectile.incrementFrameCounter()
+    -- Note: Projectile.incrementFrameCounter() is called in main.lua before scene update
+    -- This prevents double-updates (projectiles are updated by both pool and sprite system)
 
     -- Update mission intro overlay
     if self.showingMissionIntro then
@@ -706,15 +714,18 @@ function GameplayScene:update()
         return
     end
 
-    -- Update elapsed time
+    -- Update elapsed time and collision frame counter
     self.elapsedTime = self.elapsedTime + dt
+    self.collisionFrame = self.collisionFrame + 1
 
     -- Update station
     self.station:update()
 
-    -- Update tools (direct call without pcall for performance)
-    for _, tool in ipairs(self.station.tools) do
-        tool:update(dt)
+    -- Update tools (numeric for loop, 8x faster than ipairs)
+    local tools = self.station.tools
+    local toolCount = #tools
+    for i = 1, toolCount do
+        tools[i]:update(dt)
     end
 
     -- Update projectiles
@@ -1283,67 +1294,79 @@ function GameplayScene:getMobsNearPosition(x, y)
     return nearbyMobs
 end
 
+-- Inline constant for vectorToAngle (avoids Utils table lookup + function call)
+local RAD_TO_DEG <const> = 180 / math.pi
+
 function GameplayScene:checkCollisions()
     -- Build spatial grid for this frame
     self:buildMobGrid()
 
+    local collisionFrame = self.collisionFrame
+    local isEvenFrame = (collisionFrame % 2 == 0)
+
     -- Projectiles vs MOBs (using spatial partitioning)
+    -- Performance: split into two halves, alternating frames
+    -- Safe because projectiles move 7-10px/frame vs 16-32px mob widths (no tunneling)
     local projectiles = self.projectilePool:getActive()
 
     -- Minimum distance projectile must travel from spawn before collision is enabled
-    -- This prevents instant collision with mobs parked near tools
-    local minTravelDistSq = 10 * 10  -- 10 pixels from spawn point
+    local minTravelDistSq = 100  -- 10 * 10 pixels from spawn point
 
-    -- Numeric for loop (8x faster than ipairs)
     local projCount = #projectiles
-    for pi = 1, projCount do
+    local halfCount = math_ceil(projCount / 2)
+    local startIdx, endIdx
+    if isEvenFrame then
+        startIdx, endIdx = 1, halfCount
+    else
+        startIdx, endIdx = halfCount + 1, projCount
+    end
+
+    -- Pre-cache mob collision base values for inner loop
+    local mobCollisionBase = self.mobCollisionBase
+
+    for pi = startIdx, endIdx do
         local proj = projectiles[pi]
         if proj and proj.active then
-            -- Check if projectile has traveled far enough from its spawn point
-            local spawnX = proj.spawnX or proj.x
-            local spawnY = proj.spawnY or proj.y
-            -- Inline distance squared calculation (avoid function call overhead)
-            local tdx = proj.x - spawnX
-            local tdy = proj.y - spawnY
-            local travelDistSq = tdx * tdx + tdy * tdy
+            -- Early bounds check: skip projectiles near screen edge
+            local px, py = proj.x, proj.y
+            if px > -20 and px < 420 and py > -20 and py < 260 then
+                -- Check if projectile has traveled far enough from its spawn point
+                local tdx = px - (proj.spawnX or px)
+                local tdy = py - (proj.spawnY or py)
+                local travelDistSq = tdx * tdx + tdy * tdy
 
-            if travelDistSq >= minTravelDistSq then
-                -- Get only mobs near this projectile (spatial partitioning)
-                local nearbyMobs = self:getMobsNearPosition(proj.x, proj.y)
+                if travelDistSq >= minTravelDistSq then
+                    -- Get only mobs near this projectile (spatial partitioning)
+                    local nearbyMobs = self:getMobsNearPosition(px, py)
+                    local projSpeed = proj.speed or 8
+                    local projSpeedBonus = projSpeed * 0.25
 
-                -- Numeric for loop for mob collision checks
-                local nearbyCount = #nearbyMobs
-                for mi = 1, nearbyCount do
-                    local mob = nearbyMobs[mi]
-                    if mob.active then
-                        -- Inline distance calculation for performance (avoid function call overhead)
-                        local dx = proj.x - mob.x
-                        local dy = proj.y - mob.y
-                        local distSq = dx * dx + dy * dy
+                    local nearbyCount = #nearbyMobs
+                    for mi = 1, nearbyCount do
+                        local mob = nearbyMobs[mi]
+                        if mob.active then
+                            local dx = px - mob.x
+                            local dy = py - mob.y
+                            local distSq = dx * dx + dy * dy
 
-                        -- Use MOB radius + projectile radius (6) + small speed bonus
-                        -- The speed bonus helps fast projectiles hit targets without tunneling
-                        local mobRadius = mob.cachedRadius or 8
-                        local projSpeed = proj.speed or 8
-                        local collisionDist = mobRadius + 6 + (projSpeed * 0.25)
-                        local collisionDistSq = collisionDist * collisionDist
+                            -- Use pre-cached collision base + speed bonus
+                            local collisionDist = (mob.cachedRadius or 8) + 6 + projSpeedBonus
+                            local collisionDistSq = collisionDist * collisionDist
 
-                        if distSq < collisionDistSq then
-                            -- For tick-based projectiles (like orbital), check if damage can be applied
-                            if proj.usesTickDamage then
-                                local canDamage = proj:onHit(mob)
-                                if canDamage then
-                                    mob:takeDamage(proj:getDamage(), nil, proj.x, proj.y)
+                            if distSq < collisionDistSq then
+                                if proj.usesTickDamage then
+                                    local canDamage = proj:onHit(mob)
+                                    if canDamage then
+                                        mob:takeDamage(proj:getDamage(), nil, px, py)
+                                    end
+                                else
+                                    mob:takeDamage(proj:getDamage(), nil, px, py)
+                                    proj:onHit(mob)
                                 end
-                            else
-                                -- Normal projectile: apply damage then call onHit
-                                -- Pass projectile position for evasion behavior
-                                mob:takeDamage(proj:getDamage(), nil, proj.x, proj.y)
-                                proj:onHit(mob)
-                            end
 
-                            if not proj.active then
-                                break  -- Projectile used up
+                                if not proj.active then
+                                    break
+                                end
                             end
                         end
                     end
@@ -1353,11 +1376,10 @@ function GameplayScene:checkCollisions()
     end
 
     -- MOBs vs Station (using DOD parallel arrays for cache efficiency)
-    -- Cache station position to avoid repeated property lookups
+    -- Runs EVERY frame - important for gameplay feel (ramming mobs should feel immediate)
     local stationX, stationY = self.station.x, self.station.y
     local stationRadius = Constants.STATION_RADIUS
 
-    -- DOD: Use parallel arrays for fast iteration (no table hash lookups)
     local mobX = self.mobX
     local mobY = self.mobY
     local mobActive = self.mobActive
@@ -1365,25 +1387,20 @@ function GameplayScene:checkCollisions()
     local mobEmits = self.mobEmits
     local mobDamage = self.mobDamage
     local mobCount = self.mobCount
-    local mobs = self.mobs  -- Still need for onDestroyed call
+    local mobs = self.mobs
 
     for i = 1, mobCount do
-        -- Fast array access (no hash lookups)
         if mobActive[i] and not mobEmits[i] then
-            local mx = mobX[i]
-            local my = mobY[i]
-            local dx = mx - stationX
-            local dy = my - stationY
+            local dx = mobX[i] - stationX
+            local dy = mobY[i] - stationY
             local distSq = dx * dx + dy * dy
-            local radius = mobRadius[i]
-            local collisionDist = stationRadius + radius
-            local collisionDistSq = collisionDist * collisionDist
+            local collisionDist = stationRadius + mobRadius[i]
 
-            if distSq < collisionDistSq then
-                -- Hit! Need mob object for attack angle and destroy
+            if distSq < collisionDist * collisionDist then
                 local mob = mobs[i]
                 if mob then
-                    local attackAngle = Utils.vectorToAngle(dx, dy)
+                    -- Inline vectorToAngle (avoids Utils table lookup + function call)
+                    local attackAngle = math_atan(dx, -dy) * RAD_TO_DEG
                     self.station:takeDamage(mobDamage[i], attackAngle, "ram")
                     mob:onDestroyed()
                 end
@@ -1391,32 +1408,32 @@ function GameplayScene:checkCollisions()
         end
     end
 
-    -- Enemy Projectiles vs Station (squared to avoid sqrt)
-    local enemyProjectiles = self.enemyProjectilePool:getActive()
-    local stationCollisionDistSq = (Constants.STATION_RADIUS + 4) * (Constants.STATION_RADIUS + 4)
-    -- Numeric for loop (8x faster than ipairs)
-    local enemyProjCount = #enemyProjectiles
-    for i = 1, enemyProjCount do
-        local proj = enemyProjectiles[i]
-        if proj and proj.active then
-            -- Inline distance calculation for performance
-            local dx = proj.x - stationX
-            local dy = proj.y - stationY
-            local distSq = dx * dx + dy * dy
-            if distSq < stationCollisionDistSq then
-                -- Calculate attack angle for shield check
-                local attackAngle = Utils.vectorToAngle(dx, dy)  -- Reuse dx, dy
-                -- Hit station! (projectile damage - shield is more effective)
-                self.station:takeDamage(proj:getDamage(), attackAngle, "projectile")
+    -- Enemy Projectiles vs Station
+    -- Performance: only check on odd frames (enemy projectiles move slowly at speed 3,
+    -- station is 64px wide - no tunneling risk, 1-frame delay is imperceptible)
+    if not isEvenFrame then
+        local enemyProjectiles = self.enemyProjectilePool:getActive()
+        local stationCollisionDistSq = (stationRadius + 4) * (stationRadius + 4)
+        local enemyProjCount = #enemyProjectiles
+        for i = 1, enemyProjCount do
+            local proj = enemyProjectiles[i]
+            if proj and proj.active then
+                local dx = proj.x - stationX
+                local dy = proj.y - stationY
+                local distSq = dx * dx + dy * dy
+                if distSq < stationCollisionDistSq then
+                    -- Inline vectorToAngle for attack angle
+                    local attackAngle = math_atan(dx, -dy) * RAD_TO_DEG
+                    self.station:takeDamage(proj:getDamage(), attackAngle, "projectile")
 
-                -- Apply special effects
-                local effect = proj:getEffect()
-                if effect == "slow" then
-                    self.station.rotationSlow = 0.5
-                    self.station.rotationSlowTimer = 2.0
+                    local effect = proj:getEffect()
+                    if effect == "slow" then
+                        self.station.rotationSlow = 0.5
+                        self.station.rotationSlowTimer = 2.0
+                    end
+
+                    proj:deactivate()
                 end
-
-                proj:deactivate()
             end
         end
     end
@@ -1651,12 +1668,55 @@ end
 
 -- Draw overlay (HUD elements - called after sprite.update)
 function GameplayScene:drawOverlay()
-    -- Draw MOB health bars and debug labels
-    for _, mob in ipairs(self.mobs) do
-        mob:drawHealthBar()
+    -- Batch MOB health bar drawing (reduces gfx.setColor toggling)
+    -- Collect all visible health bars, then draw backgrounds, then fills
+    local mobs = self.mobs
+    local mobCount = #mobs
+    local barCount = 0
+
+    -- Reuse pre-allocated table for health bar data
+    local healthBars = self._healthBarCache
+    if not healthBars then
+        healthBars = {}
+        self._healthBarCache = healthBars
+    end
+
+    for i = 1, mobCount do
+        local mob = mobs[i]
+        if mob.showHealthBar and mob.active then
+            barCount = barCount + 1
+            local barWidth = 20
+            local barX = mob.x - 10  -- barWidth / 2
+            local barY = mob.y - mob.cachedRadius - 6
+            local fillWidth = (mob.health / mob.maxHealth) * 18  -- barWidth - 2
+            -- Store as flat values to avoid table creation
+            local b = healthBars[barCount]
+            if not b then
+                b = {}
+                healthBars[barCount] = b
+            end
+            b[1] = barX
+            b[2] = barY
+            b[3] = fillWidth
+        end
         -- DEBUG: Draw MOB type labels to diagnose sprite issues
         if mob.drawDebugLabel then
             mob:drawDebugLabel()
+        end
+    end
+
+    if barCount > 0 then
+        -- All black backgrounds at once
+        gfx.setColor(gfx.kColorBlack)
+        for i = 1, barCount do
+            local b = healthBars[i]
+            gfx.fillRect(b[1], b[2], 20, 3)
+        end
+        -- All white fills at once
+        gfx.setColor(gfx.kColorWhite)
+        for i = 1, barCount do
+            local b = healthBars[i]
+            gfx.fillRect(b[1] + 1, b[2] + 1, b[3], 1)
         end
     end
 
@@ -1803,138 +1863,131 @@ function GameplayScene:drawHUD()
     self:drawEquipmentSlots()
 end
 
+-- Invalidate cached equipment strip (call when equipment changes)
+function GameplayScene:invalidateEquipmentStrip()
+    self.equipmentStripDirty = true
+end
+
 -- Draw equipment slots (tools and items combined) in a vertical column on the left
+-- Performance: renders to cached image, only re-renders when equipment changes
 function GameplayScene:drawEquipmentSlots()
     local maxSlots = 8
     local slotSize = 24
     local topY = 24  -- Below top bar
     local leftX = 0
+    local stripHeight = maxSlots * slotSize
 
-    -- Use equipment order from UpgradeSystem (maintains acquisition order)
-    local equipmentOrder = UpgradeSystem and UpgradeSystem.equipmentOrder or {}
+    -- Only re-render the strip image when equipment has changed
+    if self.equipmentStripDirty or not self.equipmentStripImage then
+        -- Create or reuse the strip image
+        if not self.equipmentStripImage then
+            self.equipmentStripImage = gfx.image.new(slotSize, stripHeight)
+        end
 
-    -- Helper function to get equipment data by type and id
-    local function getEquipmentData(equipEntry)
-        if equipEntry.type == "tool" then
-            -- Find tool in station
-            local tools = self.station and self.station.tools or {}
-            for _, tool in ipairs(tools) do
-                if tool.data and tool.data.id == equipEntry.id then
-                    return {
-                        iconPath = tool.data.iconPath or tool.data.imagePath,
-                        name = tool.data.name or "?"
-                    }
+        gfx.pushContext(self.equipmentStripImage)
+        gfx.clear(gfx.kColorBlack)
+
+        -- Use equipment order from UpgradeSystem (maintains acquisition order)
+        local equipmentOrder = UpgradeSystem and UpgradeSystem.equipmentOrder or {}
+
+        for i = 1, maxSlots do
+            local slotY = (i - 1) * slotSize
+            local equipEntry = equipmentOrder[i]
+            local equip = nil
+
+            if equipEntry then
+                if equipEntry.type == "tool" then
+                    local tools = self.station and self.station.tools or {}
+                    for _, tool in ipairs(tools) do
+                        if tool.data and tool.data.id == equipEntry.id then
+                            equip = { iconPath = tool.data.iconPath or tool.data.imagePath, name = tool.data.name or "?" }
+                            break
+                        end
+                    end
+                    if not equip then
+                        local toolData = ToolsData and ToolsData[equipEntry.id]
+                        if toolData then
+                            equip = { iconPath = toolData.iconPath or toolData.imagePath, name = toolData.name or "?" }
+                        end
+                    end
+                elseif equipEntry.type == "item" then
+                    local itemData = BonusItemsData and BonusItemsData[equipEntry.id]
+                    if itemData then
+                        equip = { iconPath = itemData.iconPath, name = itemData.name or "?" }
+                    end
                 end
             end
-            -- Fallback: look up in ToolsData
-            local toolData = ToolsData and ToolsData[equipEntry.id]
-            if toolData then
-                return {
-                    iconPath = toolData.iconPath or toolData.imagePath,
-                    name = toolData.name or "?"
-                }
-            end
-        elseif equipEntry.type == "item" then
-            local itemData = BonusItemsData and BonusItemsData[equipEntry.id]
-            if itemData then
-                return {
-                    iconPath = itemData.iconPath,
-                    name = itemData.name or "?"
-                }
+
+            if equip then
+                -- Filled slot: black background with icon
+                gfx.setColor(gfx.kColorBlack)
+                gfx.fillRect(0, slotY, slotSize, slotSize)
+
+                -- Draw icon
+                local icon = nil
+                if equip.iconPath then
+                    local filename = equip.iconPath:match("([^/]+)$")
+                    local onBlackPath = "images/icons_on_black/" .. filename
+                    icon = Utils.getCachedImage(onBlackPath)
+                end
+
+                if icon then
+                    local iconW, iconH = icon:getSize()
+                    local padding = 4
+                    local targetSize = slotSize - padding
+                    local scale = math.min(targetSize / iconW, targetSize / iconH)
+                    local scaledW = iconW * scale
+                    local scaledH = iconH * scale
+                    local drawX = (slotSize - scaledW) / 2
+                    local drawY = slotY + (slotSize - scaledH) / 2
+                    icon:drawScaled(drawX, drawY, scale)
+                else
+                    -- Fallback letter
+                    local letter = string.upper(string.sub(equip.name, 1, 1))
+                    local letterImg = letterImageCache[letter]
+                    if not letterImg then
+                        local boldFont = FontManager.boldFont
+                        local fullW = boldFont:getTextWidth(letter)
+                        local fullH = boldFont:getHeight()
+                        letterImg = gfx.image.new(fullW, fullH)
+                        gfx.pushContext(letterImg)
+                        gfx.setFont(boldFont)
+                        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                        gfx.drawText(letter, 0, 0)
+                        gfx.popContext()
+                        letterImageCache[letter] = letterImg
+                    end
+                    local fullW, fullH = letterImg:getSize()
+                    local padding = 4
+                    local targetSize = slotSize - padding
+                    local scale = math.min(targetSize / fullW, targetSize / fullH)
+                    local scaledW = fullW * scale
+                    local scaledH = fullH * scale
+                    local drawX = (slotSize - scaledW) / 2
+                    local drawY = slotY + (slotSize - scaledH) / 2
+                    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                    letterImg:drawScaled(drawX, drawY, scale)
+                    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+                end
+
+                -- Border
+                gfx.setColor(gfx.kColorWhite)
+                gfx.drawRect(0, slotY, slotSize, slotSize)
+            else
+                -- Empty slot: black with white border
+                gfx.setColor(gfx.kColorBlack)
+                gfx.fillRect(0, slotY, slotSize, slotSize)
+                gfx.setColor(gfx.kColorWhite)
+                gfx.drawRect(0, slotY, slotSize, slotSize)
             end
         end
-        return nil
+
+        gfx.popContext()
+        self.equipmentStripDirty = false
     end
 
-    -- Helper function to draw a scaled icon centered in a slot (white on black)
-    local function drawScaledIcon(iconPath, slotX, slotY, fallbackLetter)
-        local icon = nil
-        if iconPath then
-            -- Convert to pre-processed icon on black background (use cache for performance)
-            local filename = iconPath:match("([^/]+)$")  -- Get filename from path
-            local onBlackPath = "images/icons_on_black/" .. filename
-            icon = Utils.getCachedImage(onBlackPath)
-        end
-
-        if icon then
-            -- Get icon dimensions and calculate scale to fit slot (with small padding)
-            local iconW, iconH = icon:getSize()
-            local padding = 4
-            local targetSize = slotSize - padding
-            local scale = math.min(targetSize / iconW, targetSize / iconH)
-
-            -- Calculate centered position
-            local scaledW = iconW * scale
-            local scaledH = iconH * scale
-            local drawX = slotX + (slotSize - scaledW) / 2
-            local drawY = slotY + (slotSize - scaledH) / 2
-
-            -- Pre-processed icons are already white on black, just draw them
-            icon:drawScaled(drawX, drawY, scale)
-        else
-            -- Fallback: draw first letter if no icon (cached for performance)
-            local letter = fallbackLetter or "?"
-
-            -- Check cache first
-            local letterImg = letterImageCache[letter]
-            if not letterImg then
-                -- Create and cache letter image
-                local boldFont = FontManager.boldFont
-                local fullW = boldFont:getTextWidth(letter)
-                local fullH = boldFont:getHeight()
-                letterImg = gfx.image.new(fullW, fullH)
-                gfx.pushContext(letterImg)
-                gfx.setFont(boldFont)
-                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-                gfx.drawText(letter, 0, 0)
-                gfx.popContext()
-                letterImageCache[letter] = letterImg
-            end
-
-            -- Scale to fit slot
-            local fullW, fullH = letterImg:getSize()
-            local padding = 4
-            local targetSize = slotSize - padding
-            local scale = math.min(targetSize / fullW, targetSize / fullH)
-            local scaledW = fullW * scale
-            local scaledH = fullH * scale
-            local drawX = slotX + (slotSize - scaledW) / 2
-            local drawY = slotY + (slotSize - scaledH) / 2
-
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-            letterImg:drawScaled(drawX, drawY, scale)
-            gfx.setImageDrawMode(gfx.kDrawModeCopy)
-        end
-    end
-
-    -- Draw all 8 slots in a vertical column
-    for i = 1, maxSlots do
-        local slotY = topY + (i - 1) * slotSize
-        local equipEntry = equipmentOrder[i]
-        local equip = equipEntry and getEquipmentData(equipEntry)
-
-        if equip then
-            -- Filled slot: black background with inverted icon
-            gfx.setColor(gfx.kColorBlack)
-            gfx.fillRect(leftX, slotY, slotSize, slotSize)
-
-            -- Get fallback letter
-            local fallbackLetter = string.upper(string.sub(equip.name, 1, 1))
-
-            -- Draw icon (inverted for white on black)
-            drawScaledIcon(equip.iconPath, leftX, slotY, fallbackLetter)
-
-            -- Border
-            gfx.setColor(gfx.kColorWhite)
-            gfx.drawRect(leftX, slotY, slotSize, slotSize)
-        else
-            -- Empty slot: black background with white border
-            gfx.setColor(gfx.kColorBlack)
-            gfx.fillRect(leftX, slotY, slotSize, slotSize)
-            gfx.setColor(gfx.kColorWhite)
-            gfx.drawRect(leftX, slotY, slotSize, slotSize)
-        end
-    end
+    -- Draw the cached strip image (single blit instead of 8 draws per frame)
+    self.equipmentStripImage:draw(leftX, topY)
 end
 
 function GameplayScene:onLevelUp()
@@ -1978,6 +2031,9 @@ end
 -- Called when player selects an upgrade
 function GameplayScene:onUpgradeSelected(selectionType, selectionData)
     Utils.debugPrint("Selected " .. selectionType .. ": " .. (selectionData.name or "unknown"))
+
+    -- Invalidate cached equipment HUD strip (new tool/item acquired)
+    self:invalidateEquipmentStrip()
 
     if selectionType == "tool" then
         -- Check if tool placement is enabled and this is a NEW tool
@@ -2037,6 +2093,9 @@ end
 
 -- Show tool evolution screen
 function GameplayScene:showToolEvolution(evolutionInfo)
+    -- Invalidate equipment HUD (evolved tool has new icon)
+    self:invalidateEquipmentStrip()
+
     ToolEvolutionScreen:show(evolutionInfo.originalData, evolutionInfo.evolvedData, function()
         -- Resume gameplay after evolution screen
         self.isLevelingUp = false

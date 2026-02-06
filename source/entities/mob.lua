@@ -12,6 +12,12 @@ local math_random <const> = math.random
 local math_cos <const> = math.cos
 local math_sin <const> = math.sin
 local math_atan <const> = math.atan
+local RAD_TO_DEG <const> = 180 / math.pi
+
+-- Fast trig lookup for orbit calculations (avoids expensive sin/cos on Playdate CPU)
+local TRIG_ENTRIES <const> = 64
+local TWO_PI <const> = math.pi * 2
+local TRIG_SCALE <const> = TRIG_ENTRIES / TWO_PI
 
 class('MOB').extends(Entity)
 
@@ -53,6 +59,10 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.evading = false
     self.evadeTimer = 0
     self.evadeDirection = 0
+
+    -- Pixel position tracking for moveTo threshold (performance: skip if position unchanged)
+    self.lastPixelX = math_floor(x)
+    self.lastPixelY = math_floor(y)
 
     -- Health bar display
     self.showHealthBar = false
@@ -169,8 +179,8 @@ function MOB:updateRammerMovement(dt)
 
         -- Rotate to face movement direction (skip if flagged for performance)
         if not self.skipRotation then
-            local angle = Utils.vectorToAngle(dx, dy)
-            self:setRotation(angle)
+            -- Inline vectorToAngle (avoids Utils table lookup + function call)
+            self:setRotation(math_atan(dx, -dy) * RAD_TO_DEG)
         end
     end
 end
@@ -192,12 +202,14 @@ function MOB:updateShooterMovement(dt)
         else
             -- Move away from damage source at double speed
             local evadeSpeed = self.speed * 2
-            self.x = self.x + math.cos(self.evadeDirection) * evadeSpeed
-            self.y = self.y + math.sin(self.evadeDirection) * evadeSpeed
+            local evadeTrigIdx = math_floor((self.evadeDirection % TWO_PI) * TRIG_SCALE) % TRIG_ENTRIES
+            self.x = self.x + Utils.COS_TABLE[evadeTrigIdx] * evadeSpeed
+            self.y = self.y + Utils.SIN_TABLE[evadeTrigIdx] * evadeSpeed
             self:moveTo(self.x, self.y)
-            -- Face the station while evading
-            local faceAngle = Utils.vectorToAngle(self.targetX - self.x, self.targetY - self.y)
-            self:setRotation(faceAngle)
+            -- Face the station while evading (inline vectorToAngle)
+            local edx = self.targetX - self.x
+            local edy = self.targetY - self.y
+            self:setRotation(math_atan(edx, -edy) * RAD_TO_DEG)
             return
         end
     end
@@ -211,19 +223,35 @@ function MOB:updateShooterMovement(dt)
         self.x = self.x + moveX
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
+        self.lastPixelX = math_floor(self.x)
+        self.lastPixelY = math_floor(self.y)
     else
         -- Active orbit behavior - circle around the station
-        -- Speed based on MOB speed stat, faster than before
         local orbitSpeed = self.speed * 0.04 * self.orbitDirection
         self.orbitAngle = self.orbitAngle + orbitSpeed
 
-        self.x = self.targetX + math_cos(self.orbitAngle) * self.range
-        self.y = self.targetY + math_sin(self.orbitAngle) * self.range
-        self:moveTo(self.x, self.y)
+        -- Fast trig lookup (64 entries, avoids expensive math.sin/cos)
+        local sinTable = Utils.SIN_TABLE
+        local cosTable = Utils.COS_TABLE
+        local trigIdx = math_floor((self.orbitAngle % TWO_PI) * TRIG_SCALE) % TRIG_ENTRIES
+        self.x = self.targetX + cosTable[trigIdx] * self.range
+        self.y = self.targetY + sinTable[trigIdx] * self.range
+
+        -- Only call moveTo if pixel position actually changed (performance)
+        local pixelX = math_floor(self.x)
+        local pixelY = math_floor(self.y)
+        if pixelX ~= self.lastPixelX or pixelY ~= self.lastPixelY then
+            self:moveTo(self.x, self.y)
+            self.lastPixelX = pixelX
+            self.lastPixelY = pixelY
+        end
     end
 
     -- Face the station (throttle rotation updates for performance)
-    local faceAngle = Utils.vectorToAngle(self.targetX - self.x, self.targetY - self.y)
+    -- Inline vectorToAngle (avoids Utils table lookup + function call)
+    local fdx = self.targetX - self.x
+    local fdy = self.targetY - self.y
+    local faceAngle = math_atan(fdx, -fdy) * RAD_TO_DEG
     local angleDiff = math_abs((faceAngle - (self.lastFaceAngle or 0) + 180) % 360 - 180)
     if angleDiff > 5 or self.lastFaceAngle == nil then
         self:setRotation(faceAngle)

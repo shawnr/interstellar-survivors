@@ -1,6 +1,99 @@
 -- Micro-Missile Pod Tool
 -- Fires bursts of small missiles with slight spread
 
+-- Localized for performance in shared update function
+local math_atan <const> = math.atan
+local math_min <const> = math.min
+local math_max <const> = math.max
+local math_sin <const> = math.sin
+local math_cos <const> = math.cos
+local RAD_TO_DEG <const> = 180 / math.pi
+local DEG_TO_RAD <const> = math.pi / 180
+
+-- Shared update function for missile projectiles (avoids closure creation per missile)
+-- Also uses spatial grid for homing instead of full mob list scan
+local function missileProjectileUpdate(self)
+    if not self.active then return end
+
+    -- Prevent double updates in the same frame
+    if self.lastUpdateFrame == Projectile.frameCounter then
+        return
+    end
+    self.lastUpdateFrame = Projectile.frameCounter
+
+    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
+        return
+    end
+
+    self.framesAlive = self.framesAlive + 1
+
+    self.lifetime = self.lifetime + 1
+    if self.lifetime > self.maxLifetime then
+        self:deactivate("lifetime")
+        return
+    end
+
+    -- Slight homing toward nearest enemy (optimized: check every 3 frames)
+    -- Uses spatial grid instead of scanning all mobs (O(k) vs O(n))
+    if self.lifetime % 3 == 0 then
+        local nearestDistSq = 10000  -- 100^2
+        local nearestMob = nil
+
+        if GameplayScene and GameplayScene.getMobsNearPosition then
+            local nearbyMobs = GameplayScene:getMobsNearPosition(self.x, self.y)
+            local nearbyCount = #nearbyMobs
+            for i = 1, nearbyCount do
+                local mob = nearbyMobs[i]
+                if mob and mob.active then
+                    local dx = mob.x - self.x
+                    local dy = mob.y - self.y
+                    local distSq = dx * dx + dy * dy
+                    if distSq < nearestDistSq then
+                        nearestDistSq = distSq
+                        nearestMob = mob
+                    end
+                end
+            end
+        end
+
+        self.homingTarget = nearestMob
+    end
+
+    local nearestMob = self.homingTarget
+    if nearestMob and nearestMob.active then
+        -- Inline vectorToAngle (avoids Utils table lookup + function call)
+        local targetAngle = math_atan(nearestMob.x - self.x, -(nearestMob.y - self.y)) * RAD_TO_DEG
+        local angleDiff = targetAngle - self.angle
+        -- Normalize angle diff
+        if angleDiff > 180 then angleDiff = angleDiff - 360
+        elseif angleDiff < -180 then angleDiff = angleDiff + 360 end
+
+        -- Tripled homing strength to compensate for less frequent updates
+        local effectiveHoming = self.homingStrength * 3
+
+        if angleDiff > 0 then
+            self.angle = self.angle + math_min(angleDiff, effectiveHoming)
+        else
+            self.angle = self.angle + math_max(angleDiff, -effectiveHoming)
+        end
+
+        -- Inline angleToVector (avoids Utils table lookup + function call)
+        local rad = self.angle * DEG_TO_RAD
+        self.dx = math_sin(rad)
+        self.dy = -math_cos(rad)
+        self:setRotation(self.angle - 90)
+    end
+
+    -- Move
+    self.x = self.x + self.dx * self.speed
+    self.y = self.y + self.dy * self.speed
+    self:moveTo(self.x, self.y)
+
+    if not self:isOnScreen(30) then
+        self:deactivate("offscreen")
+    end
+end
+
 class('MicroMissilePod').extends(Tool)
 
 MicroMissilePod.DATA = {
@@ -64,91 +157,11 @@ function MicroMissilePod:createMissileProjectile(x, y, angle)
         proj.homingStrength = 1.5
         proj.lifetime = 0
         proj.maxLifetime = 120  -- 4 seconds
-        -- Ensure spawn position is set for collision protection
         proj.spawnX = x
         proj.spawnY = y
-
-        proj.update = function(self)
-            if not self.active then return end
-
-            -- Prevent double updates in the same frame
-            if self.lastUpdateFrame == Projectile.frameCounter then
-                return
-            end
-            self.lastUpdateFrame = Projectile.frameCounter
-
-            if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
-                return
-            end
-
-            -- Track frames alive for collision grace period
-            self.framesAlive = self.framesAlive + 1
-
-            self.lifetime = self.lifetime + 1
-            if self.lifetime > self.maxLifetime then
-                self:deactivate("lifetime")
-                return
-            end
-
-            -- Slight homing toward nearest enemy (optimized: check every 3 frames)
-            -- Only perform homing search on frames divisible by 3
-            if self.lifetime % 3 == 0 then
-                local nearestDistSq = 10000  -- 100^2
-                local nearestMob = nil
-
-                if GameplayScene and GameplayScene.mobs then
-                    -- Numeric for loop (8x faster than ipairs)
-                    local mobs = GameplayScene.mobs
-                    local mobCount = #mobs
-                    for i = 1, mobCount do
-                        local mob = mobs[i]
-                        if mob and mob.active then
-                            -- Use squared distance (avoid sqrt)
-                            local dx = mob.x - self.x
-                            local dy = mob.y - self.y
-                            local distSq = dx * dx + dy * dy
-                            if distSq < nearestDistSq then
-                                nearestDistSq = distSq
-                                nearestMob = mob
-                            end
-                        end
-                    end
-                end
-
-                -- Cache target for frames between searches
-                self.homingTarget = nearestMob
-            end
-
-            local nearestMob = self.homingTarget
-            if nearestMob and nearestMob.active then
-                local targetAngle = Utils.vectorToAngle(nearestMob.x - self.x, nearestMob.y - self.y)
-                local angleDiff = targetAngle - self.angle
-                -- Normalize angle diff
-                if angleDiff > 180 then angleDiff = angleDiff - 360
-                elseif angleDiff < -180 then angleDiff = angleDiff + 360 end
-
-                -- Tripled homing strength to compensate for less frequent updates
-                local effectiveHoming = self.homingStrength * 3
-
-                if angleDiff > 0 then
-                    self.angle = self.angle + math.min(angleDiff, effectiveHoming)
-                else
-                    self.angle = self.angle + math.max(angleDiff, -effectiveHoming)
-                end
-
-                self.dx, self.dy = Utils.angleToVector(self.angle)
-                self:setRotation(self.angle - 90)
-            end
-
-            -- Move
-            self.x = self.x + self.dx * self.speed
-            self.y = self.y + self.dy * self.speed
-            self:moveTo(self.x, self.y)
-
-            if not self:isOnScreen(30) then
-                self:deactivate("offscreen")
-            end
-        end
+        proj.homingTarget = nil
+        -- Use shared update function (avoids closure creation per missile)
+        proj.update = missileProjectileUpdate
     end
 
     return proj

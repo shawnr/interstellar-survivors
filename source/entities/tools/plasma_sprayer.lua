@@ -1,6 +1,43 @@
 -- Plasma Sprayer Tool
 -- Fires multiple short-range plasma droplets in a cone pattern
 
+-- Shared update function for plasma projectiles (avoids closure creation per projectile)
+-- Eliminates GC pressure from creating 4-5 anonymous functions per shot
+local function plasmaProjectileUpdate(self)
+    if not self.active then return end
+
+    -- Prevent double updates in the same frame
+    if self.lastUpdateFrame == Projectile.frameCounter then
+        return
+    end
+    self.lastUpdateFrame = Projectile.frameCounter
+
+    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
+        return
+    end
+
+    self.framesAlive = self.framesAlive + 1
+
+    -- Move
+    self.x = self.x + self.dx * self.speed
+    self.y = self.y + self.dy * self.speed
+    self:moveTo(self.x, self.y)
+
+    -- Check distance traveled (use squared distance for performance)
+    local tdx = self.x - self.spawnX
+    local tdy = self.y - self.spawnY
+    local travelDistSq = tdx * tdx + tdy * tdy
+    if travelDistSq > self.maxTravelDistSq then
+        self:deactivate("max_range")
+        return
+    end
+
+    -- Off screen check
+    if not self:isOnScreen(20) then
+        self:deactivate("offscreen")
+    end
+end
+
 class('PlasmaSprayer').extends(Tool)
 
 PlasmaSprayer.DATA = {
@@ -52,46 +89,10 @@ function PlasmaSprayer:fire()
         if proj then
             -- Short range - deactivate after traveling maxRange (squared for performance)
             proj.maxTravelDistSq = self.maxRangeSq
-            -- Use spawnX/spawnY for consistency with collision protection
-            -- (createProjectile already sets these, but we ensure they're correct)
             proj.spawnX = fireX
             proj.spawnY = fireY
-
-            proj.update = function(self)
-                if not self.active then return end
-
-                -- Prevent double updates in the same frame
-                if self.lastUpdateFrame == Projectile.frameCounter then
-                    return
-                end
-                self.lastUpdateFrame = Projectile.frameCounter
-
-                if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
-                    return
-                end
-
-                -- Track frames alive for collision grace period
-                self.framesAlive = self.framesAlive + 1
-
-                -- Move
-                self.x = self.x + self.dx * self.speed
-                self.y = self.y + self.dy * self.speed
-                self:moveTo(self.x, self.y)
-
-                -- Check distance traveled (use squared distance for performance)
-                local tdx = self.x - self.spawnX
-                local tdy = self.y - self.spawnY
-                local travelDistSq = tdx * tdx + tdy * tdy
-                if travelDistSq > self.maxTravelDistSq then
-                    self:deactivate("max_range")
-                    return
-                end
-
-                -- Off screen check
-                if not self:isOnScreen(20) then
-                    self:deactivate("offscreen")
-                end
-            end
+            -- Use shared update function (avoids closure creation per projectile)
+            proj.update = plasmaProjectileUpdate
         end
     end
 end
