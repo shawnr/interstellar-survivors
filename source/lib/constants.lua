@@ -3,8 +3,8 @@
 
 Constants = {
     -- Version info (keep in sync with pdxinfo)
-    VERSION = "0.1.191",
-    BUILD = 192,
+    VERSION = "0.1.192",
+    BUILD = 193,
 
     -- Screen dimensions
     SCREEN_WIDTH = 400,
@@ -44,7 +44,7 @@ Constants = {
 
     -- Wave spawn limits (for performance)
     MAX_ACTIVE_PROJECTILES = 50,
-    MAX_ACTIVE_MOBS = 24,  -- Reduced from 30 for performance (mobs are tougher to compensate)
+    MAX_ACTIVE_MOBS = 18,  -- Fewer but tougher mobs (better perf + less overwhelming)
 
     -- UI positions
     RP_BAR_Y = 0,

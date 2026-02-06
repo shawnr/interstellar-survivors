@@ -244,9 +244,13 @@ function Station:update()
     self:setRotation(self.currentRotation)
 
     -- Cache trig values for tool position updates (optimization - calculate once, use for all 8 tools)
-    local angle = Utils.degToRad(self.currentRotation)
-    self.cachedCos = math.cos(angle)
-    self.cachedSin = math.sin(angle)
+    -- Skip recalculation if rotation hasn't changed (e.g. crank not being turned)
+    if self.currentRotation ~= self._lastCachedRotation then
+        local angle = Utils.degToRad(self.currentRotation)
+        self.cachedCos = math.cos(angle)
+        self.cachedSin = math.sin(angle)
+        self._lastCachedRotation = self.currentRotation
+    end
 
     -- Update all attached tools
     for _, tool in ipairs(self.tools) do
@@ -523,39 +527,16 @@ function Station:drawShield()
     -- Draw shield arc (white so visible on dark background)
     gfx.setColor(gfx.kColorWhite)
 
-    -- Convert to radians
-    local startRad = math.rad(startAngle)
-    local endRad = math.rad(endAngle)
+    -- During cooldown, skip alternate frames for dither/recharging effect
+    local drawArc = self.shieldOpacity >= 1.0 or Projectile.frameCounter % 2 == 1
 
-    -- Draw arc as line segments with opacity-based dithering
-    -- More segments for smoother fade (24 segments)
-    local segments = 24
-    local angleStep = (endRad - startRad) / segments
+    if drawArc then
+        -- Line width: thicker when fully charged, thinner when fading in
+        local lineWidth = 1 + math.floor(self.shieldOpacity * 2)  -- 1 to 3
+        gfx.setLineWidth(lineWidth)
 
-    -- Line width: thicker when fully charged, thinner when fading in
-    local lineWidth = 1 + math.floor(self.shieldOpacity * 2)  -- 1 to 3
-    gfx.setLineWidth(lineWidth)
-
-    -- Pre-calculate all arc points (25 points for 24 segments)
-    -- This reduces conditional trig calculations and allows point reuse
-    local points = {}
-    local stationX, stationY = self.x, self.y
-    for i = 0, segments do
-        local angle = startRad + i * angleStep
-        points[i] = {
-            x = stationX + math.cos(angle) * radius,
-            y = stationY + math.sin(angle) * radius
-        }
-    end
-
-    -- Draw segments with dithering
-    for i = 0, segments - 1 do
-        -- Dithering: use a pseudo-random pattern based on segment index
-        local dither = ((i * 7) % 8) / 8
-        if self.shieldOpacity > dither then
-            local p1, p2 = points[i], points[i + 1]
-            gfx.drawLine(p1.x, p1.y, p2.x, p2.y)
-        end
+        -- Use SDK drawArc instead of manual 24-segment calculation
+        gfx.drawArc(self.x, self.y, radius, startAngle, endAngle)
     end
 
     -- When in cooldown (opacity < 1), draw a small charging indicator at shield center

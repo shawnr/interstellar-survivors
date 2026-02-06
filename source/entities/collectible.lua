@@ -42,6 +42,9 @@ function Collectible:init(x, y, collectibleType, value)
     end
     self.collectRadius = baseCollectRadius * (1 + rangeBonus)
     self.pickupRadius = 45     -- Station auto-collects at this distance (near station edge)
+    -- Pre-compute squared radii (used every frame in update, values don't change)
+    self.collectRadiusSq = self.collectRadius * self.collectRadius
+    self.pickupRadiusSq = self.pickupRadius * self.pickupRadius
 
     -- Animation
     self.bobOffset = math.random() * math.pi * 2  -- Random start phase
@@ -102,8 +105,8 @@ function Collectible:update(dt)
     local dx = Constants.STATION_CENTER_X - self.x
     local dy = Constants.STATION_CENTER_Y - self.y
     local distSq = dx * dx + dy * dy
-    local collectRadiusSq = self.collectRadius * self.collectRadius
-    local pickupRadiusSq = self.pickupRadius * self.pickupRadius
+    local collectRadiusSq = self.collectRadiusSq
+    local pickupRadiusSq = self.pickupRadiusSq
 
     -- Check for pickup first (fast path)
     if distSq < pickupRadiusSq then
@@ -130,11 +133,12 @@ function Collectible:update(dt)
             end
         end
 
-        -- Passive drift only every other frame (doubled speed to compensate)
+        -- Passive drift only every other frame
+        -- Use approximate direction (no sqrt) — at typical distances (100-300px),
+        -- dx*0.001 closely approximates dx/dist * passiveDrift * 2
         if self.collectibleType == Collectible.TYPES.RP and distSq > 1 and frameNum % 2 == 0 then
-            local invDist = 1 / (distSq ^ 0.5)
-            self.x = self.x + dx * invDist * self.passiveDrift * 2
-            self.y = self.y + dy * invDist * self.passiveDrift * 2
+            self.x = self.x + dx * 0.001
+            self.y = self.y + dy * 0.001
         end
 
         -- Update draw position (no bob for distant collectibles)

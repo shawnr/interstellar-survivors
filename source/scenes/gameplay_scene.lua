@@ -100,6 +100,12 @@ function GameplayScene:init()
     self.equipmentStripImage = nil
     self.equipmentStripDirty = true
 
+    -- Pre-allocate health bar cache (avoids lazy alloc + nil checks during draw)
+    self._healthBarCache = {}
+    for i = 1, Constants.MAX_ACTIVE_MOBS do
+        self._healthBarCache[i] = {}
+    end
+
     -- Episode statistics tracking
     self.stats = {
         mobKills = {},      -- { mobType = count }
@@ -864,7 +870,7 @@ function GameplayScene:onWaveStart(waveNum)
 
     -- Base spawn rates per wave (slightly faster than before for more action)
     -- Earlier waves: slower spawns, later waves: faster spawns
-    local spawnRates = { 1.8, 1.5, 1.2, 1.0, 0.8, 0.6, 0.5 }
+    local spawnRates = { 1.8, 1.5, 1.2, 1.0, 0.9, 0.8, 0.7 }
     local baseInterval = spawnRates[waveNum] or 0.5
 
     -- Episode difficulty multiplier (lower = faster spawns = harder)
@@ -951,10 +957,10 @@ function GameplayScene:spawnMOB()
     local playerLevel = GameManager.playerLevel or 1
 
     -- Base chance to spawn extra mob: 0% ep1, 30% ep2, 45% ep3, 55% ep4, 65% ep5
-    local extraMobChance = (episodeId - 1) * 15
-    -- Add 5% per 2 player levels
-    extraMobChance = extraMobChance + math.floor(playerLevel / 2) * 5
-    extraMobChance = math.min(extraMobChance, 80)  -- Cap at 80%
+    local extraMobChance = (episodeId - 1) * 10
+    -- Add 5% per 3 player levels
+    extraMobChance = extraMobChance + math.floor(playerLevel / 3) * 5
+    extraMobChance = math.min(extraMobChance, 60)  -- Cap at 60%
 
     -- Determine spawn count (1-3 mobs)
     local spawnCount = 1
@@ -977,8 +983,8 @@ function GameplayScene:spawnMOB()
 
         -- Wave multipliers (scaling difficulty)
         local multipliers = {
-            health = 1.0 + (self.currentWave - 1) * 0.15,
-            damage = 1.0 + (self.currentWave - 1) * 0.1,
+            health = 1.0 + (self.currentWave - 1) * 0.2,
+            damage = 1.0 + (self.currentWave - 1) * 0.12,
             speed = 1.0
         }
 
@@ -1719,25 +1725,16 @@ function GameplayScene:drawOverlay()
 
     -- Reuse pre-allocated table for health bar data
     local healthBars = self._healthBarCache
-    if not healthBars then
-        healthBars = {}
-        self._healthBarCache = healthBars
-    end
 
     for i = 1, mobCount do
         local mob = mobs[i]
         if mob.showHealthBar and mob.active then
             barCount = barCount + 1
-            local barWidth = 20
             local barX = mob.x - 10  -- barWidth / 2
             local barY = mob.y - mob.cachedRadius - 6
             local fillWidth = (mob.health / mob.maxHealth) * 18  -- barWidth - 2
-            -- Store as flat values to avoid table creation
+            -- Store as flat values (table pre-allocated in init)
             local b = healthBars[barCount]
-            if not b then
-                b = {}
-                healthBars[barCount] = b
-            end
             b[1] = barX
             b[2] = barY
             b[3] = fillWidth
