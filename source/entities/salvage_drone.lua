@@ -35,15 +35,15 @@ function SalvageDrone:init()
     self:moveTo(self.x, self.y)
 
     -- Movement properties
-    self.speed = 4.0          -- Movement speed
+    self.speed = 6.0          -- Faster movement speed for quicker collection
     self.targetCollectible = nil
     self.orbitAngle = 0       -- For orbiting when no target
     self.orbitRadius = 60     -- Orbit slightly further out for visibility
     self.orbitSpeed = 3       -- Degrees per frame (faster for visibility)
 
     -- Collection properties
-    self.collectRadius = 12   -- Distance to collect (slightly larger)
-    self.searchRadius = 300   -- How far to look for collectibles (larger default)
+    self.collectRadius = 16   -- Larger collection radius
+    self.searchRadius = 400   -- Search the entire screen
 
     self.active = true
 end

@@ -71,14 +71,16 @@ function TeslaCoil:createProjectile(x, y, angle)
 end
 
 function TeslaCoil:findNearestEnemy(fromX, fromY, preferredAngle)
-    if not GameplayScene or not GameplayScene.mobs then
+    if not GameplayScene or not GameplayScene.getMobsNearPosition then
         return nil
     end
 
     local nearest = nil
     local nearestDistSq = 180 * 180  -- Max targeting range squared
 
-    for _, mob in ipairs(GameplayScene.mobs) do
+    -- Use spatial grid for efficient targeting (only checks nearby cells)
+    local nearbyMobs = GameplayScene:getMobsNearPosition(fromX, fromY)
+    for _, mob in ipairs(nearbyMobs) do
         if mob.active then
             local distSq = Utils.distanceSquared(fromX, fromY, mob.x, mob.y)
             if distSq < nearestDistSq then
@@ -126,12 +128,13 @@ function TeslaCoil:createChainProjectile(x, y, angle, target)
             if self.chainsRemaining > 0 then
                 self.chainsRemaining = self.chainsRemaining - 1
 
-                -- Find next nearest enemy (not already hit)
+                -- Find next nearest enemy (not already hit) using spatial grid
                 local nextTarget = nil
                 local nearestDistSq = self.chainRange * self.chainRange
 
-                if GameplayScene and GameplayScene.mobs then
-                    for _, mob in ipairs(GameplayScene.mobs) do
+                if GameplayScene and GameplayScene.getMobsNearPosition then
+                    local nearbyMobs = GameplayScene:getMobsNearPosition(hitTarget.x, hitTarget.y)
+                    for _, mob in ipairs(nearbyMobs) do
                         if mob.active and not self.hitTargets[mob] then
                             local distSq = Utils.distanceSquared(hitTarget.x, hitTarget.y, mob.x, mob.y)
                             if distSq < nearestDistSq then

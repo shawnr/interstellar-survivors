@@ -22,6 +22,7 @@ ProbabilityFluctuation.DATA = {
     height = 14,
     range = 1,
     emits = false,
+    skipRotation = true,  -- Performance: no rotation updates
 }
 
 function ProbabilityFluctuation:init(x, y, waveMultipliers)

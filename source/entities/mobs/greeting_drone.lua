@@ -22,6 +22,7 @@ GreetingDrone.DATA = {
     height = 12,
     range = 1,      -- Must touch to damage
     emits = false,  -- Ramming MOB
+    skipRotation = true,  -- Performance: no rotation updates
 }
 
 function GreetingDrone:init(x, y, waveMultipliers)

@@ -66,6 +66,7 @@ import "entities/mobs/probability_fluctuation"
 import "entities/mobs/paradox_node"
 -- Episode 4
 import "entities/mobs/debris_chunk"
+import "entities/mobs/trash_blob"
 import "entities/mobs/defense_turret"
 -- Episode 5
 import "entities/mobs/debate_drone"

@@ -91,11 +91,16 @@ function Tool:updatePosition(stationRotation)
     self.y = self.station.y + rotatedY
     self:moveTo(self.x, self.y)
 
-    -- Rotate tool sprite to face outward
+    -- Rotate tool sprite to face outward (only if angle changed significantly)
     -- Tool sprites are drawn facing RIGHT (0°), but game uses 0°=UP coordinate system
-    -- Offset by -90° to align sprite to face outward from station
     local toolAngle = stationRotation + self.slotData.angle - 90
-    self:setRotation(toolAngle)
+
+    -- Performance: only call expensive setRotation if angle changed by > 2 degrees
+    local angleDiff = math.abs((toolAngle - (self.lastToolAngle or 0) + 180) % 360 - 180)
+    if angleDiff > 2 or self.lastToolAngle == nil then
+        self:setRotation(toolAngle)
+        self.lastToolAngle = toolAngle
+    end
 end
 
 -- Update method called each frame

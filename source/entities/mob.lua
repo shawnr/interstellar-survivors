@@ -29,6 +29,7 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.rpValue = mobData.rpValue or 5
     self.range = mobData.range or 1
     self.emits = mobData.emits or false
+    self.skipRotation = mobData.skipRotation or false  -- Performance: skip setRotation calls
 
     -- Movement
     self.targetX = Constants.STATION_CENTER_X
@@ -156,9 +157,11 @@ function MOB:updateRammerMovement(dt)
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
 
-        -- Rotate to face movement direction
-        local angle = Utils.vectorToAngle(dx, dy)
-        self:setRotation(angle)
+        -- Rotate to face movement direction (skip if flagged for performance)
+        if not self.skipRotation then
+            local angle = Utils.vectorToAngle(dx, dy)
+            self:setRotation(angle)
+        end
     end
 end
 
@@ -289,24 +292,14 @@ end
 function MOB:spawnCollectibles()
     if not GameplayScene or not GameplayScene.collectiblePool then return end
 
-    -- Spawn RP orbs based on rpValue
-    -- Split into multiple smaller orbs for better feel
-    local orbCount = math.max(1, math.floor(self.rpValue / 5))
-    local valuePerOrb = self.rpValue / orbCount
-
-    for i = 1, orbCount do
-        -- Slight random offset for each orb
-        local offsetX = (math.random() - 0.5) * 16
-        local offsetY = (math.random() - 0.5) * 16
-
-        -- Use collectible pool instead of creating new instances
-        GameplayScene.collectiblePool:get(
-            self.x + offsetX,
-            self.y + offsetY,
-            Collectible.TYPES.RP,
-            valuePerOrb
-        )
-    end
+    -- Spawn single RP orb with full value (optimized for performance)
+    -- Station auto-collects orbs within pickup radius
+    GameplayScene.collectiblePool:get(
+        self.x,
+        self.y,
+        Collectible.TYPES.RP,
+        self.rpValue
+    )
 
     -- Small chance to drop health
     if math.random(100) <= 5 then  -- 5% chance

@@ -20,6 +20,7 @@ DebrisChunk.DATA = {
     height = 14,
     range = 1,
     emits = false,
+    skipRotation = true,  -- Performance: no rotation updates
 }
 
 -- Image variants for visual variety
@@ -37,21 +38,13 @@ function DebrisChunk:init(x, y, waveMultipliers, variant)
 
     DebrisChunk.super.init(self, x, y, data, waveMultipliers)
     self.variant = variant
-
-    -- Add some tumbling rotation
-    self.tumbleSpeed = (math.random() - 0.5) * 4
+    -- No rotation animation for performance
 end
 
 function DebrisChunk:update(dt)
     DebrisChunk.super.update(self, dt)
 
-    dt = dt or (1/30)
-
-    -- Tumble rotation for visual effect (normalize to prevent unbounded growth)
-    local currentRot = self:getRotation()
-    self:setRotation((currentRot + self.tumbleSpeed) % 360)
-
-    -- Check for station collision
+    -- Check for station collision (no rotation for performance)
     if self:hasReachedStation() then
         self:onHitStation()
     end

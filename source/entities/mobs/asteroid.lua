@@ -21,6 +21,7 @@ Asteroid.DATA = {
     height = 16,
     range = 1,      -- Must touch to damage
     emits = false,  -- Ramming, not shooting
+    skipRotation = true,  -- Performance: no rotation updates
 
     -- Levels (asteroids have 3 size levels)
     levels = 3,

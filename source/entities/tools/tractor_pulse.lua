@@ -25,7 +25,7 @@ TractorPulse.DATA = {
 function TractorPulse:init()
     TractorPulse.super.init(self, TractorPulse.DATA)
     self.rangeBonus = 0
-    self.pullRange = 80
+    self.pullRange = 120  -- Increased for better collection coverage
 end
 
 function TractorPulse:fire()
@@ -59,7 +59,7 @@ function TractorPulse:pullCollectibles(firingAngle)
     local range = self.pullRange * (1 + self.rangeBonus)
     local rangeSq = range * range
     local minDistSq = 15 * 15  -- Minimum distance squared
-    local pullStrength = self.upgraded and 8 or 5
+    local pullStrength = self.upgraded and 12 or 8  -- Faster pull for quicker collection
     local pulledAny = false
 
     -- Pull ALL collectibles within range (no cone restriction)
@@ -83,7 +83,7 @@ end
 function TractorPulse:upgrade(bonusItem)
     local success = TractorPulse.super.upgrade(self, bonusItem)
     if success then
-        self.pullRange = 120
+        self.pullRange = 180  -- Covers most of screen when upgraded
     end
     return success
 end

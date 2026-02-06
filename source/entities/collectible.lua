@@ -36,7 +36,7 @@ function Collectible:init(x, y, collectibleType, value)
         rangeBonus = ResearchSpecSystem:getCollectRangeBonus()
     end
     self.collectRadius = baseCollectRadius * (1 + rangeBonus)
-    self.pickupRadius = 20     -- Collected at this distance
+    self.pickupRadius = 45     -- Station auto-collects at this distance (near station edge)
 
     -- Animation
     self.bobOffset = math.random() * math.pi * 2  -- Random start phase
@@ -194,7 +194,8 @@ function Collectible:pullToward(targetX, targetY, strength)
 end
 
 -- Reset collectible for reuse (object pooling)
-function Collectible:reset(x, y, collectibleType, value)
+-- rangeBonus: optional cached bonus from pool (avoids per-collectible lookup)
+function Collectible:reset(x, y, collectibleType, value, rangeBonus)
     -- Properties
     self.collectibleType = collectibleType or Collectible.TYPES.RP
     self.value = value or 1
@@ -209,14 +210,11 @@ function Collectible:reset(x, y, collectibleType, value)
     self.maxSpeed = 4
     self.passiveDrift = 0.08
 
-    -- Apply collect range bonus from research specs
+    -- Apply collect range bonus (use cached bonus if provided)
     local baseCollectRadius = 50
-    local rangeBonus = 0
-    if ResearchSpecSystem then
-        rangeBonus = ResearchSpecSystem:getCollectRangeBonus()
-    end
+    rangeBonus = rangeBonus or 0
     self.collectRadius = baseCollectRadius * (1 + rangeBonus)
-    self.pickupRadius = 20
+    self.pickupRadius = 30  -- Increased for station auto-collect
 
     -- Animation
     self.bobOffset = math.random() * math.pi * 2
@@ -254,6 +252,10 @@ function CollectiblePool:init(initialSize)
     self.pool = {}      -- Inactive collectibles
     self.active = {}    -- Active collectibles
 
+    -- Cached range bonus (updated once per frame for performance)
+    self.cachedRangeBonus = 0
+    self.rangeBonusCacheTime = 0
+
     -- Pre-allocate collectibles
     initialSize = initialSize or 100
     for i = 1, initialSize do
@@ -283,8 +285,8 @@ function CollectiblePool:get(x, y, collectibleType, value)
         Utils.debugPrint("CollectiblePool: Created new collectible (pool exhausted)")
     end
 
-    -- Reset and configure
-    c:reset(x, y, collectibleType, value)
+    -- Reset and configure (pass cached range bonus)
+    c:reset(x, y, collectibleType, value, self.cachedRangeBonus)
 
     -- Add to active list
     table.insert(self.active, c)
@@ -292,8 +294,69 @@ function CollectiblePool:get(x, y, collectibleType, value)
     return c
 end
 
+-- Update cached range bonus (call once per frame)
+function CollectiblePool:updateRangeBonusCache()
+    if ResearchSpecSystem then
+        self.cachedRangeBonus = ResearchSpecSystem:getCollectRangeBonus()
+    else
+        self.cachedRangeBonus = 0
+    end
+end
+
+-- Get the cached range bonus
+function CollectiblePool:getRangeBonus()
+    return self.cachedRangeBonus
+end
+
+-- Merge nearby RP orbs to reduce collectible count
+-- Only checks a limited number of orbs per frame for performance
+function CollectiblePool:mergeNearbyOrbs()
+    local active = self.active
+    local n = #active
+    if n < 2 then return end
+
+    local mergeDistSq = 20 * 20  -- Orbs within 20px merge
+    local maxChecks = math.min(10, n)  -- Check up to 10 orbs per frame
+    local startIdx = (self.mergeCheckOffset or 0) + 1
+
+    for checkNum = 1, maxChecks do
+        local i = ((startIdx + checkNum - 2) % n) + 1
+        local orb1 = active[i]
+
+        -- Only process active RP orbs
+        if orb1 and orb1.active and orb1.collectibleType == Collectible.TYPES.RP then
+            -- Check nearby orbs (only look at a few neighbors)
+            for j = i + 1, math.min(i + 5, n) do
+                local orb2 = active[j]
+                if orb2 and orb2.active and orb2.collectibleType == Collectible.TYPES.RP then
+                    local dx = orb2.x - orb1.x
+                    local dy = orb2.y - orb1.y
+                    local distSq = dx * dx + dy * dy
+
+                    if distSq < mergeDistSq then
+                        -- Merge: add orb2's value to orb1, deactivate orb2
+                        orb1.value = orb1.value + orb2.value
+                        orb2.active = false
+                        orb2:setVisible(false)
+                        orb2:remove()
+                    end
+                end
+            end
+        end
+    end
+
+    -- Rotate starting point for next frame
+    self.mergeCheckOffset = (startIdx + maxChecks - 1) % n
+end
+
 -- Update all active collectibles (swap-and-pop for O(1) removal)
 function CollectiblePool:update(dt)
+    -- Update range bonus cache once per frame
+    self:updateRangeBonusCache()
+
+    -- Merge nearby RP orbs (reduces collectible count over time)
+    self:mergeNearbyOrbs()
+
     local active = self.active
     local pool = self.pool
     local n = #active

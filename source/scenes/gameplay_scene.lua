@@ -96,6 +96,7 @@ function GameplayScene:init()
     self.gridCols = math.ceil(Constants.SCREEN_WIDTH / 50)   -- 8 columns
     self.gridRows = math.ceil(Constants.SCREEN_HEIGHT / 50)  -- 5 rows
     self.mobGrid = {}  -- Will be populated each frame: mobGrid[cellIndex] = {mob1, mob2, ...}
+    self.nearbyMobsCache = {}  -- Reusable table for getMobsNearPosition (avoids allocation per call)
 end
 
 -- Track a mob kill
@@ -536,8 +537,8 @@ function GameplayScene:enter(params)
     end
 
     -- Set initial spawn interval based on episode difficulty
-    -- Episode 1: 1.8s, Episodes 2+: much faster (0.9s, 0.8s, 0.7s, 0.6s)
-    local episodeSpawnIntervals = { 1.8, 0.9, 0.8, 0.7, 0.6 }
+    -- Episode 1: 1.8s, Episodes 2-3: faster, Episode 4: slower (TrashBlobs = fewer entities)
+    local episodeSpawnIntervals = { 1.8, 0.9, 0.8, 1.0, 0.6 }
     local episodeId = GameManager.currentEpisodeId or 1
     self.spawnInterval = episodeSpawnIntervals[episodeId] or 1.5
 
@@ -790,9 +791,9 @@ function GameplayScene:onWaveStart(waveNum)
     local baseInterval = spawnRates[waveNum] or 0.5
 
     -- Episode difficulty multiplier (lower = faster spawns = harder)
-    -- Episode 1: baseline, Episodes 2+: progressively harder
+    -- Episode 1: baseline, Episodes 2-3: faster, Episode 4: slower (TrashBlobs = fewer entities)
     local episodeId = GameManager.currentEpisodeId or 1
-    local episodeMultipliers = { 1.0, 0.5, 0.45, 0.4, 0.35 }  -- Ep2+ spawn 2x+ faster
+    local episodeMultipliers = { 1.0, 0.5, 0.45, 0.65, 0.35 }  -- Ep4 slower due to TrashBlobs
     local episodeMult = episodeMultipliers[episodeId] or 0.35
 
     -- Player level scaling (higher level = more mobs)
@@ -842,9 +843,9 @@ function GameplayScene:getWaveMOBTypes(waveNum)
         end
     elseif episodeId == 4 then
         if waveNum <= 2 then
-            return "Debris Chunks"
+            return "Trash Blobs"
         elseif waveNum <= 4 then
-            return "Debris, Defense Turrets"
+            return "Trash Blobs, Defense Turrets"
         else
             return "Ancient war zone!"
         end
@@ -1041,33 +1042,36 @@ function GameplayScene:chooseEpisode3MOB(x, y, multipliers, roll)
     end
 end
 
--- Episode 4: Debris field - Debris Chunks and Defense Turrets
+-- Episode 4: Debris field - Trash Blobs and Defense Turrets
+-- Uses TrashBlob (larger, consolidated) instead of many small DebrisChunks for performance
 function GameplayScene:chooseEpisode4MOB(x, y, multipliers, roll)
-    -- Episode 4 is salvage themed
-    multipliers.health = multipliers.health * 1.35
-    multipliers.damage = multipliers.damage * 1.2
+    -- Episode 4 is salvage themed - slightly reduced multipliers since TrashBlob is stronger
+    multipliers.health = multipliers.health * 1.2
+    multipliers.damage = multipliers.damage * 1.1
 
     if self.currentWave <= 2 then
-        -- Early waves: Mostly Debris Chunks
-        if roll <= 80 then
-            return DebrisChunk(x, y, multipliers)
+        -- Early waves: Mostly Trash Blobs with some small debris
+        if roll <= 70 then
+            return TrashBlob(x, y, multipliers)
+        elseif roll <= 90 then
+            return DebrisChunk(x, y, multipliers)  -- Some small debris for variety
         else
             return Asteroid(x, y, multipliers, 1)
         end
     elseif self.currentWave <= 4 then
-        -- Mid waves: Mix of Debris and Defense Turrets
-        if roll <= 50 then
-            return DebrisChunk(x, y, multipliers)
-        elseif roll <= 85 then
+        -- Mid waves: Mix of Trash Blobs and Defense Turrets
+        if roll <= 45 then
+            return TrashBlob(x, y, multipliers)
+        elseif roll <= 80 then
             return DefenseTurret(x, y, multipliers)
         else
             return Asteroid(x, y, multipliers, math.random(1, 2))
         end
     else
-        -- Late waves: Heavy Turret presence
-        if roll <= 35 then
-            return DebrisChunk(x, y, multipliers)
-        elseif roll <= 80 then
+        -- Late waves: Heavy Turret presence with Trash Blobs
+        if roll <= 30 then
+            return TrashBlob(x, y, multipliers)
+        elseif roll <= 75 then
             return DefenseTurret(x, y, multipliers)
         else
             return Asteroid(x, y, multipliers, math.random(2, 3))
@@ -1145,7 +1149,7 @@ function GameplayScene:buildMobGrid()
 end
 
 -- Get mobs in cells near a position (for collision checking)
--- Returns iterator over nearby mobs to avoid table allocation
+-- Reuses a cached table to avoid allocation per call
 function GameplayScene:getMobsNearPosition(x, y)
     local cellSize = self.gridCellSize
     local cols = self.gridCols
@@ -1156,8 +1160,8 @@ function GameplayScene:getMobsNearPosition(x, y)
     local cellX = math.floor(x / cellSize)
     local cellY = math.floor(y / cellSize)
 
-    -- Collect mobs from 3x3 neighborhood of cells
-    local nearbyMobs = {}
+    -- Reuse cached table (clear it first)
+    local nearbyMobs = self.nearbyMobsCache
     local count = 0
 
     for dy = -1, 1 do
@@ -1177,6 +1181,11 @@ function GameplayScene:getMobsNearPosition(x, y)
                 end
             end
         end
+    end
+
+    -- Clear any stale entries beyond current count
+    for i = count + 1, #nearbyMobs do
+        nearbyMobs[i] = nil
     end
 
     return nearbyMobs

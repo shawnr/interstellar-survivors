@@ -20,6 +20,7 @@ ParadoxNode.DATA = {
     height = 20,
     range = 1,
     emits = false,
+    skipRotation = true,  -- Performance: no rotation updates
 }
 
 function ParadoxNode:init(x, y, waveMultipliers)

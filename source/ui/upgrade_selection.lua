@@ -20,6 +20,7 @@ function UpgradeSelection:show(tools, bonusItems, callback)
     self.isVisible = true
     self.selectedIndex = 1
     self.scrollOffset = 0
+    self.crankAccum = 0  -- Reset crank accumulator
     self.onSelect = callback
     self.options = {}
 
@@ -67,15 +68,39 @@ end
 function UpgradeSelection:update()
     if not self.isVisible then return end
 
+    -- Initialize crank accumulator if not exists
+    self.crankAccum = self.crankAccum or 0
+
     -- up/right = up, down/left = down
     if InputManager.buttonJustPressed.up or InputManager.buttonJustPressed.right then
         self.selectedIndex = self.selectedIndex - 1
         if self.selectedIndex < 1 then self.selectedIndex = #self.options end
+        AudioManager:playSFX("menu_move", 0.5)
     elseif InputManager.buttonJustPressed.down or InputManager.buttonJustPressed.left then
         self.selectedIndex = self.selectedIndex + 1
         if self.selectedIndex > #self.options then self.selectedIndex = 1 end
+        AudioManager:playSFX("menu_move", 0.5)
     elseif InputManager.buttonJustPressed.a then
         self:confirmSelection()
+    end
+
+    -- Crank scrolling (accumulate degrees, move on threshold)
+    local crankChange = playdate.getCrankChange()
+    if crankChange ~= 0 then
+        self.crankAccum = self.crankAccum + crankChange
+        local threshold = 30  -- Degrees per selection change
+
+        if self.crankAccum >= threshold then
+            self.selectedIndex = self.selectedIndex + 1
+            if self.selectedIndex > #self.options then self.selectedIndex = 1 end
+            self.crankAccum = 0
+            AudioManager:playSFX("menu_move", 0.5)
+        elseif self.crankAccum <= -threshold then
+            self.selectedIndex = self.selectedIndex - 1
+            if self.selectedIndex < 1 then self.selectedIndex = #self.options end
+            self.crankAccum = 0
+            AudioManager:playSFX("menu_move", 0.5)
+        end
     end
 end
 

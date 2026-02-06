@@ -20,6 +20,7 @@ EfficiencyMonitor.DATA = {
     height = 18,
     range = 1,
     emits = false,
+    skipRotation = true,  -- Performance: no rotation updates
 }
 
 function EfficiencyMonitor:init(x, y, waveMultipliers)

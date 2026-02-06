@@ -45,9 +45,10 @@ function DefenseTurret:update(dt)
     -- Update firing
     self.fireCooldown = self.fireCooldown - dt
     if self.fireCooldown <= 0 then
-        -- Only fire if in range
-        local dist = Utils.distance(self.x, self.y, self.targetX, self.targetY)
-        if dist <= self.range + 20 then
+        -- Only fire if in range (use squared distance for performance)
+        local distSq = Utils.distanceSquared(self.x, self.y, self.targetX, self.targetY)
+        local rangeSq = (self.range + 20) * (self.range + 20)
+        if distSq <= rangeSq then
             self:fire()
             self.fireCooldown = self.fireInterval
         end
