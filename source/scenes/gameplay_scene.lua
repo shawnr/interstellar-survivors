@@ -530,8 +530,8 @@ function GameplayScene:enter(params)
     -- Clear any existing sprites
     gfx.sprite.removeAll()
 
-    -- Force full screen redraw every frame (needed because projectiles/collectibles
-    -- are drawn manually in drawOverlay, not by the sprite system)
+    -- Force full screen redraw every frame (all game entities drawn manually in drawOverlay;
+    -- sprite system only handles background sprite)
     gfx.sprite.setAlwaysRedraw(true)
 
     -- Reset state
@@ -1555,22 +1555,9 @@ function GameplayScene:drawPulseEffects()
 
         gfx.setLineWidth(lineWidth)
 
-        -- Draw dashed circle pattern for visual interest
-        if effect.effectType == "tractor" then
-            -- Tractor: dashed white ring
-            gfx.setColor(gfx.kColorWhite)
-            local dashCount = 16
-            local dashAngle = 360 / dashCount
-            for i = 0, dashCount - 1, 2 do
-                local startAngle = i * dashAngle
-                local endAngle = startAngle + dashAngle
-                gfx.drawArc(effect.x, effect.y, currentRadius, startAngle, endAngle)
-            end
-        else
-            -- Default: solid white ring
-            gfx.setColor(gfx.kColorWhite)
-            gfx.drawCircleAtPoint(effect.x, effect.y, currentRadius)
-        end
+        -- Draw expanding ring (single draw call for performance)
+        gfx.setColor(gfx.kColorWhite)
+        gfx.drawCircleAtPoint(effect.x, effect.y, currentRadius)
 
         gfx.setLineWidth(1)
     end
@@ -1662,19 +1649,45 @@ function GameplayScene:drawBackground()
     -- The sprite system will draw it automatically
 end
 
--- Draw overlay (HUD elements - called after sprite.update)
+-- Draw overlay (called after sprite.update)
+-- All game entities are drawn manually for performance (sprite.update only handles background)
+-- Draw order: collectibles → mobs → station → tools → projectiles → effects → HUD
 function GameplayScene:drawOverlay()
-    -- Draw manually-tracked entities (removed from sprite system for performance)
-    -- This reduces gfx.sprite.update() from ~200 sprites to ~30 (mobs + station + tools)
-    -- Draw order: collectibles (lowest Z), enemy projectiles, player projectiles
-
-    -- Draw collectibles
+    -- Draw collectibles (lowest layer - RP orbs on the ground)
     local collectibles = self.collectiblePool.active
     local cCount = #collectibles
     for i = 1, cCount do
         local c = collectibles[i]
         if c.active and c.drawVisible and c.drawImage then
             c.drawImage:draw(c.drawX - 4, c.drawY - 4)
+        end
+    end
+
+    -- Draw MOBs (Z:50 equivalent)
+    local mobs = self.mobs
+    local mobCount = #mobs
+    for i = 1, mobCount do
+        local mob = mobs[i]
+        if mob.active and mob.drawImage then
+            mob.drawImage:drawRotated(mob.x, mob.y, mob.drawRotation or 0)
+        end
+    end
+
+    -- Draw Station (Z:100 equivalent)
+    local station = self.station
+    if station and station.drawImage then
+        station.drawImage:drawRotated(station.x, station.y, station.drawRotation or 0)
+    end
+
+    -- Draw Tools (Z:150 equivalent)
+    if station then
+        local tools = station.tools
+        local toolCount = #tools
+        for i = 1, toolCount do
+            local tool = tools[i]
+            if tool.drawImage then
+                tool.drawImage:drawRotated(tool.x, tool.y, tool.drawRotation or 0)
+            end
         end
     end
 

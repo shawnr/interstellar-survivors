@@ -21,6 +21,25 @@ local TRIG_SCALE <const> = TRIG_ENTRIES / TWO_PI
 
 class('MOB').extends(Entity)
 
+-- Override sprite methods for manual drawing (NOT in sprite system)
+-- This eliminates sprite.update() processing overhead for all mobs (~24 sprites)
+-- MOBs are drawn manually in GameplayScene:drawOverlay() instead
+function MOB:setImage(image)
+    self.drawImage = image
+end
+
+function MOB:getImage()
+    return self.drawImage
+end
+
+function MOB:setRotation(angle)
+    self.drawRotation = angle
+end
+
+function MOB:moveTo(x, y)
+    -- No-op: position tracked via self.x, self.y directly
+end
+
 function MOB:init(x, y, mobData, waveMultipliers)
     MOB.super.init(self, x, y, mobData.imagePath)
 
@@ -60,12 +79,11 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.evadeTimer = 0
     self.evadeDirection = 0
 
-    -- Pixel position tracking for moveTo threshold (performance: skip if position unchanged)
-    self.lastPixelX = math_floor(x)
-    self.lastPixelY = math_floor(y)
-
-    -- Frame guard: prevents double-update from sprite system (set to -1 so first update runs)
+    -- Frame guard (set to -1 so first update runs)
     self._lastFrame = -1
+
+    -- Manual drawing state (since MOBs are not in sprite system)
+    self.drawRotation = 0
 
     -- Health bar display
     self.showHealthBar = false
@@ -100,11 +118,9 @@ function MOB:init(x, y, mobData, waveMultipliers)
     local collisionH = mobData.height or 16
     self.cachedRadius = math.max(collisionW, collisionH) / 2
 
-    -- Now position properly
-    self:moveTo(x, y)
-
-    -- Add to sprite system
-    self:add()
+    -- Store initial position (moveTo is a no-op since not in sprite system)
+    self.x = x
+    self.y = y
 end
 
 -- Load animation from image table
@@ -182,7 +198,6 @@ function MOB:updateRammerMovement(dt)
 
         self.x = self.x + moveX
         self.y = self.y + moveY
-        self:moveTo(self.x, self.y)
 
         -- Rotate to face movement direction (throttled for performance)
         if not self.skipRotation then
@@ -217,7 +232,6 @@ function MOB:updateShooterMovement(dt)
             local evadeTrigIdx = math_floor((self.evadeDirection % TWO_PI) * TRIG_SCALE) % TRIG_ENTRIES
             self.x = self.x + Utils.COS_TABLE[evadeTrigIdx] * evadeSpeed
             self.y = self.y + Utils.SIN_TABLE[evadeTrigIdx] * evadeSpeed
-            self:moveTo(self.x, self.y)
             -- Face the station while evading (inline vectorToAngle)
             local edx = self.targetX - self.x
             local edy = self.targetY - self.y
@@ -234,9 +248,6 @@ function MOB:updateShooterMovement(dt)
 
         self.x = self.x + moveX
         self.y = self.y + moveY
-        self:moveTo(self.x, self.y)
-        self.lastPixelX = math_floor(self.x)
-        self.lastPixelY = math_floor(self.y)
     else
         -- Active orbit behavior - circle around the station
         local orbitSpeed = self.speed * 0.04 * self.orbitDirection * speedScale
@@ -248,15 +259,6 @@ function MOB:updateShooterMovement(dt)
         local trigIdx = math_floor((self.orbitAngle % TWO_PI) * TRIG_SCALE) % TRIG_ENTRIES
         self.x = self.targetX + cosTable[trigIdx] * self.range
         self.y = self.targetY + sinTable[trigIdx] * self.range
-
-        -- Only call moveTo if pixel position actually changed (performance)
-        local pixelX = math_floor(self.x)
-        local pixelY = math_floor(self.y)
-        if pixelX ~= self.lastPixelX or pixelY ~= self.lastPixelY then
-            self:moveTo(self.x, self.y)
-            self.lastPixelX = pixelX
-            self.lastPixelY = pixelY
-        end
     end
 
     -- Face the station (throttle rotation updates for performance)

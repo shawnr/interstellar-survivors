@@ -43,7 +43,7 @@ function DefenseTurret:update(dt)
     local frame = Projectile.frameCounter
     if self._lastFrame == frame then return end
     self._lastFrame = frame
-    dt = (dt or (1/30)) * 2
+    dt = dt or (1/30)
     DefenseTurret.super.update(self, dt)
 
     -- Update firing

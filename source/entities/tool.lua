@@ -5,6 +5,20 @@ local gfx <const> = playdate.graphics
 
 class('Tool').extends(Entity)
 
+-- Override sprite methods for manual drawing (NOT in sprite system)
+-- Tools are drawn manually in GameplayScene:drawOverlay()
+function Tool:setImage(image)
+    self.drawImage = image
+end
+
+function Tool:setRotation(angle)
+    self.drawRotation = angle
+end
+
+function Tool:moveTo(x, y)
+    -- No-op: position tracked via self.x, self.y directly
+end
+
 function Tool:init(toolData)
     -- Store tool data
     self.data = toolData
@@ -70,8 +84,11 @@ function Tool:init(toolData)
     self.projectileSpeedBonus = 0
     self.rangeBonus = 0
 
-    -- Frame guard: prevents double-update from sprite system
+    -- Frame guard
     self._lastFrame = -1
+
+    -- Manual drawing state
+    self.drawRotation = 0
 
     -- Set center point for proper rotation
     self:setCenter(0.5, 0.5)
@@ -138,8 +155,7 @@ function Tool:update(dt)
         return
     end
 
-    -- Double dt: was called 2x/frame (explicit + sprite system), now 1x
-    dt = (dt or (1/30)) * 2
+    dt = dt or (1/30)
 
     -- Update fire cooldown
     self.fireCooldown = math.max(0, self.fireCooldown - dt)

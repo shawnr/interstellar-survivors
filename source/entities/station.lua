@@ -17,6 +17,24 @@ end
 
 class('Station').extends(Entity)
 
+-- Override sprite methods for manual drawing (NOT in sprite system)
+-- Station is drawn manually in GameplayScene:drawOverlay()
+function Station:setImage(image)
+    self.drawImage = image
+end
+
+function Station:getImage()
+    return self.drawImage
+end
+
+function Station:setRotation(angle)
+    self.drawRotation = angle
+end
+
+function Station:moveTo(x, y)
+    -- No-op: station position is fixed at self.x, self.y
+end
+
 function Station:init()
     -- Initialize base entity (without position yet)
     Station.super.init(self, 0, 0, "images/shared/station_base")
@@ -92,16 +110,12 @@ function Station:init()
     -- Set up collision (circular)
     self:setCollideRect(0, 0, 64, 64)
 
-    -- NOW position at screen center
+    -- Set position at screen center (moveTo is a no-op since not in sprite system)
     self.x = Constants.STATION_CENTER_X
     self.y = Constants.STATION_CENTER_Y
-    self:moveTo(self.x, self.y)
 
-    -- Set Z-index (station should be behind tools)
-    self:setZIndex(100)
-
-    -- Add to sprite system
-    self:add()
+    -- Manual drawing state
+    self.drawRotation = 0
 
     Utils.debugPrint("Station initialized at " .. self.x .. ", " .. self.y)
 end
@@ -294,9 +308,6 @@ function Station:attachTool(tool, slotIndex)
 
     -- Position tool initially
     tool:updatePosition(self.currentRotation)
-
-    -- Add tool to sprite system
-    tool:add()
 
     Utils.debugPrint("Tool attached to slot " .. slotIndex)
     return true
