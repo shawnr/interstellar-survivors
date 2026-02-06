@@ -1,5 +1,6 @@
 -- Collectible Entity
 -- Items dropped by MOBs that can be collected
+-- NOT in sprite system: drawn manually by GameplayScene for performance
 
 local gfx <const> = playdate.graphics
 local math_floor <const> = math.floor
@@ -51,20 +52,14 @@ function Collectible:init(x, y, collectibleType, value)
     self.lifetime = 15  -- seconds
     self.age = 0
 
-    -- Pixel position tracking (only call moveTo when pixel position changes)
-    self.lastPixelX = math_floor(x)
-    self.lastPixelY = math_floor(y)
+    -- Manual drawing data (not in sprite system for performance)
+    self.drawImage = nil
+    self.drawVisible = true
+    self.drawX = x
+    self.drawY = y
 
     -- Create visual based on type
     self:createVisual()
-
-    -- Set center and position
-    self:setCenter(0.5, 0.5)
-    self:moveTo(x, y)
-    self:setZIndex(75)  -- Above mobs, below projectiles
-
-    -- Add to sprite system
-    self:add()
 end
 
 function Collectible:createVisual()
@@ -90,14 +85,13 @@ function Collectible:createVisual()
     end
 
     gfx.popContext()
-    self:setImage(img)
+    self.drawImage = img
 end
 
 function Collectible:update(dt)
     if not self.active then return end
 
     -- Don't update if game is paused/leveling up
-    -- (needed because gfx.sprite.update() calls this even during pause)
     if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
         return
     end
@@ -132,11 +126,7 @@ function Collectible:update(dt)
 
             -- Fade out near end of lifetime (check during age update)
             if self.age > self.lifetime - 2 then
-                if math_floor(self.age * 10) % 2 == 0 then
-                    self:setVisible(true)
-                else
-                    self:setVisible(false)
-                end
+                self.drawVisible = math_floor(self.age * 10) % 2 == 0
             end
         end
 
@@ -145,16 +135,11 @@ function Collectible:update(dt)
             local invDist = 1 / (distSq ^ 0.5)
             self.x = self.x + dx * invDist * self.passiveDrift * 2
             self.y = self.y + dy * invDist * self.passiveDrift * 2
-
-            -- Only call moveTo if pixel position changed
-            local pixelX = math_floor(self.x)
-            local pixelY = math_floor(self.y)
-            if pixelX ~= self.lastPixelX or pixelY ~= self.lastPixelY then
-                self:moveTo(self.x, self.y)
-                self.lastPixelX = pixelX
-                self.lastPixelY = pixelY
-            end
         end
+
+        -- Update draw position (no bob for distant collectibles)
+        self.drawX = self.x
+        self.drawY = self.y
 
         return  -- Skip bobbing and detailed updates for distant collectibles
     end
@@ -178,25 +163,12 @@ function Collectible:update(dt)
 
     -- Bobbing animation
     local bob = math_sin(self.age * self.bobSpeed + self.bobOffset) * self.bobAmount
-    local finalX = self.x
-    local finalY = self.y + bob
-
-    -- Only call moveTo if pixel position changed
-    local pixelX = math_floor(finalX)
-    local pixelY = math_floor(finalY)
-    if pixelX ~= self.lastPixelX or pixelY ~= self.lastPixelY then
-        self:moveTo(finalX, finalY)
-        self.lastPixelX = pixelX
-        self.lastPixelY = pixelY
-    end
+    self.drawX = self.x
+    self.drawY = self.y + bob
 
     -- Fade out near end of lifetime
     if self.age > self.lifetime - 2 then
-        if math_floor(self.age * 10) % 2 == 0 then
-            self:setVisible(true)
-        else
-            self:setVisible(false)
-        end
+        self.drawVisible = math_floor(self.age * 10) % 2 == 0
     end
 end
 
@@ -204,6 +176,7 @@ function Collectible:collect(applyEffect)
     if not self.active then return end
 
     self.active = false
+    self.drawVisible = false
 
     if applyEffect then
         -- Play collect sound
@@ -227,10 +200,6 @@ function Collectible:collect(applyEffect)
             end
         end
     end
-
-    -- Ensure visibility is off and remove sprite
-    self:setVisible(false)
-    self:remove()
 end
 
 -- Pull toward a point (for magnet effect)
@@ -277,24 +246,19 @@ function Collectible:reset(x, y, collectibleType, value, rangeBonus)
     self.lifetime = 15
     self.age = 0
 
-    -- Pixel position tracking
-    self.lastPixelX = math_floor(x)
-    self.lastPixelY = math_floor(y)
+    -- Manual drawing
+    self.drawVisible = true
+    self.drawX = x
+    self.drawY = y
 
     -- Update visual
     self:createVisual()
-
-    -- Position and show
-    self:moveTo(x, y)
-    self:setVisible(true)
-    self:add()
 end
 
--- Deactivate for pooling
+-- Deactivate for pooling (no sprite system removal needed)
 function Collectible:deactivate()
     self.active = false
-    self:setVisible(false)
-    self:remove()
+    self.drawVisible = false
 end
 
 
@@ -317,8 +281,7 @@ function CollectiblePool:init(initialSize)
     for i = 1, initialSize do
         local c = Collectible(0, 0, Collectible.TYPES.RP, 1)
         c.active = false
-        c:setVisible(false)  -- Ensure hidden
-        c:remove()  -- Remove from sprite system initially
+        c.drawVisible = false
         table.insert(self.pool, c)
     end
 
@@ -336,8 +299,7 @@ function CollectiblePool:get(x, y, collectibleType, value)
         -- Create new if pool empty
         c = Collectible(0, 0, Collectible.TYPES.RP, 1)
         c.active = false
-        c:setVisible(false)
-        c:remove()
+        c.drawVisible = false
         Utils.debugPrint("CollectiblePool: Created new collectible (pool exhausted)")
     end
 
@@ -393,8 +355,7 @@ function CollectiblePool:mergeNearbyOrbs()
                         -- Merge: add orb2's value to orb1, deactivate orb2
                         orb1.value = orb1.value + orb2.value
                         orb2.active = false
-                        orb2:setVisible(false)
-                        orb2:remove()
+                        orb2.drawVisible = false
                     end
                 end
             end

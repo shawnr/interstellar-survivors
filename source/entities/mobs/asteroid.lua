@@ -55,6 +55,10 @@ end
 
 -- Override update for asteroid-specific behavior
 function Asteroid:update(dt)
+    local frame = Projectile.frameCounter
+    if self._lastFrame == frame then return end
+    self._lastFrame = frame
+    dt = (dt or (1/30)) * 2
     Asteroid.super.update(self, dt)
 
     -- Check for station collision

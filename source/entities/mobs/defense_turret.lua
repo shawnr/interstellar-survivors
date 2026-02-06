@@ -40,9 +40,11 @@ function DefenseTurret:init(x, y, waveMultipliers)
 end
 
 function DefenseTurret:update(dt)
+    local frame = Projectile.frameCounter
+    if self._lastFrame == frame then return end
+    self._lastFrame = frame
+    dt = (dt or (1/30)) * 2
     DefenseTurret.super.update(self, dt)
-
-    dt = dt or (1/30)
 
     -- Update firing
     self.fireCooldown = self.fireCooldown - dt

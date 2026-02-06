@@ -85,18 +85,9 @@ function SingularityCore:createOrbitalProjectile()
         proj.spawnY = y
 
         -- Override update for orbital behavior
+        -- Not in sprite system: pool handles updates, GameplayScene draws manually
         proj.update = function(self)
             if not self.active then return end
-
-            -- Prevent double updates in the same frame
-            if self.lastUpdateFrame == Projectile.frameCounter then
-                return
-            end
-            self.lastUpdateFrame = Projectile.frameCounter
-
-            if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
-                return
-            end
 
             -- Track frames alive for collision grace period
             self.framesAlive = self.framesAlive + 1
@@ -113,10 +104,9 @@ function SingularityCore:createOrbitalProjectile()
             local rad = math.rad(self.orbitalAngle)
             self.x = Constants.STATION_CENTER_X + math.cos(rad) * self.orbitalRadius
             self.y = Constants.STATION_CENTER_Y + math.sin(rad) * self.orbitalRadius
-            self:moveTo(self.x, self.y)
 
-            -- Update rotation for visual effect
-            self:setRotation(self.orbitalAngle)
+            -- Update draw rotation for manual rendering
+            self.drawRotation = self.orbitalAngle
 
             -- Damage tick timer (prevents instant multi-hit)
             if self.damageTickTimer > 0 then

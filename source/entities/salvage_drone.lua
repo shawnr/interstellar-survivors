@@ -159,10 +159,9 @@ function SalvageDrone:collectTarget()
             end
         end
 
-        -- Mark collectible as inactive and remove (consistent with Collectible:collect())
+        -- Mark collectible as inactive (consistent with Collectible:collect())
         collectible.active = false
-        collectible:setVisible(false)
-        collectible:remove()
+        collectible.drawVisible = false
     else
         -- For non-RP collectibles (health, etc.), use normal collection
         collectible:collect(true)

@@ -40,9 +40,11 @@ function CitationPlatform:init(x, y, waveMultipliers)
 end
 
 function CitationPlatform:update(dt)
+    local frame = Projectile.frameCounter
+    if self._lastFrame == frame then return end
+    self._lastFrame = frame
+    dt = (dt or (1/30)) * 2
     CitationPlatform.super.update(self, dt)
-
-    dt = dt or (1/30)
 
     -- Update firing
     self.fireCooldown = self.fireCooldown - dt

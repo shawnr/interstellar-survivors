@@ -100,6 +100,10 @@ function TrashBlob:generateCachedImages()
 end
 
 function TrashBlob:update(dt)
+    local frame = Projectile.frameCounter
+    if self._lastFrame == frame then return end
+    self._lastFrame = frame
+    dt = (dt or (1/30)) * 2
     TrashBlob.super.update(self, dt)
 
     -- Check for station collision (no rotation for performance)

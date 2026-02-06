@@ -64,6 +64,9 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.lastPixelX = math_floor(x)
     self.lastPixelY = math_floor(y)
 
+    -- Frame guard: prevents double-update from sprite system (set to -1 so first update runs)
+    self._lastFrame = -1
+
     -- Health bar display
     self.showHealthBar = false
     self.healthBarTimer = 0
@@ -126,6 +129,9 @@ function MOB:update(dt)
 
     dt = dt or (1/30)
 
+    -- Speed scale for frame-based movement (dt * 30 = 2.0 when dt is doubled by subclass)
+    self._speedScale = dt * 30
+
     -- Update health bar timer
     if self.showHealthBar then
         self.healthBarTimer = self.healthBarTimer - dt
@@ -168,19 +174,24 @@ function MOB:updateRammerMovement(dt)
     local distSq = dx * dx + dy * dy
 
     if distSq > 1 then
-        -- Normalize and apply speed (only sqrt when moving)
+        -- Normalize and apply speed (speedScale compensates for frame guard halving updates)
+        local speedScale = self._speedScale
         local invDist = 1 / math.sqrt(distSq)
-        local moveX = dx * invDist * self.speed
-        local moveY = dy * invDist * self.speed
+        local moveX = dx * invDist * self.speed * speedScale
+        local moveY = dy * invDist * self.speed * speedScale
 
         self.x = self.x + moveX
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
 
-        -- Rotate to face movement direction (skip if flagged for performance)
+        -- Rotate to face movement direction (throttled for performance)
         if not self.skipRotation then
-            -- Inline vectorToAngle (avoids Utils table lookup + function call)
-            self:setRotation(math_atan(dx, -dy) * RAD_TO_DEG)
+            local angle = math_atan(dx, -dy) * RAD_TO_DEG
+            local angleDiff = math_abs((angle - (self.lastFaceAngle or 0) + 180) % 360 - 180)
+            if angleDiff > 5 or self.lastFaceAngle == nil then
+                self:setRotation(angle)
+                self.lastFaceAngle = angle
+            end
         end
     end
 end
@@ -191,6 +202,7 @@ function MOB:updateShooterMovement(dt)
     local dy = self.targetY - self.y
     local distSq = dx * dx + dy * dy
     local rangeSq = self.range * self.range
+    local speedScale = self._speedScale
 
     -- Handle evasion - temporarily move away from damage source
     if self.evading then
@@ -201,7 +213,7 @@ function MOB:updateShooterMovement(dt)
             self.orbitAngle = math.atan(self.y - self.targetY, self.x - self.targetX)
         else
             -- Move away from damage source at double speed
-            local evadeSpeed = self.speed * 2
+            local evadeSpeed = self.speed * 2 * speedScale
             local evadeTrigIdx = math_floor((self.evadeDirection % TWO_PI) * TRIG_SCALE) % TRIG_ENTRIES
             self.x = self.x + Utils.COS_TABLE[evadeTrigIdx] * evadeSpeed
             self.y = self.y + Utils.SIN_TABLE[evadeTrigIdx] * evadeSpeed
@@ -217,8 +229,8 @@ function MOB:updateShooterMovement(dt)
     if distSq > rangeSq then
         -- Move closer (only sqrt when needed, use localized math)
         local invDist = 1 / (distSq ^ 0.5)  -- Slightly faster than math.sqrt
-        local moveX = dx * invDist * self.speed
-        local moveY = dy * invDist * self.speed
+        local moveX = dx * invDist * self.speed * speedScale
+        local moveY = dy * invDist * self.speed * speedScale
 
         self.x = self.x + moveX
         self.y = self.y + moveY
@@ -227,7 +239,7 @@ function MOB:updateShooterMovement(dt)
         self.lastPixelY = math_floor(self.y)
     else
         -- Active orbit behavior - circle around the station
-        local orbitSpeed = self.speed * 0.04 * self.orbitDirection
+        local orbitSpeed = self.speed * 0.04 * self.orbitDirection * speedScale
         self.orbitAngle = self.orbitAngle + orbitSpeed
 
         -- Fast trig lookup (64 entries, avoids expensive math.sin/cos)

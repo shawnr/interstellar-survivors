@@ -91,19 +91,9 @@ function ModifiedMappingDrone:createHomingProjectile(x, y, angle, target)
         proj.spawnY = y
 
         -- Override the update function for homing behavior
+        -- Not in sprite system: pool handles updates, GameplayScene draws manually
         proj.update = function(self)
             if not self.active then return end
-
-            -- Prevent double updates in the same frame
-            if self.lastUpdateFrame == Projectile.frameCounter then
-                return
-            end
-            self.lastUpdateFrame = Projectile.frameCounter
-
-            -- Don't update if game is paused
-            if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
-                return
-            end
 
             -- Track frames alive for collision grace period
             self.framesAlive = self.framesAlive + 1
@@ -141,8 +131,8 @@ function ModifiedMappingDrone:createHomingProjectile(x, y, angle, target)
                 -- Update direction vector
                 self.dx, self.dy = Utils.angleToVector(self.angle)
 
-                -- Update sprite rotation
-                self:setRotation(self.angle - 90)
+                -- Update draw rotation for manual rendering
+                self.drawRotation = self.angle - 90
             elseif self.isHoming then
                 -- Target lost - find new highest HP target
                 self.homingTarget = nil
@@ -160,10 +150,9 @@ function ModifiedMappingDrone:createHomingProjectile(x, y, angle, target)
             -- Move in current direction
             self.x = self.x + self.dx * self.speed
             self.y = self.y + self.dy * self.speed
-            self:moveTo(self.x, self.y)
 
-            -- Check if off screen (with larger margin for homing)
-            if not self:isOnScreen(50) then
+            -- Inline isOnScreen check (with larger margin for homing)
+            if self.x < -50 or self.x > 450 or self.y < -50 or self.y > 290 then
                 self:deactivate("offscreen")
             end
         end

@@ -70,6 +70,9 @@ function Tool:init(toolData)
     self.projectileSpeedBonus = 0
     self.rangeBonus = 0
 
+    -- Frame guard: prevents double-update from sprite system
+    self._lastFrame = -1
+
     -- Set center point for proper rotation
     self:setCenter(0.5, 0.5)
 
@@ -124,13 +127,19 @@ end
 function Tool:update(dt)
     if not self.station then return end
 
+    -- Prevent double-update from sprite system
+    -- (called by both explicit GameplayScene loop and gfx.sprite.update())
+    local frame = Projectile.frameCounter
+    if self._lastFrame == frame then return end
+    self._lastFrame = frame
+
     -- Don't fire if game is paused or leveling up
-    -- (gfx.sprite.update() still calls this even during pause)
     if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
         return
     end
 
-    dt = dt or (1/30)
+    -- Double dt: was called 2x/frame (explicit + sprite system), now 1x
+    dt = (dt or (1/30)) * 2
 
     -- Update fire cooldown
     self.fireCooldown = math.max(0, self.fireCooldown - dt)

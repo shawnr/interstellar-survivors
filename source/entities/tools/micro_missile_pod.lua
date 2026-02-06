@@ -11,19 +11,10 @@ local RAD_TO_DEG <const> = 180 / math.pi
 local DEG_TO_RAD <const> = math.pi / 180
 
 -- Shared update function for missile projectiles (avoids closure creation per missile)
--- Also uses spatial grid for homing instead of full mob list scan
+-- Not in sprite system: pool handles updates, GameplayScene draws manually
+-- Uses spatial grid for homing instead of full mob list scan
 local function missileProjectileUpdate(self)
     if not self.active then return end
-
-    -- Prevent double updates in the same frame
-    if self.lastUpdateFrame == Projectile.frameCounter then
-        return
-    end
-    self.lastUpdateFrame = Projectile.frameCounter
-
-    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
-        return
-    end
 
     self.framesAlive = self.framesAlive + 1
 
@@ -81,15 +72,16 @@ local function missileProjectileUpdate(self)
         local rad = self.angle * DEG_TO_RAD
         self.dx = math_sin(rad)
         self.dy = -math_cos(rad)
-        self:setRotation(self.angle - 90)
+        -- Update draw rotation for manual rendering
+        self.drawRotation = self.angle - 90
     end
 
     -- Move
     self.x = self.x + self.dx * self.speed
     self.y = self.y + self.dy * self.speed
-    self:moveTo(self.x, self.y)
 
-    if not self:isOnScreen(30) then
+    -- Inline isOnScreen check
+    if self.x < -30 or self.x > 430 or self.y < -30 or self.y > 270 then
         self:deactivate("offscreen")
     end
 end

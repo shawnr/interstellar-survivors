@@ -41,6 +41,10 @@ function DebateDrone:init(x, y, waveMultipliers, variant)
 end
 
 function DebateDrone:update(dt)
+    local frame = Projectile.frameCounter
+    if self._lastFrame == frame then return end
+    self._lastFrame = frame
+    dt = (dt or (1/30)) * 2
     DebateDrone.super.update(self, dt)
 
     -- Check for station collision

@@ -40,9 +40,11 @@ function SilkWeaver:init(x, y, waveMultipliers)
 end
 
 function SilkWeaver:update(dt)
+    local frame = Projectile.frameCounter
+    if self._lastFrame == frame then return end
+    self._lastFrame = frame
+    dt = (dt or (1/30)) * 2
     SilkWeaver.super.update(self, dt)
-
-    dt = dt or (1/30)
 
     -- Update firing
     self.fireCooldown = self.fireCooldown - dt

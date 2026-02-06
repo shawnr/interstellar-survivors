@@ -530,6 +530,10 @@ function GameplayScene:enter(params)
     -- Clear any existing sprites
     gfx.sprite.removeAll()
 
+    -- Force full screen redraw every frame (needed because projectiles/collectibles
+    -- are drawn manually in drawOverlay, not by the sprite system)
+    gfx.sprite.setAlwaysRedraw(true)
+
     -- Reset state
     self.isPaused = false
     self.isLevelingUp = false
@@ -1643,17 +1647,9 @@ function GameplayScene:drawLightningArcs()
     gfx.setLineWidth(2)
 
     for _, arc in ipairs(self.lightningArcs) do
-        -- Fade out over duration
-        local alpha = 1 - (arc.elapsed / arc.duration)
-
-        -- Draw each segment of the lightning
+        -- Draw each segment of the lightning (line width 2 already handles thickness)
         for _, seg in ipairs(arc.segments) do
             gfx.drawLine(seg.x1, seg.y1, seg.x2, seg.y2)
-        end
-
-        -- Draw a second pass with slight offset for thickness
-        for _, seg in ipairs(arc.segments) do
-            gfx.drawLine(seg.x1 + 1, seg.y1, seg.x2 + 1, seg.y2)
         end
     end
 
@@ -1668,6 +1664,40 @@ end
 
 -- Draw overlay (HUD elements - called after sprite.update)
 function GameplayScene:drawOverlay()
+    -- Draw manually-tracked entities (removed from sprite system for performance)
+    -- This reduces gfx.sprite.update() from ~200 sprites to ~30 (mobs + station + tools)
+    -- Draw order: collectibles (lowest Z), enemy projectiles, player projectiles
+
+    -- Draw collectibles
+    local collectibles = self.collectiblePool.active
+    local cCount = #collectibles
+    for i = 1, cCount do
+        local c = collectibles[i]
+        if c.active and c.drawVisible and c.drawImage then
+            c.drawImage:draw(c.drawX - 4, c.drawY - 4)
+        end
+    end
+
+    -- Draw enemy projectiles
+    local enemyProj = self.enemyProjectilePool.active
+    local epCount = #enemyProj
+    for i = 1, epCount do
+        local ep = enemyProj[i]
+        if ep.active and ep.drawImage then
+            ep.drawImage:drawRotated(ep.x, ep.y, ep.drawRotation)
+        end
+    end
+
+    -- Draw player projectiles
+    local playerProj = self.projectilePool.active
+    local ppCount = #playerProj
+    for i = 1, ppCount do
+        local pp = playerProj[i]
+        if pp.active and pp.drawImage then
+            pp.drawImage:drawRotated(pp.x, pp.y, pp.drawRotation)
+        end
+    end
+
     -- Batch MOB health bar drawing (reduces gfx.setColor toggling)
     -- Collect all visible health bars, then draw backgrounds, then fills
     local mobs = self.mobs
@@ -2112,6 +2142,9 @@ function GameplayScene:exit()
         self.collectiblePool:releaseAll()
     end
     gfx.sprite.removeAll()
+
+    -- Restore dirty-rect optimization for menu screens
+    gfx.sprite.setAlwaysRedraw(false)
 end
 
 return GameplayScene

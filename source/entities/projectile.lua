@@ -1,5 +1,6 @@
 -- Projectile Entity
 -- Fired by tools, damages MOBs
+-- NOT in sprite system: drawn manually by GameplayScene for performance
 
 local gfx <const> = playdate.graphics
 
@@ -23,21 +24,12 @@ function Projectile:init()
     self.dx = 0
     self.dy = 0
 
-    -- Track frame updates to prevent double-updating
-    -- (once by pool, once by sprite system)
-    self.lastUpdateFrame = -1
-
     -- Track frames since spawn for collision grace period
     self.framesAlive = 0
 
-    -- Set center point FIRST
-    self:setCenter(0.5, 0.5)
-
-    -- Set Z-index (projectiles above most things)
-    self:setZIndex(200)
-
-    -- Collision rect (small)
-    self:setCollideRect(0, 0, 8, 8)
+    -- Manual drawing data (not in sprite system for performance)
+    self.drawImage = nil
+    self.drawRotation = 0
 end
 
 -- Reset projectile for reuse (object pooling)
@@ -56,9 +48,6 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
     -- Track spawn position for minimum travel distance check
     self.spawnX = x
     self.spawnY = y
-
-    -- Reset frame tracking for recycled projectiles
-    self.lastUpdateFrame = -1
 
     -- Reset frames alive counter (for collision grace period)
     self.framesAlive = 0
@@ -82,23 +71,14 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
             end
             Utils.imageCache[cacheKey] = img
         end
-        if img then
-            self:setImage(img)
-        end
+        self.drawImage = img
     end
 
-    -- Position and rotate
-    self:moveTo(x, y)
-    -- Projectile sprites are drawn facing RIGHT, but game uses 0°=UP coordinate system
-    -- Use rotationOffset to align sprite with movement direction (default -90°)
-    self:setRotation(angle + rotationOffset)
-
-    -- Add to sprite system
-    self:add()
+    -- Store rotation for manual drawing
+    self.drawRotation = angle + rotationOffset
 end
 
--- Global frame counter to prevent double updates
--- (projectiles get updated by both projectilePool:update() AND gfx.sprite.update())
+-- Global frame counter (used by collectibles for throttling and tool-specific updates)
 Projectile.frameCounter = 0
 
 function Projectile.incrementFrameCounter()
@@ -108,28 +88,16 @@ end
 function Projectile:update()
     if not self.active then return end
 
-    -- Prevent double updates in the same frame
-    if self.lastUpdateFrame == Projectile.frameCounter then
-        return
-    end
-    self.lastUpdateFrame = Projectile.frameCounter
-
-    -- Don't update if game is paused/leveling up
-    -- (needed because gfx.sprite.update() calls this even during pause)
-    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
-        return
-    end
-
     -- Track frames alive for collision grace period
     self.framesAlive = self.framesAlive + 1
 
     -- Move in direction
     self.x = self.x + self.dx * self.speed
     self.y = self.y + self.dy * self.speed
-    self:moveTo(self.x, self.y)
 
-    -- Check if off screen
-    if not self:isOnScreen(20) then
+    -- Inline isOnScreen check (avoids method call + Utils table lookup)
+    local px, py = self.x, self.y
+    if px < -20 or px > 420 or py < -20 or py > 260 then
         self:deactivate("offscreen")
     end
 end
@@ -144,10 +112,9 @@ function Projectile:onHit(target)
     end
 end
 
--- Deactivate for pooling
+-- Deactivate for pooling (no sprite system removal needed)
 function Projectile:deactivate(reason)
     self.active = false
-    self:remove()
 end
 
 -- Get damage value
@@ -270,6 +237,7 @@ end
 
 -- ============================================
 -- Enemy Projectile (fired by MOBs at station)
+-- NOT in sprite system: drawn manually by GameplayScene
 -- ============================================
 
 class('EnemyProjectile').extends(Entity)
@@ -287,17 +255,9 @@ function EnemyProjectile:init()
     self.dx = 0
     self.dy = 0
 
-    -- Track frame updates to prevent double-updating
-    self.lastUpdateFrame = -1
-
-    -- Set center point
-    self:setCenter(0.5, 0.5)
-
-    -- Set Z-index (enemy projectiles below player projectiles)
-    self:setZIndex(150)
-
-    -- Collision rect
-    self:setCollideRect(0, 0, 8, 8)
+    -- Manual drawing data (not in sprite system for performance)
+    self.drawImage = nil
+    self.drawRotation = 0
 end
 
 function EnemyProjectile:reset(x, y, angle, speed, damage, imagePath, effect)
@@ -309,58 +269,35 @@ function EnemyProjectile:reset(x, y, angle, speed, damage, imagePath, effect)
     self.effect = effect
     self.active = true
 
-    -- Reset frame tracking for recycled projectiles
-    self.lastUpdateFrame = -1
-
     -- Calculate direction
     self.dx, self.dy = Utils.angleToVector(angle)
 
     -- Load image (cached for performance)
     if imagePath then
-        local img = Utils.getCachedImage(imagePath)
-        if img then
-            self:setImage(img)
-        end
+        self.drawImage = Utils.getCachedImage(imagePath)
     end
 
-    -- Position and rotate
-    self:moveTo(x, y)
-    self:setRotation(angle - 90)
-
-    -- Add to sprite system
-    self:add()
+    -- Store rotation for manual drawing
+    self.drawRotation = angle - 90
 end
 
 function EnemyProjectile:update()
     if not self.active then return end
 
-    -- Prevent double updates in the same frame
-    -- (uses same frame counter as player Projectile)
-    if self.lastUpdateFrame == Projectile.frameCounter then
-        return
-    end
-    self.lastUpdateFrame = Projectile.frameCounter
-
-    -- Don't update if game is paused
-    -- (needed because gfx.sprite.update() calls this even during pause)
-    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
-        return
-    end
-
     -- Move in direction
     self.x = self.x + self.dx * self.speed
     self.y = self.y + self.dy * self.speed
-    self:moveTo(self.x, self.y)
 
-    -- Check if off screen
-    if not self:isOnScreen(20) then
+    -- Inline isOnScreen check
+    local px, py = self.x, self.y
+    if px < -20 or px > 420 or py < -20 or py > 260 then
         self:deactivate()
     end
 end
 
+-- Deactivate for pooling (no sprite system removal needed)
 function EnemyProjectile:deactivate()
     self.active = false
-    self:remove()
 end
 
 function EnemyProjectile:getDamage()

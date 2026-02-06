@@ -2,26 +2,15 @@
 -- Fires multiple short-range plasma droplets in a cone pattern
 
 -- Shared update function for plasma projectiles (avoids closure creation per projectile)
--- Eliminates GC pressure from creating 4-5 anonymous functions per shot
+-- Not in sprite system: pool handles updates, GameplayScene draws manually
 local function plasmaProjectileUpdate(self)
     if not self.active then return end
-
-    -- Prevent double updates in the same frame
-    if self.lastUpdateFrame == Projectile.frameCounter then
-        return
-    end
-    self.lastUpdateFrame = Projectile.frameCounter
-
-    if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
-        return
-    end
 
     self.framesAlive = self.framesAlive + 1
 
     -- Move
     self.x = self.x + self.dx * self.speed
     self.y = self.y + self.dy * self.speed
-    self:moveTo(self.x, self.y)
 
     -- Check distance traveled (use squared distance for performance)
     local tdx = self.x - self.spawnX
@@ -32,8 +21,8 @@ local function plasmaProjectileUpdate(self)
         return
     end
 
-    -- Off screen check
-    if not self:isOnScreen(20) then
+    -- Inline isOnScreen check
+    if self.x < -20 or self.x > 420 or self.y < -20 or self.y > 260 then
         self:deactivate("offscreen")
     end
 end
