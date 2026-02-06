@@ -93,16 +93,18 @@ Utils._debugModeCache = nil
 Utils._debugModeCacheTime = 0
 
 function Utils.debugPrint(...)
+    -- Fast path: if cached as false, skip immediately (no time check)
+    if Utils._debugModeCache == false then return end
+
     -- Cache the debug mode check for 1 second to avoid repeated save manager calls
     local currentTime = playdate.getCurrentTimeMilliseconds()
     if Utils._debugModeCache == nil or (currentTime - Utils._debugModeCacheTime) > 1000 then
         Utils._debugModeCache = SaveManager and SaveManager:getSetting("debugMode", false)
         Utils._debugModeCacheTime = currentTime
+        if not Utils._debugModeCache then return end
     end
 
-    if Utils._debugModeCache then
-        print(...)
-    end
+    print(...)
 end
 
 -- Linear interpolation
@@ -149,9 +151,13 @@ function Utils.radToDeg(radians)
 end
 
 -- Get direction vector from angle (in degrees)
+local math_sin_local <const> = math.sin
+local math_cos_local <const> = math.cos
+local DEG_TO_RAD_LOCAL <const> = math.pi / 180
+
 function Utils.angleToVector(angleDegrees)
-    local rad = Utils.degToRad(angleDegrees)
-    return math.sin(rad), -math.cos(rad)
+    local rad = angleDegrees * DEG_TO_RAD_LOCAL
+    return math_sin_local(rad), -math_cos_local(rad)
 end
 
 -- Get angle from direction vector (returns degrees)

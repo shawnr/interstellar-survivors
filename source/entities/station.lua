@@ -21,6 +21,23 @@ class('Station').extends(Entity)
 -- Station is drawn manually in GameplayScene:drawOverlay()
 function Station:setImage(image)
     self.drawImage = image
+    -- Rebuild rotation cache for the new image (station changes image on damage)
+    local images = {}
+    local offsets = {}
+    local angleStep = 360 / Utils.ROTATION_STEPS
+    for step = 0, Utils.ROTATION_STEPS - 1 do
+        local rimg = image:rotatedImage(step * angleStep)
+        images[step] = rimg
+        local rw, rh = rimg:getSize()
+        offsets[step] = { math.floor(rw / 2), math.floor(rh / 2) }
+    end
+    self._rotatedImages = images
+    self._rotationOffsets = offsets
+    self._currentRotStep = -1  -- Force refresh on next setRotation
+    -- Set initial draw offsets from step 0 (before setRotation is called)
+    local off0 = offsets[0]
+    self._drawHalfW = off0[1]
+    self._drawHalfH = off0[2]
 end
 
 function Station:getImage()
@@ -28,6 +45,17 @@ function Station:getImage()
 end
 
 function Station:setRotation(angle)
+    -- Use pre-cached rotated images when available (avoids runtime drawRotated)
+    if self._rotatedImages then
+        local step = Utils.getRotationStep(angle)
+        if step ~= self._currentRotStep then
+            self._currentRotStep = step
+            self.drawImage = self._rotatedImages[step]
+            local off = self._rotationOffsets[step]
+            self._drawHalfW = off[1]
+            self._drawHalfH = off[2]
+        end
+    end
     self.drawRotation = angle
 end
 
@@ -253,8 +281,10 @@ function Station:update()
     end
 
     -- Update all attached tools
-    for _, tool in ipairs(self.tools) do
-        tool:updatePosition(self.currentRotation)
+    local tools = self.tools
+    local toolCount = #tools
+    for i = 1, toolCount do
+        tools[i]:updatePosition(self.currentRotation)
     end
 end
 
@@ -517,8 +547,9 @@ function Station:drawShield()
 
     local shieldCenter = (self.currentRotation + self.shieldAngleOffset) % 360
     local halfAngle = (self.shieldCoverage * 360) / 2
-    local startAngle = shieldCenter - halfAngle - 90  -- -90 for Playdate coordinate system
-    local endAngle = shieldCenter + halfAngle - 90
+    -- drawArc uses 0°=top (north), clockwise — matches game coordinate system directly
+    local startAngle = shieldCenter - halfAngle
+    local endAngle = shieldCenter + halfAngle
     local radius = Constants.STATION_RADIUS + 8
 
     -- Reset graphics state to ensure clean drawing
@@ -528,19 +559,19 @@ function Station:drawShield()
     gfx.setColor(gfx.kColorWhite)
 
     -- During cooldown, skip alternate frames for dither/recharging effect
-    local drawArc = self.shieldOpacity >= 1.0 or Projectile.frameCounter % 2 == 1
+    local shouldDrawArc = self.shieldOpacity >= 1.0 or Projectile.frameCounter % 2 == 1
 
-    if drawArc then
+    if shouldDrawArc then
         -- Line width: thicker when fully charged, thinner when fading in
         local lineWidth = 1 + math.floor(self.shieldOpacity * 2)  -- 1 to 3
         gfx.setLineWidth(lineWidth)
 
-        -- Use SDK drawArc instead of manual 24-segment calculation
         gfx.drawArc(self.x, self.y, radius, startAngle, endAngle)
     end
 
     -- When in cooldown (opacity < 1), draw a small charging indicator at shield center
     if self.shieldOpacity < 1.0 and self.shieldOpacity > 0.1 then
+        -- cos/sin use trig convention (0°=right), so still need -90 offset
         local centerRad = math.rad(shieldCenter - 90)
         local indicatorX = self.x + math.cos(centerRad) * (radius - 4)
         local indicatorY = self.y + math.sin(centerRad) * (radius - 4)

@@ -21,8 +21,11 @@ local TRIG_SCALE <const> = TRIG_ENTRIES / TWO_PI
 
 class('MOB').extends(Entity)
 
+-- Module-level cache for pre-rotated mob image center offsets (shared across instances by imagePath)
+local MOB_ROTATION_OFFSETS = {}
+
 -- Override sprite methods for manual drawing (NOT in sprite system)
--- This eliminates sprite.update() processing overhead for all mobs (~24 sprites)
+-- This eliminates sprite.update() processing overhead for all mobs (~18 sprites)
 -- MOBs are drawn manually in GameplayScene:drawOverlay() instead
 function MOB:setImage(image)
     self.drawImage = image
@@ -33,7 +36,19 @@ function MOB:getImage()
 end
 
 function MOB:setRotation(angle)
-    self.drawRotation = angle
+    -- Use pre-cached rotated images when available (avoids runtime drawRotated)
+    if self._hasRotationCache then
+        local step = Utils.getRotationStep(angle)
+        if step ~= self._currentRotStep then
+            self._currentRotStep = step
+            self.drawImage = self._rotatedImages[step]
+            local off = self._rotationOffsets[step]
+            self._drawHalfW = off[1]
+            self._drawHalfH = off[2]
+        end
+    else
+        self.drawRotation = angle
+    end
 end
 
 function MOB:moveTo(x, y)
@@ -121,6 +136,39 @@ function MOB:init(x, y, mobData, waveMultipliers)
     -- Store initial position (moveTo is a no-op since not in sprite system)
     self.x = x
     self.y = y
+
+    -- === Pre-cache for fast draw() instead of drawRotated() ===
+    -- All mobs get center offsets for draw(x-hw, y-hh) instead of drawRotated(x,y,angle)
+    local img = self.drawImage
+    if img then
+        local iw, ih = img:getSize()
+        self._drawHalfW = math_floor(iw / 2)
+        self._drawHalfH = math_floor(ih / 2)
+    else
+        self._drawHalfW = 10
+        self._drawHalfH = 10
+    end
+
+    -- Pre-cache rotated images for non-animated mobs (avoids runtime drawRotated)
+    if not self.animImageTable then
+        local path = mobData.imagePath
+        self._rotatedImages = Utils.getRotatedImages(path)
+        if self._rotatedImages then
+            self._hasRotationCache = true
+            -- Cache center offsets per rotation step (shared across same mob type)
+            if not MOB_ROTATION_OFFSETS[path] then
+                local offsets = {}
+                for step = 0, Utils.ROTATION_STEPS - 1 do
+                    local rimg = self._rotatedImages[step]
+                    local rw, rh = rimg:getSize()
+                    offsets[step] = { math_floor(rw / 2), math_floor(rh / 2) }
+                end
+                MOB_ROTATION_OFFSETS[path] = offsets
+            end
+            self._rotationOffsets = MOB_ROTATION_OFFSETS[path]
+            self._currentRotStep = -1
+        end
+    end
 end
 
 -- Load animation from image table

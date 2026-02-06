@@ -6,6 +6,31 @@ local gfx <const> = playdate.graphics
 
 -- Localize math functions for performance
 local math_min <const> = math.min
+local math_floor <const> = math.floor
+
+-- Module-level cache for pre-rotated projectile images (shared across instances by imagePath+inverted)
+local PROJ_ROTATION_CACHE = {}
+
+local function getProjectileRotationCache(baseImg, cacheKey)
+    if PROJ_ROTATION_CACHE[cacheKey] then
+        return PROJ_ROTATION_CACHE[cacheKey]
+    end
+
+    local images = {}
+    local offsets = {}
+    local angleStep = 360 / Utils.ROTATION_STEPS
+    for step = 0, Utils.ROTATION_STEPS - 1 do
+        local angle = step * angleStep
+        local rimg = baseImg:rotatedImage(angle)
+        images[step] = rimg
+        local rw, rh = rimg:getSize()
+        offsets[step] = { math_floor(rw / 2), math_floor(rh / 2) }
+    end
+
+    local cache = { images = images, offsets = offsets }
+    PROJ_ROTATION_CACHE[cacheKey] = cache
+    return cache
+end
 
 class('Projectile').extends(Entity)
 
@@ -30,6 +55,8 @@ function Projectile:init()
     -- Manual drawing data (not in sprite system for performance)
     self.drawImage = nil
     self.drawRotation = 0
+    self._drawHalfW = 4
+    self._drawHalfH = 4
 end
 
 -- Reset projectile for reuse (object pooling)
@@ -60,7 +87,7 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
     -- Calculate direction
     self.dx, self.dy = Utils.angleToVector(angle)
 
-    -- Load image (cached for performance)
+    -- Load image and pre-cache rotated version (avoids runtime drawRotated)
     if imagePath then
         local cacheKey = imagePath .. (inverted and "_inv" or "")
         local img = Utils.imageCache[cacheKey]
@@ -71,10 +98,22 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
             end
             Utils.imageCache[cacheKey] = img
         end
-        self.drawImage = img
+
+        -- Use pre-cached rotated image instead of runtime drawRotated()
+        local displayAngle = angle + rotationOffset
+        if img then
+            local rotCache = getProjectileRotationCache(img, cacheKey)
+            local step = Utils.getRotationStep(displayAngle)
+            self.drawImage = rotCache.images[step]
+            local off = rotCache.offsets[step]
+            self._drawHalfW = off[1]
+            self._drawHalfH = off[2]
+        else
+            self.drawImage = nil
+        end
     end
 
-    -- Store rotation for manual drawing
+    -- Store rotation (used by collision system, not drawing)
     self.drawRotation = angle + rotationOffset
 end
 
@@ -165,31 +204,38 @@ function ProjectilePool:get(x, y, angle, speed, damage, imagePath, piercing, opt
     -- Reset and configure
     proj:reset(x, y, angle, speed, damage, imagePath, piercing, options)
 
-    -- Add to active list (direct assignment faster than table.insert)
-    self.active[#self.active + 1] = proj
+    -- Add to active list with index tracking (O(1) release later)
+    local idx = #self.active + 1
+    self.active[idx] = proj
+    proj._poolIndex = idx
 
     return proj
 end
 
--- Return a projectile to the pool
+-- Return a projectile to the pool (O(1) swap-and-pop using tracked index)
 function ProjectilePool:release(proj)
     proj:deactivate()
 
-    -- Remove from active list
-    for i = #self.active, 1, -1 do
-        if self.active[i] == proj then
-            table.remove(self.active, i)
-            break
+    local active = self.active
+    local idx = proj._poolIndex
+    local n = #active
+
+    if idx and idx <= n and active[idx] == proj then
+        -- Swap with last element and pop
+        if idx < n then
+            local swapped = active[n]
+            active[idx] = swapped
+            swapped._poolIndex = idx
         end
+        active[n] = nil
     end
 
     -- Return to pool
-    table.insert(self.pool, proj)
+    self.pool[#self.pool + 1] = proj
 end
 
 -- Update all active projectiles (swap-and-pop for O(1) removal)
 function ProjectilePool:update()
-    -- Move pause check outside loop (optimization: avoid checking for each projectile)
     if GameplayScene and (GameplayScene.isPaused or GameplayScene.isLevelingUp) then
         return
     end
@@ -205,8 +251,12 @@ function ProjectilePool:update()
             proj:update()
             i = i + 1
         else
-            -- Swap-and-pop: O(1) removal instead of O(n) table.remove
-            active[i] = active[n]
+            -- Swap-and-pop: O(1) removal
+            if i < n then
+                local swapped = active[n]
+                active[i] = swapped
+                swapped._poolIndex = i
+            end
             active[n] = nil
             n = n - 1
             pool[#pool + 1] = proj
@@ -258,6 +308,8 @@ function EnemyProjectile:init()
     -- Manual drawing data (not in sprite system for performance)
     self.drawImage = nil
     self.drawRotation = 0
+    self._drawHalfW = 4
+    self._drawHalfH = 4
 end
 
 function EnemyProjectile:reset(x, y, angle, speed, damage, imagePath, effect)
@@ -272,12 +324,23 @@ function EnemyProjectile:reset(x, y, angle, speed, damage, imagePath, effect)
     -- Calculate direction
     self.dx, self.dy = Utils.angleToVector(angle)
 
-    -- Load image (cached for performance)
+    -- Load image and pre-cache rotated version (avoids runtime drawRotated)
     if imagePath then
-        self.drawImage = Utils.getCachedImage(imagePath)
+        local img = Utils.getCachedImage(imagePath)
+        local displayAngle = angle - 90
+        if img then
+            local rotCache = getProjectileRotationCache(img, imagePath)
+            local step = Utils.getRotationStep(displayAngle)
+            self.drawImage = rotCache.images[step]
+            local off = rotCache.offsets[step]
+            self._drawHalfW = off[1]
+            self._drawHalfH = off[2]
+        else
+            self.drawImage = nil
+        end
     end
 
-    -- Store rotation for manual drawing
+    -- Store rotation (used by collision system, not drawing)
     self.drawRotation = angle - 90
 end
 

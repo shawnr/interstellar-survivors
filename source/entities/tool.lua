@@ -9,6 +9,10 @@ class('Tool').extends(Entity)
 -- Tools are drawn manually in GameplayScene:drawOverlay()
 function Tool:setImage(image)
     self.drawImage = image
+    -- Cache center offsets for draw() instead of drawRotated()
+    local w, h = image:getSize()
+    self._drawHalfW = math.floor(w / 2)
+    self._drawHalfH = math.floor(h / 2)
 end
 
 function Tool:setRotation(angle)

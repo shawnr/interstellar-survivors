@@ -24,6 +24,9 @@ local letterImageCache = {}
 GameplayScene = {}
 
 function GameplayScene:init()
+    -- Skip sprite.update() during gameplay (all entities drawn manually)
+    self.skipSpriteUpdate = true
+
     -- Game state
     self.isPaused = false
     self.isLevelingUp = false
@@ -129,8 +132,15 @@ function GameplayScene:init()
     self.gridCellSize = 50  -- 50x50 pixel cells
     self.gridCols = math.ceil(Constants.SCREEN_WIDTH / 50)   -- 8 columns
     self.gridRows = math.ceil(Constants.SCREEN_HEIGHT / 50)  -- 5 rows
-    self.mobGrid = {}  -- Will be populated each frame: mobGrid[cellIndex] = {mob1, mob2, ...}
-    self.dirtyCells = {}  -- Track which cells have mobs for lazy clearing (performance optimization)
+    -- Pre-allocate all grid cells (avoids creating new tables every frame)
+    local totalCells = self.gridCols * self.gridRows
+    self.mobGrid = {}
+    self.mobGridCounts = {}  -- Track count per cell (clear count instead of nilling table)
+    for i = 1, totalCells do
+        self.mobGrid[i] = {}
+        self.mobGridCounts[i] = 0
+    end
+    self.dirtyCells = {}  -- Track which cells have mobs for lazy clearing
     self.dirtyCellCount = 0
     self.nearbyMobsCache = {}  -- Reusable table for getMobsNearPosition (avoids allocation per call)
 end
@@ -191,7 +201,9 @@ end
 -- Draw messages with white text and black stroke (floating, no box)
 function GameplayScene:drawMessages()
     local y = self.messageY
-    for i, msg in ipairs(self.messages) do
+    local msgCount = #self.messages
+    for i = 1, msgCount do
+        local msg = self.messages[i]
         -- Fade out in last 0.5 seconds
         local alpha = 1.0
         if msg.timer < 0.5 then
@@ -204,7 +216,8 @@ function GameplayScene:drawMessages()
 
             -- Draw black stroke (outline) by drawing text offset in all directions
             gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-            for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_1PX) do
+            for oi = 1, 8 do
+                local offset = TEXT_OUTLINE_OFFSETS_1PX[oi]
                 gfx.drawTextAligned(msg.text, centerX + offset[1], y + offset[2], kTextAlignment.center)
             end
 
@@ -275,7 +288,7 @@ function GameplayScene:drawMissionIntro()
         -- Full visibility
         -- Black stroke
         gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-        for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_2PX) do
+        for oi = 1, 8 do local offset = TEXT_OUTLINE_OFFSETS_2PX[oi]
             gfx.drawTextAligned(text, centerX + offset[1], centerY - 8 + offset[2], kTextAlignment.center)
         end
         -- White text
@@ -388,7 +401,7 @@ function GameplayScene:drawBossDefeated()
 
     -- Draw black stroke
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_2PX) do
+    for oi = 1, 8 do local offset = TEXT_OUTLINE_OFFSETS_2PX[oi]
         gfx.drawTextAligned(text, centerX + offset[1], textY + offset[2], kTextAlignment.center)
     end
 
@@ -509,7 +522,7 @@ function GameplayScene:drawStationDestroyed()
 
     -- Draw black stroke
     gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    for _, offset in ipairs(TEXT_OUTLINE_OFFSETS_2PX) do
+    for oi = 1, 8 do local offset = TEXT_OUTLINE_OFFSETS_2PX[oi]
         gfx.drawTextAligned(text, centerX + offset[1], textY + offset[2], kTextAlignment.center)
     end
 
@@ -536,8 +549,9 @@ function GameplayScene:enter(params)
     -- Clear any existing sprites
     gfx.sprite.removeAll()
 
-    -- Force full screen redraw every frame (all game entities drawn manually in drawOverlay;
-    -- sprite system only handles background sprite)
+    -- All game entities drawn manually (no sprite system used during gameplay)
+    -- setAlwaysRedraw ensures sprite.update() redraws the full screen each frame
+    -- even though we have no sprites - it still manages the display buffer
     gfx.sprite.setAlwaysRedraw(true)
 
     -- Reset state
@@ -660,15 +674,8 @@ function GameplayScene:enter(params)
     local episodeData = EpisodesData.get(episodeId)
     local bgPath = episodeData and episodeData.backgroundPath or "images/episodes/ep1/bg_ep1"
 
-    local bgImage = gfx.image.new(bgPath)
-    if bgImage then
-        -- Create background sprite at lowest Z-index
-        self.backgroundSprite = gfx.sprite.new(bgImage)
-        self.backgroundSprite:setCenter(0, 0)  -- Top-left corner
-        self.backgroundSprite:moveTo(0, 0)
-        self.backgroundSprite:setZIndex(-1000)  -- Behind everything
-        self.backgroundSprite:add()
-    end
+    -- Store background image for manual drawing (no sprite system needed)
+    self.backgroundImage = gfx.image.new(bgPath)
 
     -- Set up mission intro overlay
     self.missionText = episodeData and episodeData.startingMessage or "MISSION START"
@@ -802,6 +809,7 @@ function GameplayScene:syncMobArrays()
     local mobRadius = self.mobRadius
     local mobEmits = self.mobEmits
     local mobDamage = self.mobDamage
+    local mobCollisionBase = self.mobCollisionBase
 
     -- Sync all mob data to arrays
     for i = 1, count do
@@ -809,9 +817,12 @@ function GameplayScene:syncMobArrays()
         mobX[i] = mob.x
         mobY[i] = mob.y
         mobActive[i] = mob.active
-        mobRadius[i] = mob.cachedRadius or 8
+        local r = mob.cachedRadius or 8
+        mobRadius[i] = r
+        mobCollisionBase[i] = r + 6  -- Pre-cache for projectile collision
         mobEmits[i] = mob.emits
         mobDamage[i] = mob.damage
+        mob._dodIndex = i  -- Track DOD index for collision lookup
     end
 
     -- Clear any stale entries beyond current count
@@ -820,6 +831,7 @@ function GameplayScene:syncMobArrays()
         mobY[i] = nil
         mobActive[i] = nil
         mobRadius[i] = nil
+        mobCollisionBase[i] = nil
         mobEmits[i] = nil
         mobDamage[i] = nil
     end
@@ -1200,18 +1212,16 @@ end
 
 -- Build spatial grid for collision optimization
 -- Assigns each active mob to the grid cell(s) it occupies
--- Uses lazy clearing: only clears cells that had mobs last frame (performance optimization)
+-- Uses lazy clearing: only resets counts on dirty cells (no table allocation)
 function GameplayScene:buildMobGrid()
     local grid = self.mobGrid
+    local gridCounts = self.mobGridCounts
     local dirtyCells = self.dirtyCells
     local oldDirtyCount = self.dirtyCellCount
 
-    -- Clear only cells that had mobs last frame (lazy clearing)
+    -- Clear only cells that had mobs last frame (reset count, don't nil the table)
     for i = 1, oldDirtyCount do
-        local cellIndex = dirtyCells[i]
-        if cellIndex then
-            grid[cellIndex] = nil
-        end
+        gridCounts[dirtyCells[i]] = 0
     end
 
     local cellSize = self.gridCellSize
@@ -1220,7 +1230,6 @@ function GameplayScene:buildMobGrid()
     local newDirtyCount = 0
 
     -- Assign mobs to cells using DOD parallel arrays for position data
-    -- Use numeric for loop (8x faster than ipairs per Playdate optimization guides)
     local mobs = self.mobs
     local mobX = self.mobX
     local mobY = self.mobY
@@ -1229,25 +1238,23 @@ function GameplayScene:buildMobGrid()
 
     for i = 1, mobCount do
         if mobActive[i] then
-            -- Get cell coordinates using cached position arrays (no table lookup)
             local cellX = math_floor(mobX[i] / cellSize)
             local cellY = math_floor(mobY[i] / cellSize)
 
-            -- Clamp to grid bounds
             cellX = math_max(0, math_min(cols - 1, cellX))
             cellY = math_max(0, math_min(rows - 1, cellY))
 
-            -- Calculate cell index (1-based)
             local cellIndex = cellY * cols + cellX + 1
 
-            -- Add mob to cell and track dirty cell
-            -- Still store mob object (needed for damage calls)
-            if not grid[cellIndex] then
-                grid[cellIndex] = {}
+            -- Track dirty cell on first mob in this cell
+            local count = gridCounts[cellIndex]
+            if count == 0 then
                 newDirtyCount = newDirtyCount + 1
                 dirtyCells[newDirtyCount] = cellIndex
             end
-            grid[cellIndex][#grid[cellIndex] + 1] = mobs[i]
+            count = count + 1
+            gridCounts[cellIndex] = count
+            grid[cellIndex][count] = mobs[i]
         end
     end
 
@@ -1266,12 +1273,13 @@ function GameplayScene:getMobsNearPosition(x, y)
     local cols = self.gridCols
     local rows = self.gridRows
     local grid = self.mobGrid
+    local gridCounts = self.mobGridCounts
 
-    -- Get center cell (use localized math functions)
+    -- Get center cell
     local cellX = math_floor(x / cellSize)
     local cellY = math_floor(y / cellSize)
 
-    -- Reuse cached table (clear it first)
+    -- Reuse cached table
     local nearbyMobs = self.nearbyMobsCache
     local count = 0
 
@@ -1280,13 +1288,11 @@ function GameplayScene:getMobsNearPosition(x, y)
             local nx = cellX + dx
             local ny = cellY + dy
 
-            -- Check bounds
             if nx >= 0 and nx < cols and ny >= 0 and ny < rows then
                 local cellIndex = ny * cols + nx + 1
-                local cellMobs = grid[cellIndex]
-                if cellMobs then
-                    -- Numeric for loop (8x faster than ipairs)
-                    local cellCount = #cellMobs
+                local cellCount = gridCounts[cellIndex]
+                if cellCount > 0 then
+                    local cellMobs = grid[cellIndex]
                     for j = 1, cellCount do
                         count = count + 1
                         nearbyMobs[count] = cellMobs[j]
@@ -1297,9 +1303,11 @@ function GameplayScene:getMobsNearPosition(x, y)
     end
 
     -- Clear any stale entries beyond current count
-    for i = count + 1, #nearbyMobs do
+    local oldCount = self._nearbyMobsLastCount or 0
+    for i = count + 1, oldCount do
         nearbyMobs[i] = nil
     end
+    self._nearbyMobsLastCount = count
 
     return nearbyMobs
 end
@@ -1312,46 +1320,43 @@ function GameplayScene:checkCollisions()
     self:buildMobGrid()
 
     local collisionFrame = self.collisionFrame
-    local isEvenFrame = (collisionFrame % 2 == 0)
+    local frameMod3 = collisionFrame % 3
 
     -- Projectiles vs MOBs (using spatial partitioning)
-    -- Performance: split into two halves, alternating frames
+    -- Performance: split into thirds, cycling each frame (check ~10 instead of ~15)
     -- Safe because projectiles move 7-10px/frame vs 16-32px mob widths (no tunneling)
     local projectiles = self.projectilePool:getActive()
 
-    -- Minimum distance projectile must travel from spawn before collision is enabled
-    local minTravelDistSq = 100  -- 10 * 10 pixels from spawn point
+    local minTravelDistSq = 100  -- 10px minimum travel from spawn
 
     local projCount = #projectiles
-    local halfCount = math_ceil(projCount / 2)
+    local thirdCount = math_ceil(projCount / 3)
     local startIdx, endIdx
-    if isEvenFrame then
-        startIdx, endIdx = 1, halfCount
+    if frameMod3 == 0 then
+        startIdx, endIdx = 1, thirdCount
+    elseif frameMod3 == 1 then
+        startIdx, endIdx = thirdCount + 1, thirdCount * 2
     else
-        startIdx, endIdx = halfCount + 1, projCount
+        startIdx, endIdx = thirdCount * 2 + 1, projCount
     end
 
-    -- Pre-cache mob collision base values for inner loop
+    -- Pre-cache DOD collision base array for inner loop
     local mobCollisionBase = self.mobCollisionBase
 
     for pi = startIdx, endIdx do
         local proj = projectiles[pi]
         if proj and proj.active then
-            -- Early bounds check: skip projectiles near screen edge
             local px, py = proj.x, proj.y
             if px > -20 and px < 420 and py > -20 and py < 260 then
-                -- Check if projectile has traveled far enough from its spawn point
                 local tdx = px - (proj.spawnX or px)
                 local tdy = py - (proj.spawnY or py)
                 local travelDistSq = tdx * tdx + tdy * tdy
 
                 if travelDistSq >= minTravelDistSq then
-                    -- Get only mobs near this projectile (spatial partitioning)
                     local nearbyMobs = self:getMobsNearPosition(px, py)
-                    local projSpeed = proj.speed or 8
-                    local projSpeedBonus = projSpeed * 0.25
+                    local projSpeedBonus = (proj.speed or 8) * 0.25
 
-                    local nearbyCount = #nearbyMobs
+                    local nearbyCount = self._nearbyMobsLastCount or #nearbyMobs
                     for mi = 1, nearbyCount do
                         local mob = nearbyMobs[mi]
                         if mob.active then
@@ -1359,8 +1364,8 @@ function GameplayScene:checkCollisions()
                             local dy = py - mob.y
                             local distSq = dx * dx + dy * dy
 
-                            -- Use pre-cached collision base + speed bonus
-                            local collisionDist = (mob.cachedRadius or 8) + 6 + projSpeedBonus
+                            -- Use DOD pre-cached collision base + speed bonus
+                            local collisionDist = (mobCollisionBase[mob._dodIndex] or 14) + projSpeedBonus
                             local collisionDistSq = collisionDist * collisionDist
 
                             if distSq < collisionDistSq then
@@ -1546,7 +1551,9 @@ end
 
 -- Draw pulse effects
 function GameplayScene:drawPulseEffects()
-    for _, effect in ipairs(self.pulseEffects) do
+    local peCount = #self.pulseEffects
+    for pi = 1, peCount do
+        local effect = self.pulseEffects[pi]
         local progress = effect.elapsed / effect.duration
         local currentRadius = effect.maxRadius * progress
 
@@ -1639,9 +1646,13 @@ function GameplayScene:drawLightningArcs()
     gfx.setColor(gfx.kColorWhite)
     gfx.setLineWidth(2)
 
-    for _, arc in ipairs(self.lightningArcs) do
-        -- Draw each segment of the lightning (line width 2 already handles thickness)
-        for _, seg in ipairs(arc.segments) do
+    local arcCount = #self.lightningArcs
+    for ai = 1, arcCount do
+        local arc = self.lightningArcs[ai]
+        local segments = arc.segments
+        local segCount = #segments
+        for si = 1, segCount do
+            local seg = segments[si]
             gfx.drawLine(seg.x1, seg.y1, seg.x2, seg.y2)
         end
     end
@@ -1649,14 +1660,16 @@ function GameplayScene:drawLightningArcs()
     gfx.setLineWidth(1)
 end
 
--- Draw background (called before sprite.update)
+-- Draw background (called directly, no sprite system)
 function GameplayScene:drawBackground()
-    -- Background is now a sprite, so nothing to do here
-    -- The sprite system will draw it automatically
+    if self.backgroundImage then
+        self.backgroundImage:draw(0, 0)
+    else
+        gfx.clear(gfx.kColorBlack)
+    end
 end
 
--- Draw overlay (called after sprite.update)
--- All game entities are drawn manually for performance (sprite.update only handles background)
+-- Draw overlay (all entities drawn manually, no sprite system during gameplay)
 -- Draw order: collectibles → mobs → station → tools → projectiles → effects → HUD
 function GameplayScene:drawOverlay()
     -- Draw collectibles (lowest layer - RP orbs on the ground)
@@ -1665,55 +1678,63 @@ function GameplayScene:drawOverlay()
     for i = 1, cCount do
         local c = collectibles[i]
         if c.active and c.drawVisible and c.drawImage then
-            c.drawImage:draw(c.drawX - 4, c.drawY - 4)
+            local cx, cy = c.drawX, c.drawY
+            -- Skip off-screen collectibles
+            if cx > -8 and cx < 408 and cy > -8 and cy < 248 then
+                c.drawImage:draw(cx - 4, cy - 4)
+            end
         end
     end
 
-    -- Draw MOBs (Z:50 equivalent)
+    -- Draw MOBs (Z:50 equivalent) — cull off-screen (spawning mobs start off-screen)
+    -- Uses pre-cached center offsets + draw() instead of drawRotated() for all mobs
     local mobs = self.mobs
     local mobCount = #mobs
     for i = 1, mobCount do
         local mob = mobs[i]
         if mob.active and mob.drawImage then
-            mob.drawImage:drawRotated(mob.x, mob.y, mob.drawRotation or 0)
+            local mx, my = mob.x, mob.y
+            if mx > -20 and mx < 420 and my > -20 and my < 260 then
+                mob.drawImage:draw(mx - mob._drawHalfW, my - mob._drawHalfH)
+            end
         end
     end
 
-    -- Draw Station (Z:100 equivalent)
+    -- Draw Station (Z:100 equivalent) — pre-rotated image, use draw() not drawRotated()
     local station = self.station
     if station and station.drawImage then
-        station.drawImage:drawRotated(station.x, station.y, station.drawRotation or 0)
+        station.drawImage:draw(station.x - station._drawHalfW, station.y - station._drawHalfH)
     end
 
-    -- Draw Tools (Z:150 equivalent)
+    -- Draw Tools (Z:150 equivalent) — pre-rotated images, use draw() not drawRotated()
     if station then
         local tools = station.tools
         local toolCount = #tools
         for i = 1, toolCount do
             local tool = tools[i]
             if tool.drawImage then
-                tool.drawImage:drawRotated(tool.x, tool.y, tool.drawRotation or 0)
+                tool.drawImage:draw(tool.x - tool._drawHalfW, tool.y - tool._drawHalfH)
             end
         end
     end
 
-    -- Draw enemy projectiles
+    -- Draw enemy projectiles — pre-rotated images, use draw() not drawRotated()
     local enemyProj = self.enemyProjectilePool.active
     local epCount = #enemyProj
     for i = 1, epCount do
         local ep = enemyProj[i]
         if ep.active and ep.drawImage then
-            ep.drawImage:drawRotated(ep.x, ep.y, ep.drawRotation)
+            ep.drawImage:draw(ep.x - ep._drawHalfW, ep.y - ep._drawHalfH)
         end
     end
 
-    -- Draw player projectiles
+    -- Draw player projectiles — pre-rotated images, use draw() not drawRotated()
     local playerProj = self.projectilePool.active
     local ppCount = #playerProj
     for i = 1, ppCount do
         local pp = playerProj[i]
         if pp.active and pp.drawImage then
-            pp.drawImage:drawRotated(pp.x, pp.y, pp.drawRotation)
+            pp.drawImage:draw(pp.x - pp._drawHalfW, pp.y - pp._drawHalfH)
         end
     end
 
@@ -1938,7 +1959,7 @@ function GameplayScene:drawEquipmentSlots()
             if equipEntry then
                 if equipEntry.type == "tool" then
                     local tools = self.station and self.station.tools or {}
-                    for _, tool in ipairs(tools) do
+                    for ti = 1, #tools do local tool = tools[ti]
                         if tool.data and tool.data.id == equipEntry.id then
                             equip = { iconPath = tool.data.iconPath or tool.data.imagePath, name = tool.data.name or "?" }
                             break

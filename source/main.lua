@@ -184,17 +184,22 @@ function playdate.update()
         GameManager.currentScene:update()
     end
 
+    local scene = GameManager.currentScene
+
     -- Draw background BEFORE sprites (if scene has one)
-    if GameManager.currentScene and GameManager.currentScene.drawBackground then
-        GameManager.currentScene:drawBackground()
+    if scene and scene.drawBackground then
+        scene:drawBackground()
     end
 
-    -- Update all sprites (handles drawing automatically)
-    gfx.sprite.update()
+    -- Skip sprite.update() during gameplay (all entities drawn manually)
+    -- Other scenes (menus, title) still use sprite system normally
+    if not (scene and scene.skipSpriteUpdate) then
+        gfx.sprite.update()
+    end
 
     -- Draw any additional UI overlays AFTER sprites
-    if GameManager.currentScene and GameManager.currentScene.drawOverlay then
-        GameManager.currentScene:drawOverlay()
+    if scene and scene.drawOverlay then
+        scene:drawOverlay()
     end
 end
 
