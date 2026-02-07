@@ -17,7 +17,7 @@ DatabaseScreen = {
     categories = {
         { id = "gameplay", name = "Gameplay", total = 3 },
         { id = "tools", name = "Tools", total = 14 },
-        { id = "bonusItems", name = "Items", total = 31 },
+        { id = "bonusItems", name = "Items", total = 30 },
         { id = "enemies", name = "Research Subjects", total = 11 },
         { id = "bosses", name = "Bosses", total = 5 },
         { id = "episodes", name = "Episodes", total = 5 },
@@ -213,7 +213,7 @@ function DatabaseScreen:loadBonusItemEntries()
         "overclocked_capacitors", "power_relay", "salvage_drone",
         "rapid_repair", "quantum_stabilizer", "critical_matrix",
         "brain_buddy", "kinetic_absorber", "scrap_collector",
-        "rapid_loader", "backup_generator", "targeting_computer",
+        "rapid_loader", "backup_generator",
         "ablative_coating", "multi_spectrum_rounds",
         "targeting_matrix", "fuel_injector", "arc_capacitors",
         "guidance_module", "phase_modulators", "graviton_lens"
@@ -767,27 +767,27 @@ function DatabaseScreen:drawToolDetail(data)
     -- Description
     FontManager:setBodyFont()
     gfx.drawText("*" .. (data.description or "") .. "*", textX, y)
-    y = y + 20
+    y = y + 24
 
     -- Stats
     FontManager:setMenuFont()
     gfx.drawText("*DMG: " .. (data.baseDamage or 0) .. "*", textX, y)
-    y = y + 16
+    y = y + 18
     gfx.drawText("*RATE: " .. (data.fireRate or 0) .. "/s*", textX, y)
-    y = y + 16
+    y = y + 18
     gfx.drawText("*Pattern: " .. (data.pattern or "straight") .. "*", textX, y)
-    y = y + 24
+    y = y + 26
 
     -- Evolution info
     if data.pairsWithBonus then
         gfx.setColor(gfx.kColorWhite)
         gfx.drawLine(textX, y, Constants.SCREEN_WIDTH - 30, y)
-        y = y + 8
+        y = y + 10
         FontManager:setBodyFont()
         local bonusData = BonusItemsData[data.pairsWithBonus]
         local bonusName = bonusData and bonusData.name or data.pairsWithBonus
         gfx.drawText("*Pairs with: " .. bonusName .. "*", textX, y)
-        y = y + 16
+        y = y + 18
         if data.upgradedName then
             gfx.drawText("*> Evolves to: " .. data.upgradedName .. "*", textX, y)
         end
@@ -825,7 +825,7 @@ function DatabaseScreen:drawBonusItemDetail(data)
     -- Effect
     FontManager:setBodyFont()
     gfx.drawText("*" .. (data.description or "") .. "*", textX, y)
-    y = y + 30
+    y = y + 34
 
     -- Pairing info
     FontManager:setMenuFont()
@@ -833,7 +833,7 @@ function DatabaseScreen:drawBonusItemDetail(data)
         local toolData = ToolsData[data.pairsWithTool]
         local toolName = toolData and toolData.name or data.pairsWithTool
         gfx.drawText("*Pairs with: " .. toolName .. "*", textX, y)
-        y = y + 16
+        y = y + 18
         if data.upgradesTo then
             gfx.drawText("*> Creates: " .. data.upgradesTo .. "*", textX, y)
         end
@@ -858,19 +858,19 @@ function DatabaseScreen:drawEnemyDetail(data)
     -- Episode
     FontManager:setMenuFont()
     gfx.drawText("*Episode " .. (data.episode or "?") .. "*", textX, y)
-    y = y + 20
+    y = y + 22
 
     -- Stats
     gfx.drawText("*HP: " .. (data.health or "?") .. "*", textX, y)
     gfx.drawText("*DMG: " .. (data.damage or "?") .. "*", textX + 80, y)
-    y = y + 16
+    y = y + 18
     gfx.drawText("*Speed: " .. (data.speed or "?") .. "*", textX, y)
-    y = y + 24
+    y = y + 26
 
     -- Behavior
     gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(textX, y, Constants.SCREEN_WIDTH - 30, y)
-    y = y + 8
+    y = y + 10
     FontManager:setBodyFont()
     gfx.drawTextInRect("*" .. (data.behavior or "") .. "*", textX, y, Constants.SCREEN_WIDTH - textX - 30, 40)
 end
@@ -893,28 +893,28 @@ function DatabaseScreen:drawBossDetail(data)
     -- Tagline
     FontManager:setBodyFont()
     gfx.drawText("*\"" .. (data.tagline or "") .. "\"*", textX, y)
-    y = y + 18
+    y = y + 20
     FontManager:setMenuFont()
     gfx.drawText("*Episode " .. (data.episode or "?") .. " Boss*", textX, y)
-    y = y + 20
+    y = y + 22
 
     -- Stats
     gfx.drawText("*HP: " .. (data.health or "?") .. "*", textX, y)
     gfx.drawText("*DMG: " .. (data.damage or "?") .. "*", textX + 100, y)
-    y = y + 20
+    y = y + 22
 
     -- Phases
     gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(textX, y, Constants.SCREEN_WIDTH - 20, y)
-    y = y + 6
+    y = y + 8
     gfx.drawText("*PHASES:*", textX, y)
-    y = y + 14
+    y = y + 16
 
     if data.phases then
         FontManager:setBodyFont()
         for _, phase in ipairs(data.phases) do
             gfx.drawText("*" .. phase .. "*", textX + 10, y)
-            y = y + 14
+            y = y + 16
         end
     end
 end
@@ -926,19 +926,19 @@ function DatabaseScreen:drawEpisodeDetail(data, completed)
     -- Title and tagline
     FontManager:setBodyFont()
     gfx.drawText("*" .. data.title .. "*", margin, y)
-    y = y + 18
+    y = y + 20
     gfx.drawText("*\"" .. (data.tagline or "") .. "\"*", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Separator
     gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(margin, y, Constants.SCREEN_WIDTH - margin, y)
-    y = y + 10
+    y = y + 12
 
     -- Enemies
     FontManager:setMenuFont()
     gfx.drawText("*ENEMIES:*", margin, y)
-    y = y + 14
+    y = y + 16
     FontManager:setBodyFont()
     local enemyText = data.enemyNames or "Various threats"
     gfx.drawTextInRect("*" .. enemyText .. "*", margin + 10, y, Constants.SCREEN_WIDTH - margin * 2 - 10, 30)
@@ -947,7 +947,7 @@ function DatabaseScreen:drawEpisodeDetail(data, completed)
     -- Boss
     FontManager:setMenuFont()
     gfx.drawText("*BOSS: " .. (data.bossName or "Unknown") .. "*", margin, y)
-    y = y + 18
+    y = y + 20
 
     -- Research spec reward
     if data.researchSpecUnlock then
@@ -993,52 +993,52 @@ function DatabaseScreen:drawControlsDetail()
     -- Section: Crank
     FontManager:setMenuFont()
     gfx.drawText("*CRANK*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Rotate the crank to spin your station.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Tools fire in the direction they face.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Aim by positioning tools toward enemies.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: D-Pad
     FontManager:setMenuFont()
     gfx.drawText("*D-PAD*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Navigate menus (Up/Down or Left/Right).", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Scroll content in some screens.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: A Button
     FontManager:setMenuFont()
     gfx.drawText("*A BUTTON*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Confirm selections in menus.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Continue through story panels.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: B Button
     FontManager:setMenuFont()
     gfx.drawText("*B BUTTON*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Go back / Cancel.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Pause during gameplay.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: Menu Button
     FontManager:setMenuFont()
     gfx.drawText("*MENU BUTTON*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Pause the game during an episode.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Calculate max scroll
     self.gameplayMaxScroll = math.max(0, y + self.gameplayScrollOffset - Constants.SCREEN_HEIGHT + 30)
@@ -1064,48 +1064,48 @@ function DatabaseScreen:drawSettingsDetail()
     -- Section: Music Volume
     FontManager:setMenuFont()
     gfx.drawText("*MUSIC VOLUME*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Adjust background music volume.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Range: 0% (off) to 100% (full).", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: SFX Volume
     FontManager:setMenuFont()
     gfx.drawText("*SFX VOLUME*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Adjust sound effects volume.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Includes hits, pickups, and UI sounds.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: Creative Mode
     FontManager:setMenuFont()
     gfx.drawText("*CREATIVE MODE*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Sandbox mode for exploration.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("- Unlock all content instantly", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("- Customize episode/wave timing", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("- Optional invincibility", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: Reset All Data
     FontManager:setMenuFont()
     gfx.drawText("*RESET ALL DATA*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Clears all save data and progress.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Resets episodes, specs, and database.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Cannot be undone!", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Calculate max scroll
     self.gameplayMaxScroll = math.max(0, y + self.gameplayScrollOffset - Constants.SCREEN_HEIGHT + 30)
@@ -1131,66 +1131,66 @@ function DatabaseScreen:drawStationSystemsDetail()
     -- Section: Tools
     FontManager:setMenuFont()
     gfx.drawText("*TOOLS*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Weapons that auto-fire from your station.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Max 8 different tools per episode.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Each tool can be upgraded to level 4.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Pair a max tool + bonus item to evolve.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: Bonus Items
     FontManager:setMenuFont()
     gfx.drawText("*BONUS ITEMS*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Passive upgrades and stat boosts.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Max 8 different items per episode.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Each item can be upgraded to level 4.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Some items pair with tools for evolution.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: Level Up
     FontManager:setMenuFont()
     gfx.drawText("*LEVEL UP*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Collect RP (Research Points) from enemies.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Fill the bar at top to level up.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Choose from 2 tools and 2 bonus items.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: Research Specs
     FontManager:setMenuFont()
     gfx.drawText("*RESEARCH SPECS*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("Permanent bonuses unlocked by", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("completing episodes.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Active specs apply to all future runs.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Section: Episodes
     FontManager:setMenuFont()
     gfx.drawText("*EPISODES*", margin, y)
-    y = y + 16
+    y = y + 18
     FontManager:setBodyFont()
     gfx.drawText("7 waves of enemies + 1 boss fight.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Defeat the boss to complete the episode.", margin, y)
-    y = y + 14
+    y = y + 16
     gfx.drawText("Each episode has unique enemies.", margin, y)
-    y = y + 24
+    y = y + 26
 
     -- Calculate max scroll
     self.gameplayMaxScroll = math.max(0, y + self.gameplayScrollOffset - Constants.SCREEN_HEIGHT + 30)

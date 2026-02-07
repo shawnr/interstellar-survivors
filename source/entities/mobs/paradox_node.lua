@@ -40,9 +40,3 @@ function ParadoxNode:update(dt)
     end
 end
 
-function ParadoxNode:onHitStation()
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-    end
-    self:onDestroyed()
-end

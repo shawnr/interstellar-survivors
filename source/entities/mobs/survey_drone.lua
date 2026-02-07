@@ -42,9 +42,3 @@ function SurveyDrone:update(dt)
     end
 end
 
-function SurveyDrone:onHitStation()
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-    end
-    self:onDestroyed()
-end

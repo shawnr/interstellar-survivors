@@ -79,17 +79,6 @@ function Asteroid:update(dt)
     end
 end
 
--- Called when asteroid hits the station
-function Asteroid:onHitStation()
-    -- Deal damage to station
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-        -- TODO: AudioManager:playSFX("station_hit")
-    end
-
-    -- Destroy self
-    self:onDestroyed()
-end
 
 -- Override destroyed to potentially spawn smaller asteroids
 function Asteroid:onDestroyed()

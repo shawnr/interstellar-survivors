@@ -87,6 +87,7 @@ function Tool:init(toolData)
     self.globalDamageBonus = 0
     self.projectileSpeedBonus = 0
     self.rangeBonus = 0
+    self.multiSpectrumBonus = 0
 
     -- Frame guard
     self._lastFrame = -1
@@ -298,8 +299,8 @@ function Tool:recalculateStats()
             baseRate = levelStats.fireRate
         end
 
-        -- Apply all bonuses: level + item bonus + spec bonus + global bonus + grant funding
-        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus + grantDamageBonus)
+        -- Apply all bonuses: level + item bonus + spec bonus + global bonus + grant funding + multi-spectrum
+        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus + grantDamageBonus + (self.multiSpectrumBonus or 0))
 
         -- Fire rate with bonuses
         self.fireRate = baseRate * (1 + self.fireRateBonus + specFireRateBonus)
@@ -310,7 +311,7 @@ function Tool:recalculateStats()
     else
         -- Fallback to base calculation
         local baseDamage = self.isEvolved and (self.data.upgradedDamage or self.data.baseDamage) or self.data.baseDamage
-        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus + grantDamageBonus)
+        self.damage = baseDamage * (1 + self.damageBonus + specDamageBonus + self.globalDamageBonus + grantDamageBonus + (self.multiSpectrumBonus or 0))
 
         local baseRate = self.isEvolved and (self.data.upgradedFireRate or self.data.fireRate) or self.data.fireRate
         self.fireRate = baseRate * (1 + self.fireRateBonus + specFireRateBonus)

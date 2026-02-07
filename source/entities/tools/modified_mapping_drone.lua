@@ -2,6 +2,65 @@
 -- Heat-seeking missile that targets the highest HP enemy
 -- Reference: Murderbot Diaries - ART/Perihelion's modified mapping drones
 
+-- Shared update function for homing projectiles (avoids per-projectile closure)
+local function homingUpdate(self)
+    if not self.active then return end
+
+    self.framesAlive = self.framesAlive + 1
+
+    self.lifetime = (self.lifetime or 0) + 1
+    if self.lifetime > (self.maxLifetime or 180) then
+        self:deactivate("lifetime")
+        return
+    end
+
+    -- Homing behavior
+    if self.isHoming and self.homingTarget and self.homingTarget.active then
+        local targetAngle = Utils.vectorToAngle(
+            self.homingTarget.x - self.x,
+            self.homingTarget.y - self.y
+        )
+
+        local angleDiff = targetAngle - self.angle
+        while angleDiff > 180 do angleDiff = angleDiff - 360 end
+        while angleDiff < -180 do angleDiff = angleDiff + 360 end
+
+        local turnRate = self.homingStrength or 3.0
+        if math.abs(angleDiff) < turnRate then
+            self.angle = targetAngle
+        elseif angleDiff > 0 then
+            self.angle = self.angle + turnRate
+        else
+            self.angle = self.angle - turnRate
+        end
+
+        self.dx, self.dy = Utils.angleToVector(self.angle)
+        self.drawRotation = self.angle - 90
+    elseif self.isHoming then
+        -- Target lost - find new highest HP target
+        self.homingTarget = nil
+        if GameplayScene and GameplayScene.mobs then
+            local highestHP = 0
+            local mobs = GameplayScene.mobs
+            local mobCount = #mobs
+            for i = 1, mobCount do
+                local mob = mobs[i]
+                if mob.active and mob.health and mob.health > highestHP then
+                    highestHP = mob.health
+                    self.homingTarget = mob
+                end
+            end
+        end
+    end
+
+    self.x = self.x + self.dx * self.speed
+    self.y = self.y + self.dy * self.speed
+
+    if self.x < -50 or self.x > 450 or self.y < -50 or self.y > 290 then
+        self:deactivate("offscreen")
+    end
+end
+
 class('ModifiedMappingDrone').extends(Tool)
 
 ModifiedMappingDrone.DATA = {
@@ -93,75 +152,8 @@ function ModifiedMappingDrone:createHomingProjectile(x, y, angle, target)
         proj.spawnX = x
         proj.spawnY = y
 
-        -- Override the update function for homing behavior
-        -- Not in sprite system: pool handles updates, GameplayScene draws manually
-        proj.update = function(self)
-            if not self.active then return end
-
-            -- Track frames alive for collision grace period
-            self.framesAlive = self.framesAlive + 1
-
-            -- Track lifetime
-            self.lifetime = (self.lifetime or 0) + 1
-            if self.lifetime > (self.maxLifetime or 180) then
-                self:deactivate("lifetime")
-                return
-            end
-
-            -- Homing behavior
-            if self.isHoming and self.homingTarget and self.homingTarget.active then
-                local targetAngle = Utils.vectorToAngle(
-                    self.homingTarget.x - self.x,
-                    self.homingTarget.y - self.y
-                )
-
-                -- Smoothly turn toward target
-                local angleDiff = targetAngle - self.angle
-                -- Normalize angle difference to -180 to 180
-                while angleDiff > 180 do angleDiff = angleDiff - 360 end
-                while angleDiff < -180 do angleDiff = angleDiff + 360 end
-
-                -- Apply turn rate
-                local turnRate = self.homingStrength or 3.0
-                if math.abs(angleDiff) < turnRate then
-                    self.angle = targetAngle
-                elseif angleDiff > 0 then
-                    self.angle = self.angle + turnRate
-                else
-                    self.angle = self.angle - turnRate
-                end
-
-                -- Update direction vector
-                self.dx, self.dy = Utils.angleToVector(self.angle)
-
-                -- Update draw rotation for manual rendering
-                self.drawRotation = self.angle - 90
-            elseif self.isHoming then
-                -- Target lost - find new highest HP target
-                self.homingTarget = nil
-                if GameplayScene and GameplayScene.mobs then
-                    local highestHP = 0
-                    local mobs = GameplayScene.mobs
-                    local mobCount = #mobs
-                    for i = 1, mobCount do
-                        local mob = mobs[i]
-                        if mob.active and mob.health and mob.health > highestHP then
-                            highestHP = mob.health
-                            self.homingTarget = mob
-                        end
-                    end
-                end
-            end
-
-            -- Move in current direction
-            self.x = self.x + self.dx * self.speed
-            self.y = self.y + self.dy * self.speed
-
-            -- Inline isOnScreen check (with larger margin for homing)
-            if self.x < -50 or self.x > 450 or self.y < -50 or self.y > 290 then
-                self:deactivate("offscreen")
-            end
-        end
+        -- Use shared function (avoids per-projectile closure creation)
+        proj.update = homingUpdate
     end
 
     return proj

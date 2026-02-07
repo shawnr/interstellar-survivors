@@ -42,9 +42,3 @@ function ProbabilityFluctuation:update(dt)
     end
 end
 
-function ProbabilityFluctuation:onHitStation()
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-    end
-    self:onDestroyed()
-end

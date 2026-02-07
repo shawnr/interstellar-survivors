@@ -3,6 +3,63 @@
 
 local gfx <const> = playdate.graphics
 
+-- Shared onHit function for chain lightning (avoids per-projectile closure)
+local function chainOnHit(self, hitTarget)
+    self.hitTargets[hitTarget] = true
+
+    if GameplayScene and GameplayScene.createLightningArc then
+        GameplayScene:createLightningArc(self.sourceX, self.sourceY, hitTarget.x, hitTarget.y)
+    end
+
+    if self.chainsRemaining > 0 then
+        self.chainsRemaining = self.chainsRemaining - 1
+
+        local nextTarget = nil
+        local nearestDistSq = self.chainRange * self.chainRange
+
+        if GameplayScene and GameplayScene.getMobsNearPosition then
+            local nearbyMobs = GameplayScene:getMobsNearPosition(hitTarget.x, hitTarget.y)
+            local nearbyCount = #nearbyMobs
+            for i = 1, nearbyCount do
+                local mob = nearbyMobs[i]
+                if mob.active and not self.hitTargets[mob] then
+                    local distSq = Utils.distanceSquared(hitTarget.x, hitTarget.y, mob.x, mob.y)
+                    if distSq < nearestDistSq then
+                        nearestDistSq = distSq
+                        nextTarget = mob
+                    end
+                end
+            end
+        end
+
+        if nextTarget then
+            local chainAngle = Utils.vectorToAngle(nextTarget.x - hitTarget.x, nextTarget.y - hitTarget.y)
+            local chainOptions = { inverted = true, rotationOffset = -90 }
+            local chainProj = GameplayScene:createProjectile(
+                hitTarget.x, hitTarget.y, chainAngle,
+                22,
+                self.chainDamage * 0.85,
+                "images/tools/tool_lightning_bolt",
+                false,
+                chainOptions
+            )
+
+            if chainProj then
+                chainProj.chainTarget = nextTarget
+                chainProj.chainsRemaining = self.chainsRemaining
+                chainProj.chainRange = self.chainRange
+                chainProj.chainDamage = self.chainDamage * 0.85
+                chainProj.hitTargets = self.hitTargets
+                chainProj.sourceX = hitTarget.x
+                chainProj.sourceY = hitTarget.y
+                chainProj.onHit = chainOnHit
+            end
+        end
+    end
+
+    self:deactivate()
+end
+
 class('TeslaCoil').extends(Tool)
 
 TeslaCoil.DATA = {
@@ -116,68 +173,8 @@ function TeslaCoil:createChainProjectile(x, y, angle, target)
         proj.sourceX = x
         proj.sourceY = y
 
-        -- Override onHit for chain behavior
-        proj.onHit = function(self, hitTarget)
-            -- Mark target as hit
-            self.hitTargets[hitTarget] = true
-
-            -- Create visual lightning arc from source to hit point
-            if GameplayScene and GameplayScene.createLightningArc then
-                GameplayScene:createLightningArc(self.sourceX, self.sourceY, hitTarget.x, hitTarget.y)
-            end
-
-            -- Chain to next target if chains remaining
-            if self.chainsRemaining > 0 then
-                self.chainsRemaining = self.chainsRemaining - 1
-
-                -- Find next nearest enemy (not already hit) using spatial grid
-                local nextTarget = nil
-                local nearestDistSq = self.chainRange * self.chainRange
-
-                if GameplayScene and GameplayScene.getMobsNearPosition then
-                    local nearbyMobs = GameplayScene:getMobsNearPosition(hitTarget.x, hitTarget.y)
-                    local nearbyCount = #nearbyMobs
-                    for i = 1, nearbyCount do
-                        local mob = nearbyMobs[i]
-                        if mob.active and not self.hitTargets[mob] then
-                            local distSq = Utils.distanceSquared(hitTarget.x, hitTarget.y, mob.x, mob.y)
-                            if distSq < nearestDistSq then
-                                nearestDistSq = distSq
-                                nextTarget = mob
-                            end
-                        end
-                    end
-                end
-
-                if nextTarget then
-                    -- Create chain projectile to next target
-                    local chainAngle = Utils.vectorToAngle(nextTarget.x - hitTarget.x, nextTarget.y - hitTarget.y)
-                    local chainOptions = { inverted = true, rotationOffset = -90 }
-                    local chainProj = GameplayScene:createProjectile(
-                        hitTarget.x, hitTarget.y, chainAngle,
-                        22,  -- Fast chain
-                        self.chainDamage * 0.85,  -- Slightly reduced damage per chain
-                        "images/tools/tool_lightning_bolt",
-                        false,
-                        chainOptions
-                    )
-
-                    if chainProj then
-                        chainProj.chainTarget = nextTarget
-                        chainProj.chainsRemaining = self.chainsRemaining
-                        chainProj.chainRange = self.chainRange
-                        chainProj.chainDamage = self.chainDamage * 0.85
-                        chainProj.hitTargets = self.hitTargets
-                        chainProj.sourceX = hitTarget.x
-                        chainProj.sourceY = hitTarget.y
-                        chainProj.onHit = self.onHit  -- Copy chain behavior
-                    end
-                end
-            end
-
-            -- Deactivate this projectile
-            self:deactivate()
-        end
+        -- Use shared function (avoids per-projectile closure creation)
+        proj.onHit = chainOnHit
     end
 
     return proj

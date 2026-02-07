@@ -42,9 +42,3 @@ function GreetingDrone:update(dt)
     end
 end
 
-function GreetingDrone:onHitStation()
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-    end
-    self:onDestroyed()
-end

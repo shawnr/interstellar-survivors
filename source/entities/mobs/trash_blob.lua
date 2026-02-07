@@ -112,11 +112,5 @@ function TrashBlob:update(dt)
     end
 end
 
-function TrashBlob:onHitStation()
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-    end
-    self:onDestroyed()
-end
 
 return TrashBlob

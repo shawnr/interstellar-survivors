@@ -261,7 +261,11 @@ end
 
 function Chomper:onHitStation()
     if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
+        -- Calculate attack angle for shield check
+        local dx = self.x - self.targetX
+        local dy = self.y - self.targetY
+        local attackAngle = math.atan(dx, -dy) * (180 / math.pi)
+        GameplayScene.station:takeDamage(self.damage, attackAngle, "ram")
         GameplayScene:showMessage("CHOMP!", 1.0)
     end
 end

@@ -53,9 +53,3 @@ function DebateDrone:update(dt)
     end
 end
 
-function DebateDrone:onHitStation()
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-    end
-    self:onDestroyed()
-end

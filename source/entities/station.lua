@@ -413,6 +413,14 @@ function Station:takeDamage(amount, attackAngle, damageType)
         amount = damagePassthrough
     end
 
+    -- Apply ram resistance (from Ablative Coating bonus item)
+    if damageType == "ram" then
+        local ramResistance = self.ramResistance or 0
+        if ramResistance > 0 then
+            amount = math.max(1, math.floor(amount * (1 - ramResistance)))
+        end
+    end
+
     -- Apply damage reduction (from bonus items like Quantum Stabilizer)
     local damageReduction = self.damageReduction or 0
     local finalDamage = math.max(1, math.floor(amount * (1 - damageReduction)))
@@ -427,13 +435,17 @@ function Station:takeDamage(amount, attackAngle, damageType)
     -- Update damage visual state
     local healthPercent = self.health / self.maxHealth
 
-    if healthPercent <= 0.50 and self.damageState ~= 2 then
+    if healthPercent <= 0.25 and self.damageState ~= 2 then
         self.damageState = 2
         local img = Utils.getCachedImage("images/shared/station_damaged_2")
         if img then self:setImage(img) end
-    elseif healthPercent <= 0.75 and healthPercent > 0.50 and self.damageState ~= 1 then
+    elseif healthPercent <= 0.50 and healthPercent > 0.25 and self.damageState ~= 1 then
         self.damageState = 1
         local img = Utils.getCachedImage("images/shared/station_damaged_1")
+        if img then self:setImage(img) end
+    elseif healthPercent > 0.50 and self.damageState ~= 0 then
+        self.damageState = 0
+        local img = Utils.getCachedImage("images/shared/station_base")
         if img then self:setImage(img) end
     end
 
@@ -471,13 +483,13 @@ end
 function Station:heal(amount)
     self.health = math.min(self.maxHealth, self.health + amount)
 
-    -- Update visual state if healed enough
+    -- Update visual state if healed enough (matches takeDamage thresholds: 50%/25%)
     local healthPercent = self.health / self.maxHealth
-    if healthPercent > 0.75 and self.damageState ~= 0 then
+    if healthPercent > 0.50 and self.damageState ~= 0 then
         self.damageState = 0
         local img = Utils.getCachedImage("images/shared/station_base")
         if img then self:setImage(img) end
-    elseif healthPercent > 0.50 and self.damageState == 2 then
+    elseif healthPercent > 0.25 and self.damageState == 2 then
         self.damageState = 1
         local img = Utils.getCachedImage("images/shared/station_damaged_1")
         if img then self:setImage(img) end

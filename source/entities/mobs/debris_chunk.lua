@@ -54,9 +54,3 @@ function DebrisChunk:update(dt)
     end
 end
 
-function DebrisChunk:onHitStation()
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-    end
-    self:onDestroyed()
-end

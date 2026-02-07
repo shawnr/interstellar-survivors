@@ -93,14 +93,14 @@ Utils._debugModeCache = nil
 Utils._debugModeCacheTime = 0
 
 function Utils.debugPrint(...)
-    -- Fast path: if cached as false, skip immediately (no time check)
-    if Utils._debugModeCache == false then return end
+    -- Fast path with periodic refresh (every ~900 calls ≈ 30 seconds at 30fps)
+    -- Allows debug mode to be toggled at runtime without per-call time check overhead
+    Utils._debugCallCount = (Utils._debugCallCount or 0) + 1
+    if Utils._debugModeCache == false and Utils._debugCallCount < 900 then return end
 
-    -- Cache the debug mode check for 1 second to avoid repeated save manager calls
-    local currentTime = playdate.getCurrentTimeMilliseconds()
-    if Utils._debugModeCache == nil or (currentTime - Utils._debugModeCacheTime) > 1000 then
+    if Utils._debugCallCount >= 900 or Utils._debugModeCache == nil then
+        Utils._debugCallCount = 0
         Utils._debugModeCache = SaveManager and SaveManager:getSetting("debugMode", false)
-        Utils._debugModeCacheTime = currentTime
         if not Utils._debugModeCache then return end
     end
 

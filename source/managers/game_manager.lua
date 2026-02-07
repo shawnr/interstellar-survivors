@@ -144,7 +144,13 @@ function GameManager:awardRP(amount)
         end
     end
 
-    local adjustedAmount = math.floor(amount * (1 + rpBonus + grantRPBonus))
+    -- Apply RP bonus from bonus items (Scrap Collector)
+    local itemRPBonus = 0
+    if GameplayScene and GameplayScene.station then
+        itemRPBonus = GameplayScene.station.rpBonus or 0
+    end
+
+    local adjustedAmount = math.floor(amount * (1 + rpBonus + grantRPBonus + itemRPBonus))
     self.currentRP = self.currentRP + adjustedAmount
 
     -- Track for episode stats

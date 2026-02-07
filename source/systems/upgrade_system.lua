@@ -266,6 +266,42 @@ function UpgradeSystem:applyToolSelection(toolData, station, slotIndex)
             self.toolLevels[toolData.id] = 1
             station:attachTool(newTool, slotIndex)
 
+            -- Apply accumulated global bonuses to new tool
+            if station.globalFireRateBonus and station.globalFireRateBonus > 0 then
+                newTool.fireRateBonus = (newTool.fireRateBonus or 0) + station.globalFireRateBonus
+            end
+            if station.globalDamageBonus and station.globalDamageBonus > 0 then
+                newTool.globalDamageBonus = (newTool.globalDamageBonus or 0) + station.globalDamageBonus
+            end
+            if station.globalProjectileSpeedBonus and station.globalProjectileSpeedBonus > 0 then
+                newTool.projectileSpeedBonus = (newTool.projectileSpeedBonus or 0) + station.globalProjectileSpeedBonus
+            end
+            -- Apply damage type bonus if tool matches
+            if station.damageBonus and newTool.data.damageType then
+                local typeBonus = station.damageBonus[newTool.data.damageType]
+                if typeBonus and typeBonus > 0 then
+                    newTool.damageBonus = (newTool.damageBonus or 0) + typeBonus
+                end
+            end
+            -- Apply tool-specific bonuses if any accumulated
+            if station.toolBonuses and station.toolBonuses[toolData.id] then
+                for property, pValue in pairs(station.toolBonuses[toolData.id]) do
+                    newTool[property] = (newTool[property] or 0) + pValue
+                end
+            end
+            -- Apply multi-spectrum bonus (damage per tool)
+            if station.damagePerToolBonus and station.damagePerToolBonus > 0 then
+                local toolCount = #station.tools
+                local totalBonus = station.damagePerToolBonus * toolCount
+                -- Update ALL tools since tool count changed
+                for _, tool in ipairs(station.tools) do
+                    tool.multiSpectrumBonus = totalBonus
+                    tool:recalculateStats()
+                end
+            else
+                newTool:recalculateStats()
+            end
+
             -- Track acquisition order
             table.insert(self.equipmentOrder, {type = "tool", id = toolData.id})
 
@@ -488,7 +524,7 @@ function UpgradeSystem:applyBonusEffect(bonusData, station, level)
 
     elseif effect == "hp_on_kill" then
         -- Store kills needed for HP regen (lower is better)
-        station.hpOnKillThreshold = applyValue  -- Overwrites with level-adjusted value
+        station.hpOnKillThreshold = value  -- Full level-adjusted value (10, 8, 6, 4)
         station.killCounter = station.killCounter or 0
 
     elseif effect == "cooldown_on_kill" then

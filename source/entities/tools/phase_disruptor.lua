@@ -1,6 +1,17 @@
 -- Phase Disruptor Tool
 -- High damage piercing beam that passes through all enemies
 
+-- Shared onHit function (avoids per-projectile closure creation)
+local function piercingOnHit(self, target)
+    if not self.hitTargets[target] then
+        self.hitTargets[target] = true
+        self.hitCount = self.hitCount + 1
+        if self.hitCount >= self.maxHits then
+            self:deactivate()
+        end
+    end
+end
+
 class('PhaseDisruptor').extends(Tool)
 
 PhaseDisruptor.DATA = {
@@ -52,19 +63,7 @@ function PhaseDisruptor:createPiercingBeam(x, y, angle)
         proj.hitCount = 0
         proj.hitTargets = {}  -- Track targets to prevent double-hitting same enemy
 
-        -- Override onHit to track hits properly
-        proj.onHit = function(self, target)
-            -- Only count if we haven't hit this target before
-            if not self.hitTargets[target] then
-                self.hitTargets[target] = true
-                self.hitCount = self.hitCount + 1
-
-                -- Deactivate only if we hit max targets
-                if self.hitCount >= self.maxHits then
-                    self:deactivate()
-                end
-            end
-        end
+        proj.onHit = piercingOnHit
     end
 
     return proj

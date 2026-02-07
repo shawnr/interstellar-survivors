@@ -1,6 +1,39 @@
 -- Singularity Core Tool
 -- Deploys gravity orbs that orbit the station, damaging enemies they touch
 
+-- Shared update function for orbital projectiles (avoids per-projectile closure)
+local function orbitalUpdate(self)
+    if not self.active then return end
+
+    self.framesAlive = self.framesAlive + 1
+
+    self.orbitalLifetime = self.orbitalLifetime + 1
+    if self.orbitalLifetime > self.maxOrbitalLifetime then
+        self:deactivate("lifetime")
+        return
+    end
+
+    self.orbitalAngle = self.orbitalAngle + self.orbitalSpeed
+    local rad = math.rad(self.orbitalAngle)
+    self.x = Constants.STATION_CENTER_X + math.cos(rad) * self.orbitalRadius
+    self.y = Constants.STATION_CENTER_Y + math.sin(rad) * self.orbitalRadius
+
+    self.drawRotation = self.orbitalAngle
+
+    if self.damageTickTimer > 0 then
+        self.damageTickTimer = self.damageTickTimer - 1
+    end
+end
+
+-- Shared onHit function for orbital projectiles (tick-based damage)
+local function orbitalOnHit(self, target)
+    if self.damageTickTimer > 0 then
+        return false
+    end
+    self.damageTickTimer = self.damageTickInterval
+    return true
+end
+
 class('SingularityCore').extends(Tool)
 
 SingularityCore.DATA = {
@@ -84,48 +117,9 @@ function SingularityCore:createOrbitalProjectile()
         proj.spawnX = x
         proj.spawnY = y
 
-        -- Override update for orbital behavior
-        -- Not in sprite system: pool handles updates, GameplayScene draws manually
-        proj.update = function(self)
-            if not self.active then return end
-
-            -- Track frames alive for collision grace period
-            self.framesAlive = self.framesAlive + 1
-
-            -- Update lifetime
-            self.orbitalLifetime = self.orbitalLifetime + 1
-            if self.orbitalLifetime > self.maxOrbitalLifetime then
-                self:deactivate("lifetime")
-                return
-            end
-
-            -- Update orbital position
-            self.orbitalAngle = self.orbitalAngle + self.orbitalSpeed
-            local rad = math.rad(self.orbitalAngle)
-            self.x = Constants.STATION_CENTER_X + math.cos(rad) * self.orbitalRadius
-            self.y = Constants.STATION_CENTER_Y + math.sin(rad) * self.orbitalRadius
-
-            -- Update draw rotation for manual rendering
-            self.drawRotation = self.orbitalAngle
-
-            -- Damage tick timer (prevents instant multi-hit)
-            if self.damageTickTimer > 0 then
-                self.damageTickTimer = self.damageTickTimer - 1
-            end
-        end
-
-        -- Override onHit to manage damage tick and prevent constant damage
-        proj.onHit = function(self, target)
-            -- Only allow damage if tick timer is ready
-            if self.damageTickTimer > 0 then
-                -- Return false to indicate damage should not be applied
-                -- (collision system needs to check this)
-                return false
-            end
-            self.damageTickTimer = self.damageTickInterval
-            -- Return true to indicate damage can be applied
-            return true
-        end
+        -- Use shared functions (avoids per-projectile closure creation)
+        proj.update = orbitalUpdate
+        proj.onHit = orbitalOnHit
 
         -- Store that this projectile uses tick-based damage
         proj.usesTickDamage = true

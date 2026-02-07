@@ -148,6 +148,29 @@ end
 -- Track a mob kill
 function GameplayScene:trackMobKill(mobType)
     self.stats.mobKills[mobType] = (self.stats.mobKills[mobType] or 0) + 1
+
+    local station = self.station
+    if not station then return end
+
+    -- HP on kill (Kinetic Absorber bonus item)
+    if station.hpOnKillThreshold then
+        station.killCounter = (station.killCounter or 0) + 1
+        if station.killCounter >= station.hpOnKillThreshold then
+            station.killCounter = 0
+            station:heal(1)
+        end
+    end
+
+    -- Cooldown on kill (Rapid Loader bonus item)
+    local cooldownOnKill = station.cooldownOnKill
+    if cooldownOnKill and cooldownOnKill > 0 then
+        local tools = station.tools
+        local toolCount = #tools
+        for i = 1, toolCount do
+            local tool = tools[i]
+            tool.fireCooldown = tool.fireCooldown * (1 - cooldownOnKill)
+        end
+    end
 end
 
 -- Track tool obtained
@@ -1369,13 +1392,20 @@ function GameplayScene:checkCollisions()
                             local collisionDistSq = collisionDist * collisionDist
 
                             if distSq < collisionDistSq then
+                                -- Get damage with critical hit check
+                                local damage = proj:getDamage()
+                                local critChance = self.station.critChance
+                                if critChance and critChance > 0 and math_random() < critChance then
+                                    damage = damage * 2
+                                end
+
                                 if proj.usesTickDamage then
                                     local canDamage = proj:onHit(mob)
                                     if canDamage then
-                                        mob:takeDamage(proj:getDamage(), nil, px, py)
+                                        mob:takeDamage(damage, nil, px, py)
                                     end
                                 else
-                                    mob:takeDamage(proj:getDamage(), nil, px, py)
+                                    mob:takeDamage(damage, nil, px, py)
                                     proj:onHit(mob)
                                 end
 
@@ -2129,8 +2159,7 @@ function GameplayScene:onUpgradeSelected(selectionType, selectionData)
                 if evolutionInfo and evolutionInfo.evolved then
                     self:showToolEvolution(evolutionInfo)
                 else
-                    -- Resume gameplay
-                    self.isLevelingUp = false
+                    self:resumeFromLevelUp()
                 end
             end)
         else
@@ -2144,8 +2173,7 @@ function GameplayScene:onUpgradeSelected(selectionType, selectionData)
             if evolutionInfo and evolutionInfo.evolved then
                 self:showToolEvolution(evolutionInfo)
             else
-                -- Resume gameplay
-                self.isLevelingUp = false
+                self:resumeFromLevelUp()
             end
         end
     else
@@ -2158,9 +2186,17 @@ function GameplayScene:onUpgradeSelected(selectionType, selectionData)
         if evolutionInfo and evolutionInfo.evolved then
             self:showToolEvolution(evolutionInfo)
         else
-            -- Resume gameplay
-            self.isLevelingUp = false
+            self:resumeFromLevelUp()
         end
+    end
+end
+
+-- Resume gameplay after level-up (check for pending level-ups from excess RP)
+function GameplayScene:resumeFromLevelUp()
+    self.isLevelingUp = false
+    -- Check for pending level-ups (e.g., from large merged orbs granting multiple levels)
+    if GameManager.currentRP >= GameManager.rpToNextLevel then
+        GameManager:levelUp()
     end
 end
 
@@ -2171,7 +2207,7 @@ function GameplayScene:showToolEvolution(evolutionInfo)
 
     ToolEvolutionScreen:show(evolutionInfo.originalData, evolutionInfo.evolvedData, function()
         -- Resume gameplay after evolution screen
-        self.isLevelingUp = false
+        self:resumeFromLevelUp()
     end)
 end
 

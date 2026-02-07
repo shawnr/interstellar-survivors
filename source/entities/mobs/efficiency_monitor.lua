@@ -40,9 +40,3 @@ function EfficiencyMonitor:update(dt)
     end
 end
 
-function EfficiencyMonitor:onHitStation()
-    if GameplayScene and GameplayScene.station then
-        GameplayScene.station:takeDamage(self.damage)
-    end
-    self:onDestroyed()
-end

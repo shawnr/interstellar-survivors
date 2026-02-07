@@ -126,7 +126,7 @@ Players can view a list available from the Research menu of their unlocked Resea
 When a new Episode starts, the effects of all unlocked Research Specs are noted and applied to the gameplay session. Each Episode unlocks a specific Research Spec when completed.
 
 ### Grant Funding
-Grant Funding provides a way for players to permanently improve their station even when they fail Episodes. When a player loses (station destroyed, Episode not completed), 1% of their earned RP is converted into Grant Funds.
+Grant Funding provides a way for players to permanently improve their station even when they fail Episodes. When a player loses (station destroyed, Episode not completed), 2% of their earned RP is converted into Grant Funds.
 
 Players can spend Grant Funds in the Research menu under "Grant Funding" to upgrade four stats: Health, Damage, Shields, and Research. Each stat has 4 upgrade levels. Players who are struggling can keep attempting Episodes and gradually build up their station's power until they can overcome the challenge.
 
@@ -151,7 +151,7 @@ The following are tables that provide game data to be used during play. For comp
 
 ## Grant Funding
 
-Grant Funding is a meta-progression system that allows players to permanently improve their station's capabilities. When a player loses (doesn't complete the Episode), 1% of their earned RP is converted into Grant Funds.
+Grant Funding is a meta-progression system that allows players to permanently improve their station's capabilities. When a player loses (doesn't complete the Episode), 2% of their earned RP is converted into Grant Funds.
 
 Grant Funds can be spent in the Research menu under "Grant Funding" to upgrade four different stats. Each stat has 4 upgrade levels with increasing costs and benefits:
 
@@ -205,11 +205,11 @@ All MOBs earn the station Research Points. Research Points are required to level
 
 ### Generic MOBs (used across multiple Episodes)
 
-| Name | Description | Research Points | Base Health | Base Speed | Base Damage | Levels | Range | Emits? |
-| :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
-| Asteroid | Asteroids are common and can threaten the station just by ramming into it. But they also contain minerals and other clues to life in the universe, so they are worth studying when possible. | 5 | 10 | 5 | 5 | 3 | 1 | no |
-| Gas Cloud | Gas clouds are slow, but they can still be dangerous. You never know the kind of effect they will have on your station. Best to study them or remove them. | 5 | 20 | 1 | 8 | 3 | 1 | no |
-| Mysterious Orbs | These mysterious orbs are a mystery, but we know one thing: They shoot little balls that hurt like heck\! Removing them is more difficult because they are so quick. | 10 | 5 | 10 | 2 | 1 | 50 | yes |
+| Name | Description | Research Points | Base Health | Base Speed | Base Damage | Range | Emits? |
+| :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
+| Asteroid | Asteroids are common and can threaten the station just by ramming into it. But they also contain minerals and other clues to life in the universe, so they are worth studying when possible. | 5 | 3 | 0.5 | 5 | 1 | no |
+
+Note: Gas Cloud and Mysterious Orbs were originally planned but not implemented. The Asteroid is the only generic MOB; all other MOBs are Episode-specific.
 
 For Episode-specific MOBs (Threats), see the **Mission Content** tab.
 
@@ -279,13 +279,13 @@ For the complete Tools table (14 Tools with stats, patterns, and upgrade paths),
 
 Bonus Items are passive upgrades selected at level-up. Some Bonus Items provide general stat boosts; others combine with specific Tools to create Upgraded Tools with significantly improved stats and special effects.
 
-For the complete Bonus Items table (33 items with effects and unlock conditions), see the **Systems Update** tab.
+For the complete Bonus Items table (30 items with effects and unlock conditions), see the **Systems Update** tab.
 
 ### Bonus Item Summary
 
 **Tool Upgrade Items (14):** Alloy Gears, Expanded Dish, Magnetic Coils, Cooling Vents, Compressor Unit, Capacitor Bank, Probe Swarm, Field Amplifier, Targeting Matrix, Graviton Lens, Fuel Injector, Arc Capacitors, Guidance Module, Phase Modulators
 
-**General Passive Items (19):** Reinforced Hull, Emergency Thrusters, Overclocked Capacitors, Rapid Repair, Scrap Collector, Backup Generator, Ablative Coating, Shield Capacitor, Quantum Stabilizer, Power Relay, BrainBuddy, Critical Matrix, Salvage Drone, Kinetic Absorber, Rapid Loader, Multi-Spectrum Rounds
+**General Passive Items (16):** Reinforced Hull, Emergency Thrusters, Shield Capacitor, Overclocked Capacitors, Power Relay, Salvage Drone, Rapid Repair, Quantum Stabilizer, Critical Matrix, Scrap Collector, BrainBuddy, Kinetic Absorber, Backup Generator, Rapid Loader, Multi-Spectrum Rounds, Ablative Coating
 
 # Mission Content
 
@@ -1377,9 +1377,9 @@ STANDARD\_COLLECTIBLE\_RP \= 10
 
 RARE\_COLLECTIBLE\_RP \= 25
 
-MAX\_ACTIVE\_PROJECTILES \= 50
+MAX\_ACTIVE\_PROJECTILES \= 30
 
-MAX\_ACTIVE\_MOBS \= 30
+MAX\_ACTIVE\_MOBS \= 18
 
 BOSS\_WARNING\_TIME \= 6:45 (405 seconds)
 
@@ -1397,8 +1397,8 @@ BOSS\_WARNING\_TIME \= 6:45 (405 seconds)
 | logo\_icon.png | 32×32 | Small logo for UI |
 | station\_base.png | 32×32 | Player's space station (core) |
 | station\_slot\_indicator.png | 8×8 | Tool attachment point indicator |
-| station\_damaged\_1.png | 32×32 | Station at 66% health |
-| station\_damaged\_2.png | 32×32 | Station at 33% health |
+| station\_damaged\_1.png | 32×32 | Station at ≤50% health |
+| station\_damaged\_2.png | 32×32 | Station at ≤25% health |
 | station\_destroyed\_anim.png | 32×32 ×4 | 4-frame explosion (sprite sheet) |
 | health\_bar\_bg.png | 20×3 | MOB health bar background |
 | health\_bar\_fill.png | 20×3 | MOB health bar fill |
@@ -1477,7 +1477,7 @@ BOSS\_WARNING\_TIME \= 6:45 (405 seconds)
 | bonus\_emergency\_thrusters.png | 32×32 | Emergency Thrusters icon |
 | bonus\_scrap\_collector.png | 32×32 | Scrap Collector icon |
 | bonus\_backup\_generator.png | 32×32 | Backup Generator icon |
-| bonus\_targeting\_computer.png | 32×32 | Targeting Computer icon |
+| bonus\_rapid\_loader.png | 32×32 | Rapid Loader icon |
 | bonus\_ablative\_coating.png | 32×32 | Ablative Coating icon |
 
 #### Research Spec Icons (8 assets)

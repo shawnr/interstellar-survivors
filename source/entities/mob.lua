@@ -454,6 +454,19 @@ function MOB:getRadius()
     return self.cachedRadius or 8
 end
 
+-- Called when a ramming MOB hits the station
+-- Calculates attack angle for shield check (subclasses can override for custom behavior)
+function MOB:onHitStation()
+    if GameplayScene and GameplayScene.station then
+        -- Calculate attack angle from mob to station (for shield coverage check)
+        local dx = self.x - self.targetX
+        local dy = self.y - self.targetY
+        local attackAngle = math_atan(dx, -dy) * RAD_TO_DEG
+        GameplayScene.station:takeDamage(self.damage, attackAngle, "ram")
+    end
+    self:onDestroyed()
+end
+
 -- Check if MOB has reached the station (uses squared distance for performance)
 function MOB:hasReachedStation()
     local distSq = Utils.distanceSquared(self.x, self.y, self.targetX, self.targetY)
