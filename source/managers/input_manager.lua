@@ -100,6 +100,14 @@ function InputManager:update()
         Constants.ROTATION_SMOOTHING
     )
 
+    -- Keep rotation values bounded (prevent float precision loss on long sessions)
+    -- Normalize both together to preserve lerp relationship
+    if self.currentRotation > 720 or self.currentRotation < -720 then
+        local wrap = math.floor(self.currentRotation / 360) * 360
+        self.currentRotation = self.currentRotation - wrap
+        self.targetRotation = self.targetRotation - wrap
+    end
+
     -- Calculate smoothed delta for this frame
     self.smoothedCrankDelta = self.crankDelta * Constants.ROTATION_RATIO * Constants.ROTATION_SMOOTHING
 

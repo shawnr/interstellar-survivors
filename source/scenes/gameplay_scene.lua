@@ -35,6 +35,7 @@ function GameplayScene:init()
     -- Entity references
     self.station = nil
     self.mobs = {}
+    self.pendingMobs = {}  -- Deferred spawn queue (bosses add here during update)
     self.collectibles = {}
 
     -- DOD: Parallel arrays for mob hot data (faster collision detection)
@@ -117,10 +118,6 @@ function GameplayScene:init()
         totalRP = 0,
     }
 
-    -- Equipment slot icon cache
-    self.toolSlotIcons = {}
-    self.itemSlotIcons = {}
-
     -- Visual pulse effects (expanding rings for tools like Tractor Pulse)
     self.pulseEffects = {}
 
@@ -166,9 +163,11 @@ function GameplayScene:trackMobKill(mobType)
     if cooldownOnKill and cooldownOnKill > 0 then
         local tools = station.tools
         local toolCount = #tools
+        local MIN_COOLDOWN = 0.15  -- Floor: can't fire faster than ~6.7/sec
         for i = 1, toolCount do
             local tool = tools[i]
-            tool.fireCooldown = tool.fireCooldown * (1 - cooldownOnKill)
+            local newCooldown = tool.fireCooldown * (1 - cooldownOnKill)
+            tool.fireCooldown = newCooldown > MIN_COOLDOWN and newCooldown or MIN_COOLDOWN
         end
     end
 end
@@ -584,6 +583,7 @@ function GameplayScene:enter(params)
     self.currentWave = 1
     self.spawnTimer = 0
     self.mobs = {}
+    self.pendingMobs = {}
     self.collectibles = {}
     self.messages = {}
     self.pulseEffects = {}
@@ -644,10 +644,6 @@ function GameplayScene:enter(params)
         totalRP = 0,
     }
 
-    -- Clear equipment slot icon caches
-    self.toolSlotIcons = {}
-    self.itemSlotIcons = {}
-
     -- Initialize upgrade system for this episode
     UpgradeSystem:reset()
     UpgradeSystem:setEpisode(GameManager.currentEpisodeId or 1)
@@ -700,12 +696,24 @@ function GameplayScene:enter(params)
     -- Store background image for manual drawing (no sprite system needed)
     self.backgroundImage = gfx.image.new(bgPath)
 
-    -- Set up mission intro overlay
-    self.missionText = episodeData and episodeData.startingMessage or "MISSION START"
-    self.showingMissionIntro = true
-    self.missionIntroTimer = 2.0  -- Show for 2 seconds
-    self.missionIntroFadeTimer = 0
-    self.isPaused = true  -- Pause game during intro
+    -- Check for resume data before showing mission intro
+    if GameManager._pendingResumeData then
+        self:deserializeState(GameManager._pendingResumeData)
+        GameManager._pendingResumeData = nil
+        -- Show brief "RESUMING..." overlay
+        self.missionText = "RESUMING..."
+        self.showingMissionIntro = true
+        self.missionIntroTimer = 1.5
+        self.missionIntroFadeTimer = 0
+        self.isPaused = true
+    else
+        -- Normal mission intro
+        self.missionText = episodeData and episodeData.startingMessage or "MISSION START"
+        self.showingMissionIntro = true
+        self.missionIntroTimer = 2.0  -- Show for 2 seconds
+        self.missionIntroFadeTimer = 0
+        self.isPaused = true  -- Pause game during intro
+    end
 end
 
 function GameplayScene:update()
@@ -815,8 +823,24 @@ function GameplayScene:updateMOBs(dt)
         end
     end
 
+    -- Flush deferred mob spawns (bosses add mobs here during their update to
+    -- avoid corrupting the swap-and-pop iteration above)
+    local pending = self.pendingMobs
+    local pendingCount = #pending
+    if pendingCount > 0 then
+        for j = 1, pendingCount do
+            mobs[#mobs + 1] = pending[j]
+            pending[j] = nil
+        end
+    end
+
     -- Sync parallel arrays for fast collision detection
     self:syncMobArrays()
+end
+
+-- Queue a mob to be added after the current update iteration completes
+function GameplayScene:queueMob(mob)
+    self.pendingMobs[#self.pendingMobs + 1] = mob
 end
 
 -- DOD: Sync mob data to parallel arrays for cache-efficient collision loops
@@ -1343,32 +1367,37 @@ function GameplayScene:checkCollisions()
     self:buildMobGrid()
 
     local collisionFrame = self.collisionFrame
+    local frameMod2 = collisionFrame % 2
     local frameMod3 = collisionFrame % 3
 
     -- Projectiles vs MOBs (using spatial partitioning)
-    -- Performance: split into thirds, cycling each frame (check ~10 instead of ~15)
-    -- Safe because projectiles move 7-10px/frame vs 16-32px mob widths (no tunneling)
+    -- Performance: check each projectile on a subset of frames to reduce work per frame
+    -- Fast projectiles (speed >= 12): checked every 2 frames (prevents tunneling through mobs)
+    -- Slow projectiles: checked every 3 frames (safe at lower speeds with 24px minimum mob size)
     local projectiles = self.projectilePool:getActive()
 
     local minTravelDistSq = 100  -- 10px minimum travel from spawn
+    local FAST_PROJ_SPEED = 12   -- Threshold for 2-frame collision checking
 
     local projCount = #projectiles
-    local thirdCount = math_ceil(projCount / 3)
-    local startIdx, endIdx
-    if frameMod3 == 0 then
-        startIdx, endIdx = 1, thirdCount
-    elseif frameMod3 == 1 then
-        startIdx, endIdx = thirdCount + 1, thirdCount * 2
-    else
-        startIdx, endIdx = thirdCount * 2 + 1, projCount
-    end
 
     -- Pre-cache DOD collision base array for inner loop
     local mobCollisionBase = self.mobCollisionBase
 
-    for pi = startIdx, endIdx do
+    for pi = 1, projCount do
         local proj = projectiles[pi]
         if proj and proj.active then
+            -- Fast projectiles: check every 2 frames; slow: every 3
+            -- Use stable _collisionId instead of array index (survives swap-and-pop)
+            local shouldCheck
+            local cid = proj._collisionId
+            if proj.speed >= FAST_PROJ_SPEED then
+                shouldCheck = (cid % 2 == frameMod2)
+            else
+                shouldCheck = (cid % 3 == frameMod3)
+            end
+
+            if shouldCheck then
             local px, py = proj.x, proj.y
             if px > -20 and px < 420 and py > -20 and py < 260 then
                 local tdx = px - (proj.spawnX or px)
@@ -1417,6 +1446,7 @@ function GameplayScene:checkCollisions()
                     end
                 end
             end
+            end  -- shouldCheck
         end
     end
 
@@ -1623,6 +1653,8 @@ function GameplayScene:generateLightningSegments(x1, y1, x2, y2)
     local dy = y2 - y1
     local dist = math.sqrt(dx * dx + dy * dy)
 
+    if dist < 1 then return segments end
+
     -- Number of segments based on distance
     local numSegments = math.max(3, math.floor(dist / 15))
 
@@ -1814,8 +1846,14 @@ function GameplayScene:drawOverlay()
     -- Draw lightning arc effects (for Tesla Coil chain lightning)
     self:drawLightningArcs()
 
+    -- Draw damage flash (expanding ring when station takes HP damage)
+    self.station:drawDamageFlash()
+
     -- Draw shield effect (before HUD so it's behind UI elements)
     self.station:drawShield()
+
+    -- Draw debuff indicator (wavy circle, chevrons, or dashed circle)
+    self.station:drawDebuffIndicator()
 
     -- Draw HUD
     self:drawHUD()
@@ -2209,6 +2247,191 @@ function GameplayScene:showToolEvolution(evolutionInfo)
         -- Resume gameplay after evolution screen
         self:resumeFromLevelUp()
     end)
+end
+
+-- ============================================
+-- Session Save/Resume
+-- ============================================
+
+function GameplayScene:serializeState()
+    local station = self.station
+    local state = {
+        -- Metadata for resume modal
+        episodeId = GameManager.currentEpisodeId,
+        playerLevel = GameManager.playerLevel,
+        currentWave = self.currentWave,
+        elapsedTime = self.elapsedTime,
+
+        -- Player progression
+        currentRP = GameManager.currentRP,
+        rpToNextLevel = GameManager.rpToNextLevel,
+
+        -- Station core state
+        stationHealth = station.health,
+        stationMaxHealth = station.maxHealth,
+        stationRotation = station.currentRotation,
+        shieldLevel = station.shieldLevel,
+        shieldCurrentCapacity = station.shieldCurrentCapacity,
+        shieldCooldown = station.shieldCooldown,
+
+        -- Tools (serialize each equipped tool)
+        tools = {},
+
+        -- UpgradeSystem state
+        toolLevels = {},
+        ownedBonusItems = {},
+        equipmentOrder = {},
+
+        -- Salvage drone
+        hasSalvageDrone = self.salvageDrone ~= nil,
+        salvageDroneSpeed = self.salvageDrone and self.salvageDrone.speed or 0,
+        salvageDroneRange = self.salvageDrone and self.salvageDrone.searchRadius or 0,
+
+        -- Episode stats
+        stats = {
+            mobKills = self.stats.mobKills,
+            toolsObtained = self.stats.toolsObtained,
+            itemsObtained = self.stats.itemsObtained,
+            totalRP = self.stats.totalRP,
+        },
+
+        -- Spawning state
+        spawnTimer = self.spawnTimer,
+        spawnInterval = self.spawnInterval,
+        bossSpawned = self.bossSpawned,
+    }
+
+    -- Serialize each equipped tool
+    for _, tool in ipairs(station.tools) do
+        local toolEntry = {
+            id = tool.data.id,
+            slotIndex = tool.slotIndex,
+            level = tool.level or 1,
+            isEvolved = tool.isEvolved or false,
+        }
+        state.tools[#state.tools + 1] = toolEntry
+    end
+
+    -- Copy UpgradeSystem state
+    for k, v in pairs(UpgradeSystem.toolLevels) do
+        state.toolLevels[k] = v
+    end
+    for k, v in pairs(UpgradeSystem.ownedBonusItems) do
+        state.ownedBonusItems[k] = v
+    end
+    for i, entry in ipairs(UpgradeSystem.equipmentOrder) do
+        state.equipmentOrder[i] = { type = entry.type, id = entry.id }
+    end
+
+    return state
+end
+
+function GameplayScene:deserializeState(data)
+    local station = self.station
+
+    -- 1. Restore UpgradeSystem state
+    UpgradeSystem.toolLevels = data.toolLevels or {}
+    UpgradeSystem.ownedBonusItems = {}  -- Will be rebuilt by replay
+    UpgradeSystem.equipmentOrder = {}   -- Will be rebuilt by replay
+
+    -- 2. Remove the default starting tool that enter() created
+    for i = #station.tools, 1, -1 do
+        local tool = station.tools[i]
+        if tool.slotIndex ~= nil then
+            station.usedSlots[tool.slotIndex] = nil
+        end
+        table.remove(station.tools, i)
+    end
+
+    -- 3. Recreate tools from saved data (without bonuses yet)
+    for _, toolSave in ipairs(data.tools) do
+        local toolClass = UpgradeSystem:getToolClass(toolSave.id)
+        if toolClass then
+            local newTool = toolClass()
+            newTool.level = toolSave.level or 1
+            station:attachTool(newTool, toolSave.slotIndex)
+            if toolSave.isEvolved and newTool.evolve then
+                newTool:evolve(newTool.data)
+            end
+        end
+    end
+
+    -- 4. Replay equipment acquisitions in order to rebuild bonuses correctly
+    for _, entry in ipairs(data.equipmentOrder) do
+        table.insert(UpgradeSystem.equipmentOrder, { type = entry.type, id = entry.id })
+
+        if entry.type == "item" then
+            local itemData = BonusItemsData[entry.id]
+            if itemData then
+                local targetLevel = data.ownedBonusItems[entry.id] or 1
+                local currentLevel = UpgradeSystem.ownedBonusItems[entry.id] or 0
+
+                -- Apply all levels up to the saved level
+                for level = currentLevel + 1, targetLevel do
+                    UpgradeSystem.ownedBonusItems[entry.id] = level
+                    UpgradeSystem:applyBonusEffect(itemData, station, level)
+                end
+            end
+        end
+    end
+
+    -- 5. Now recalculate all tool stats (bonuses have been applied to station)
+    for _, tool in ipairs(station.tools) do
+        tool:recalculateStats()
+    end
+
+    -- 6. Override runtime-volatile station state
+    station.health = data.stationHealth or station.maxHealth
+    station.maxHealth = data.stationMaxHealth or station.maxHealth
+    station.currentRotation = data.stationRotation or 0
+    station.shieldLevel = data.shieldLevel or 1
+    station:updateShieldStats()
+    station.shieldCurrentCapacity = data.shieldCurrentCapacity or station.shieldDamageCapacity
+    station.shieldCooldown = data.shieldCooldown or 0
+
+    -- 7. Restore gameplay state
+    self.elapsedTime = data.elapsedTime or 0
+    self.currentWave = data.currentWave or 1
+    self.spawnTimer = data.spawnTimer or 0
+    self.spawnInterval = data.spawnInterval or 1.5
+    self.bossSpawned = data.bossSpawned or false
+
+    -- 8. Restore player level/RP
+    GameManager.playerLevel = data.playerLevel or 1
+    GameManager.currentRP = data.currentRP or 0
+    GameManager.rpToNextLevel = data.rpToNextLevel or Utils.xpToNextLevel(data.playerLevel or 1)
+
+    -- 9. Restore episode stats
+    if data.stats then
+        self.stats.mobKills = data.stats.mobKills or {}
+        self.stats.toolsObtained = data.stats.toolsObtained or {}
+        self.stats.itemsObtained = data.stats.itemsObtained or {}
+        self.stats.totalRP = data.stats.totalRP or 0
+    end
+
+    -- 10. Recreate salvage drone if needed
+    if data.hasSalvageDrone and not self.salvageDrone then
+        local drone = SalvageDrone()
+        drone.speed = data.salvageDroneSpeed or 4.5
+        drone.searchRadius = data.salvageDroneRange or 250
+        drone:add()
+        self.salvageDrone = drone
+    end
+
+    Utils.debugPrint("Session state restored: Episode " .. (data.episodeId or "?") ..
+        ", Wave " .. (data.currentWave or "?") ..
+        ", Level " .. (data.playerLevel or "?") ..
+        ", Time " .. math_floor(data.elapsedTime or 0) .. "s")
+end
+
+function GameplayScene:saveSessionState()
+    -- Don't save during end-of-game sequences
+    if self.showingBossDefeated or self.showingStationDestroyed then return end
+    -- Don't save if no station (not in active gameplay)
+    if not self.station then return end
+
+    local state = self:serializeState()
+    SaveManager:saveEpisodeState(state)
 end
 
 function GameplayScene:exit()

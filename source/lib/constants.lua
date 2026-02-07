@@ -3,8 +3,8 @@
 
 Constants = {
     -- Version info (keep in sync with pdxinfo)
-    VERSION = "0.1.201",
-    BUILD = 202,
+    VERSION = "0.1.215",
+    BUILD = 216,
 
     -- Screen dimensions
     SCREEN_WIDTH = 400,
@@ -73,7 +73,7 @@ Constants = {
 
     -- Episode count
     TOTAL_EPISODES = 5,
-    TOTAL_RESEARCH_SPECS = 8,
+    TOTAL_RESEARCH_SPECS = 9,
 
     -- UI Theme (terminal aesthetic)
     UI = {

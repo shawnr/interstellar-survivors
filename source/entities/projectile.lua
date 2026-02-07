@@ -34,6 +34,16 @@ end
 
 class('Projectile').extends(Entity)
 
+-- Monotonically increasing ID for stable collision frame cycling
+Projectile._nextId = 0
+
+-- Clear rotation caches (call between episodes to free memory)
+function Projectile.clearRotationCache()
+    for k in pairs(PROJ_ROTATION_CACHE) do
+        PROJ_ROTATION_CACHE[k] = nil
+    end
+end
+
 function Projectile:init()
     Projectile.super.init(self, 0, 0, nil)
 
@@ -44,6 +54,9 @@ function Projectile:init()
     self.piercing = false
     self.hitCount = 0
     self.maxHits = 1
+
+    -- Stable ID for collision frame cycling (assigned at reset)
+    self._collisionId = 0
 
     -- Movement direction
     self.dx = 0
@@ -79,6 +92,10 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
     -- Reset frames alive counter (for collision grace period)
     self.framesAlive = 0
 
+    -- Assign stable collision ID (survives swap-and-pop, unlike array index)
+    Projectile._nextId = Projectile._nextId + 1
+    self._collisionId = Projectile._nextId
+
     -- Parse options
     options = options or {}
     local inverted = options.inverted or false
@@ -108,8 +125,12 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
             local off = rotCache.offsets[step]
             self._drawHalfW = off[1]
             self._drawHalfH = off[2]
+            -- Store for homing projectiles that need to update drawImage mid-flight
+            self._rotCache = rotCache
+            self._lastRotStep = step
         else
             self.drawImage = nil
+            self._rotCache = nil
         end
     end
 

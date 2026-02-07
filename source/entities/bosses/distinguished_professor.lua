@@ -13,9 +13,9 @@ DistinguishedProfessor.DATA = {
     projectileImage = "images/episodes/ep5/ep5_citation_beam",
 
     -- Boss stats (Episode 5 - hardest boss)
-    baseHealth = 600,
-    baseSpeed = 0.22,
-    baseDamage = 8,
+    baseHealth = 1200,
+    baseSpeed = 0.28,
+    baseDamage = 14,
     rpValue = 200,
 
     -- Collision
@@ -25,8 +25,8 @@ DistinguishedProfessor.DATA = {
     emits = true,   -- Shooting boss
 
     -- Attack properties
-    fireRate = 0.8,
-    projectileSpeed = 4,
+    fireRate = 1.2,
+    projectileSpeed = 5,
 }
 
 -- Boss phases
@@ -47,7 +47,7 @@ function DistinguishedProfessor:init(x, y)
     self.fireCooldown = 0
     self.fireInterval = 1 / DistinguishedProfessor.DATA.fireRate
     self.dronesSpawned = 0
-    self.maxDronesPerWave = 5
+    self.maxDronesPerWave = 7
 
     -- Set Z-index
     self:setZIndex(75)
@@ -104,14 +104,18 @@ function DistinguishedProfessor:enterPhase(newPhase)
     self.attackTimer = 0
 
     if newPhase == DistinguishedProfessor.PHASES.LECTURING then
-        GameplayScene:showMessage("Preparing citations...")
+        GameplayScene:showMessage("Confusing lecture!")
+        -- Apply invert controls during lecture
+        if GameplayScene and GameplayScene.station then
+            GameplayScene.station:applyDebuff("controlsInverted", true, 3.0)
+        end
     elseif newPhase == DistinguishedProfessor.PHASES.SUMMONING then
         self.dronesSpawned = 0
         GameplayScene:showMessage("Calling for peer review!")
     elseif newPhase == DistinguishedProfessor.PHASES.ENRAGED then
         GameplayScene:showMessage("YOUR METHODOLOGY IS FLAWED!")
-        self.fireInterval = 0.6  -- Faster firing
-        self.maxDronesPerWave = 7
+        self.fireInterval = 0.4  -- Faster firing
+        self.maxDronesPerWave = 9
     end
 end
 
@@ -121,8 +125,8 @@ function DistinguishedProfessor:updateApproach(dt)
     local dist = math.sqrt(dx * dx + dy * dy)
 
     if dist > self.range and dist > 0 then
-        local moveX = (dx / dist) * self.speed
-        local moveY = (dy / dist) * self.speed
+        local moveX = (dx / dist) * self.speed * 5  -- Fast approach
+        local moveY = (dy / dist) * self.speed * 5
         self.x = self.x + moveX
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
@@ -155,7 +159,7 @@ function DistinguishedProfessor:updateSummoning(dt)
     self:orbitStation(dt, 0.5)  -- Slower orbit while summoning
 
     -- Spawn debate drones
-    if self.attackTimer >= 1.5 and self.dronesSpawned < self.maxDronesPerWave then
+    if self.attackTimer >= 1.0 and self.dronesSpawned < self.maxDronesPerWave then
         self:spawnDebateDrone()
         self.attackTimer = 0
         self.dronesSpawned = self.dronesSpawned + 1
@@ -181,9 +185,13 @@ function DistinguishedProfessor:updateEnraged(dt)
         self.fireCooldown = self.fireInterval
     end
 
-    -- Occasionally summon drones
-    if self.attackTimer >= 10 then
+    -- Occasionally summon drones with confusing rhetoric
+    if self.attackTimer >= 7 then
         self:spawnDroneSquad()
+        if GameplayScene and GameplayScene.station then
+            GameplayScene.station:applyDebuff("controlsInverted", true, 2.5)
+            GameplayScene:showMessage("Confusing rhetoric!", 1.5)
+        end
         self.attackTimer = 0
     end
 end
@@ -239,7 +247,7 @@ function DistinguishedProfessor:spawnDebateDrone()
     local spawnY = self.y + math.sin(offsetAngle) * 35
 
     local drone = DebateDrone(spawnX, spawnY, { health = 1.2, damage = 1.1, speed = 1.2 })
-    table.insert(GameplayScene.mobs, drone)
+    GameplayScene:queueMob(drone)
 end
 
 function DistinguishedProfessor:spawnDroneSquad()
@@ -269,50 +277,8 @@ function DistinguishedProfessor:onDestroyed()
     end
 end
 
--- Override health bar for boss (compact bar in bottom border area)
 function DistinguishedProfessor:drawHealthBar()
-    if not self.active then return end
-
-    -- Compact boss health bar in bottom left area
-    local barWidth = 170
-    local barHeight = 14
-    local barX = 6
-    local barY = Constants.SCREEN_HEIGHT - 20
-
-    local healthPercent = self.health / self.maxHealth
-    local fillWidth = math.floor(healthPercent * (barWidth - 2))
-
-    -- Health bar background (black = empty)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(barX, barY, barWidth, barHeight)
-
-    -- Health bar fill (white = health remaining)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-
-    -- Draw boss name inside the bar using smaller font
-    local bossName = "PROFESSOR"
-    local textX = barX + barWidth / 2
-    local textY = barY + 2
-
-    -- Use tighter tracking for compact text
-    gfx.setFontTracking(-1)
-
-    -- Use clip rect to draw text in two colors
-    -- First draw white text (for the empty/black portion)
-    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Then draw black text (for the filled/white portion)
-    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Clear clip rect and restore draw mode
-    gfx.clearClipRect()
-    gfx.setImageDrawMode(gfx.kDrawModeCopy)
-    gfx.setFontTracking(0)
+    self:drawBossHealthBar("PROFESSOR")
 end
 
 return DistinguishedProfessor

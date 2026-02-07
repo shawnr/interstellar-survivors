@@ -12,9 +12,9 @@ ProductivityLiaison.DATA = {
     imagePath = "images/episodes/ep2/ep2_boss_productivity_liaison",
 
     -- Boss stats (Episode 2)
-    baseHealth = 300,
-    baseSpeed = 0.22,
-    baseDamage = 6,
+    baseHealth = 600,
+    baseSpeed = 0.28,
+    baseDamage = 10,
     rpValue = 120,
 
     -- Collision
@@ -40,7 +40,7 @@ function ProductivityLiaison:init(x, y)
     self.phaseTimer = 0
     self.attackTimer = 0
     self.dronesSpawned = 0
-    self.maxDronesPerWave = 4
+    self.maxDronesPerWave = 6
 
     -- Feedback attack state
     self.feedbackActive = false
@@ -106,7 +106,7 @@ function ProductivityLiaison:enterPhase(newPhase)
     elseif newPhase == ProductivityLiaison.PHASES.ENRAGED then
         GameplayScene:showMessage("PERFORMANCE IMPROVEMENT PLAN!")
         self.speed = self.speed * 1.5
-        self.maxDronesPerWave = 6
+        self.maxDronesPerWave = 8
     end
 end
 
@@ -116,8 +116,8 @@ function ProductivityLiaison:updateApproach(dt)
     local dist = math.sqrt(dx * dx + dy * dy)
 
     if dist > self.range and dist > 0 then
-        local moveX = (dx / dist) * self.speed
-        local moveY = (dy / dist) * self.speed
+        local moveX = (dx / dist) * self.speed * 5  -- Fast approach
+        local moveY = (dy / dist) * self.speed * 5
         self.x = self.x + moveX
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
@@ -135,7 +135,7 @@ function ProductivityLiaison:updateSurveySwarm(dt)
     self:orbitStation(dt)
 
     -- Spawn survey drones periodically
-    if self.attackTimer >= 1.2 and self.dronesSpawned < self.maxDronesPerWave then
+    if self.attackTimer >= 0.8 and self.dronesSpawned < self.maxDronesPerWave then
         self:spawnSurveyDrone()
         self.attackTimer = 0
         self.dronesSpawned = self.dronesSpawned + 1
@@ -166,7 +166,7 @@ function ProductivityLiaison:updateEnraged(dt)
     self:orbitStation(dt, 1.5)
 
     -- Rapidly attack
-    if self.attackTimer >= 0.6 then
+    if self.attackTimer >= 0.4 then
         if math.random() < 0.5 then
             self:spawnSurveyDrone()
         else
@@ -202,7 +202,7 @@ function ProductivityLiaison:spawnSurveyDrone()
 
     -- Spawn Episode 2 survey drones, not Episode 1 greeting drones
     local drone = SurveyDrone(spawnX, spawnY, { health = 1.2, damage = 1.1, speed = 1.2 })
-    table.insert(GameplayScene.mobs, drone)
+    GameplayScene:queueMob(drone)
 end
 
 function ProductivityLiaison:startFeedbackAttack()
@@ -217,9 +217,8 @@ end
 
 function ProductivityLiaison:applyFeedbackDebuff()
     if GameplayScene and GameplayScene.station then
-        -- Feedback slows fire rate temporarily
-        GameplayScene.station.fireRateSlow = 0.5  -- 50% slower fire rate
-        GameplayScene.station.fireRateSlowTimer = 2.0
+        GameplayScene.station:applyDebuff("fireRateSlow", 0.5, 2.0)
+        GameplayScene:showMessage("Productivity declining!", 1.5)
     end
 end
 
@@ -243,50 +242,8 @@ function ProductivityLiaison:onDestroyed()
     end
 end
 
--- Override health bar for boss (compact bar in bottom border area)
 function ProductivityLiaison:drawHealthBar()
-    if not self.active then return end
-
-    -- Compact boss health bar in bottom left area
-    local barWidth = 170
-    local barHeight = 14
-    local barX = 6
-    local barY = Constants.SCREEN_HEIGHT - 20
-
-    local healthPercent = self.health / self.maxHealth
-    local fillWidth = math.floor(healthPercent * (barWidth - 2))
-
-    -- Health bar background (black = empty)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(barX, barY, barWidth, barHeight)
-
-    -- Health bar fill (white = health remaining)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-
-    -- Draw boss name inside the bar using smaller font
-    local bossName = "LIAISON"
-    local textX = barX + barWidth / 2
-    local textY = barY + 2
-
-    -- Use tighter tracking for compact text
-    gfx.setFontTracking(-1)
-
-    -- Use clip rect to draw text in two colors
-    -- First draw white text (for the empty/black portion)
-    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Then draw black text (for the filled/white portion)
-    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Clear clip rect and restore draw mode
-    gfx.clearClipRect()
-    gfx.setImageDrawMode(gfx.kDrawModeCopy)
-    gfx.setFontTracking(0)
+    self:drawBossHealthBar("LIAISON")
 end
 
 return ProductivityLiaison

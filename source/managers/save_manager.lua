@@ -50,9 +50,8 @@ SaveManager = {
     GAME_DATA_FILE = "game_data",
     EPISODE_STATE_FILE = "episode_state",
 
-    -- Dirty flags for save optimization
+    -- Dirty flag for save optimization
     gameDataDirty = false,
-    episodeStateDirty = false,
 }
 
 function SaveManager:init()
@@ -150,6 +149,9 @@ function SaveManager:markEpisodeCompleted(episodeId)
         if episodeData and episodeData.researchSpecUnlock then
             self:unlockResearchSpec(episodeData.researchSpecUnlock)
         end
+
+        -- Check meta-progression unlocks (victories count, all episodes, etc.)
+        self:checkMetaProgressionUnlocks()
     end
 end
 
@@ -207,6 +209,35 @@ end
 
 function SaveManager:getUnlockedResearchSpecs()
     return self.gameData.unlockedResearchSpecs
+end
+
+-- Check and unlock meta-progression research specs based on cumulative stats
+function SaveManager:checkMetaProgressionUnlocks()
+    local allSpecs = ResearchSpecsData.getAll()
+    for _, spec in ipairs(allSpecs) do
+        if spec.unlockCondition and not self:isResearchSpecUnlocked(spec.id) then
+            local condition = spec.unlockCondition
+            local shouldUnlock = false
+
+            if condition == "total_victories_3" then
+                shouldUnlock = self.gameData.totalVictories >= 3
+            elseif condition == "total_deaths_5" then
+                shouldUnlock = self.gameData.totalDeaths >= 5
+            elseif condition == "all_episodes_complete" then
+                shouldUnlock = true
+                for i = 1, Constants.TOTAL_EPISODES do
+                    if not self:isEpisodeCompleted(i) then
+                        shouldUnlock = false
+                        break
+                    end
+                end
+            end
+
+            if shouldUnlock then
+                self:unlockResearchSpec(spec.id)
+            end
+        end
+    end
 end
 
 -- ============================================
@@ -323,6 +354,7 @@ end
 function SaveManager:incrementDeaths()
     self.gameData.totalDeaths = self.gameData.totalDeaths + 1
     self:markGameDataDirty()
+    self:checkMetaProgressionUnlocks()
 end
 
 function SaveManager:addPlayTime(seconds)

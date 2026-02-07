@@ -1,3 +1,3 @@
 loopCount = 0
 frames = 9x7,10x5,11x8,12x8,13x5,14x7,14x8,13x9,12x9,11x6,10x8
-introFrames = 1,2,3,4,5,6x3
+introFrames = 1,2,3,4,5,6x3git 

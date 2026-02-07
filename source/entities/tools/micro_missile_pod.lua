@@ -72,8 +72,18 @@ local function missileProjectileUpdate(self)
         local rad = self.angle * DEG_TO_RAD
         self.dx = math_sin(rad)
         self.dy = -math_cos(rad)
-        -- Update draw rotation for manual rendering
+        -- Update draw rotation and pre-rotated image for manual rendering
         self.drawRotation = self.angle - 90
+        if self._rotCache then
+            local step = Utils.getRotationStep(self.drawRotation)
+            if step ~= self._lastRotStep then
+                self._lastRotStep = step
+                self.drawImage = self._rotCache.images[step]
+                local off = self._rotCache.offsets[step]
+                self._drawHalfW = off[1]
+                self._drawHalfH = off[2]
+            end
+        end
     end
 
     -- Move
@@ -90,8 +100,8 @@ class('MicroMissilePod').extends(Tool)
 
 MicroMissilePod.DATA = {
     id = "micro_missile_pod",
-    name = "Micro-Missile Pod",
-    description = "3-missile burst. Dmg: 4x3",
+    name = "Micro Rocket Pack",
+    description = "3-rocket burst. Dmg: 4x3",
     imagePath = "images/tools/tool_micro_missile_pod",
     iconPath = "images/tools/tool_micro_missile_pod",
     projectileImage = "images/tools/tool_micro_missile",
@@ -103,7 +113,7 @@ MicroMissilePod.DATA = {
     damageType = "explosive",
 
     pairsWithBonus = "guidance_module",
-    upgradedName = "Swarm Launcher",
+    upgradedName = "Swarm Deployer",
     upgradedImagePath = "images/tools/tool_micro_missile_pod",
     upgradedProjectileImage = "images/tools/tool_swarm_missile",
     upgradedDamage = 8,

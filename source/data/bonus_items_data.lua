@@ -11,7 +11,7 @@ BonusItemsData = {
         effect = "damage_physical",
         effectValue = 0.25,
         pairsWithTool = "rail_driver",
-        upgradesTo = "Rail Cannon",
+        upgradesTo = "Rail Hyper Driver",
         unlockCondition = "start",
     },
 
@@ -224,7 +224,7 @@ BonusItemsData = {
         effect = "homing_accuracy",
         effectValue = 0.3,
         pairsWithTool = "modified_mapping_drone",
-        upgradesTo = "Perihelion Strike",
+        upgradesTo = "Perihelion Express",
         unlockCondition = "episode_2",
         effectPerLevel = 0.15,
     },
@@ -267,7 +267,7 @@ BonusItemsData = {
         effect = "damage_plasma",
         effectValue = 0.25,
         pairsWithTool = "plasma_sprayer",
-        upgradesTo = "Inferno Cannon",
+        upgradesTo = "Inferno Projector",
         unlockCondition = "episode_1",
         effectPerLevel = 0.12,
     },
@@ -286,16 +286,16 @@ BonusItemsData = {
         effectPerLevel = 1,
     },
 
-    -- Guidance Module - pairs with Micro-Missile Pod
+    -- Guidance Module - pairs with Micro Rocket Pack
     guidance_module = {
         id = "guidance_module",
         name = "Guidance Module",
-        description = "+2 missiles per burst",
+        description = "+2 rockets per burst",
         iconPath = "images/icons_on_black/bonus_guidance_module",
         effect = "missiles_per_burst",
         effectValue = 2,
         pairsWithTool = "micro_missile_pod",
-        upgradesTo = "Swarm Launcher",
+        upgradesTo = "Swarm Deployer",
         unlockCondition = "episode_2",
         effectPerLevel = 1,
     },

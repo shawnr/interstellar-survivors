@@ -17,6 +17,7 @@ ResearchSpecSystem = {
         collectRange = 0,       -- Percentage bonus
         startingLevel = 1,      -- Starting level
         startingToolSelect = false,  -- Can select starting tool
+        bonusFrequency = 0,     -- Bonus item frequency increase
     },
 }
 
@@ -55,6 +56,7 @@ function ResearchSpecSystem:recalculateBonuses()
         collectRange = 0,
         startingLevel = 1,
         startingToolSelect = false,
+        bonusFrequency = 0,
     }
 
     -- Apply each equipped spec
@@ -87,6 +89,8 @@ function ResearchSpecSystem:applyEffect(effect)
         self.bonuses.startingLevel = math.max(self.bonuses.startingLevel, effect.value)
     elseif effect.type == "starting_tool_select" then
         self.bonuses.startingToolSelect = true
+    elseif effect.type == "bonus_frequency" then
+        self.bonuses.bonusFrequency = self.bonuses.bonusFrequency + effect.value
     end
 end
 
@@ -184,6 +188,10 @@ end
 
 function ResearchSpecSystem:canSelectStartingTool()
     return self.bonuses.startingToolSelect
+end
+
+function ResearchSpecSystem:getBonusFrequency()
+    return self.bonuses.bonusFrequency
 end
 
 return ResearchSpecSystem

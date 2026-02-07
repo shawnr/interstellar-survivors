@@ -184,6 +184,9 @@ end
 
 -- Reset gameplay state for new episode
 function GameManager:startNewEpisode(episodeId)
+    -- Clear any existing session save (new episode replaces old)
+    SaveManager:clearEpisodeState()
+
     self.currentEpisodeId = episodeId
     self.episodeInProgress = true
 
@@ -198,19 +201,36 @@ function GameManager:startNewEpisode(episodeId)
     self.rpToNextLevel = Utils.xpToNextLevel(startingLevel)
 end
 
+-- Resume a saved episode (bypasses story intro, goes directly to gameplay)
+function GameManager:resumeEpisode(sessionData)
+    self.currentEpisodeId = sessionData.episodeId
+    self.episodeInProgress = true
+    self.playerLevel = sessionData.playerLevel or 1
+    self.currentRP = sessionData.currentRP or 0
+    self.rpToNextLevel = sessionData.rpToNextLevel or Utils.xpToNextLevel(self.playerLevel)
+
+    -- Store session data for GameplayScene to pick up during enter()
+    self._pendingResumeData = sessionData
+
+    -- Go directly to gameplay (skip EPISODE_TITLE and STORY_INTRO)
+    self:setState(self.states.GAMEPLAY)
+end
+
 -- End current episode
 function GameManager:endEpisode(victory)
+    -- Clear session save (game ended normally)
+    SaveManager:clearEpisodeState()
     self.episodeInProgress = false
 
     if victory then
         -- Mark episode as completed and save
         SaveManager:markEpisodeCompleted(self.currentEpisodeId)
 
-        -- Convert 2% of total RP earned to Grant Funds (same rate as defeat)
+        -- Convert 5% of total RP earned to Grant Funds (victory bonus)
         if GameplayScene then
             local stats = GameplayScene:getStats()
             local totalRP = stats and stats.totalRP or 0
-            local grantFundsEarned = math.floor(totalRP / 50)
+            local grantFundsEarned = math.floor(totalRP / 20)
             if grantFundsEarned > 0 then
                 SaveManager:addGrantFunds(grantFundsEarned)
             end
@@ -235,13 +255,17 @@ function GameManager:endEpisode(victory)
         SaveManager:flush()
         self:setState(self.states.GAME_OVER)
     end
+
+    -- Clear rotation/image caches to free memory between episodes
+    Utils.clearImageCache()
+    if Projectile then Projectile.clearRotationCache() end
+    if MOB then MOB.clearRotationCache() end
 end
 
 -- Create title scene with background, rotating taglines, and main menu
 function GameManager:createTitleScene()
     local titleScene = {}
 
-    local bgImage = nil
     local blinkTimer = 0
     local showText = true
     local taglineTimer = 0
@@ -255,6 +279,15 @@ function GameManager:createTitleScene()
     -- Menu items
     local menuItems = { "Episodes", "Research", "Database", "Settings" }
     local selectedIndex = 1
+
+    -- Background animation (card-highlighted loop frames)
+    local animFrames = {}      -- loaded images for frames 9-13
+    local animSequence = {     -- {frameIndex, durationInTicks} - loop portion (3x slower than launcher)
+        {9, 21}, {10, 15}, {11, 24}, {12, 24}, {13, 42},
+        {12, 27}, {11, 18}, {10, 24}
+    }
+    local animSeqIndex = 1
+    local animTickCounter = 0
 
     -- Taglines from design doc
     local taglines = {
@@ -299,6 +332,9 @@ function GameManager:createTitleScene()
         "A qualified success.",
     }
 
+    -- Crank easter egg: track cumulative rotation to cycle taglines
+    local crankAccumulator = 0
+
     local function pickNewTagline()
         local newTagline = taglines[math.random(#taglines)]
         -- Reject if same as current
@@ -309,12 +345,17 @@ function GameManager:createTitleScene()
     end
 
     function titleScene:enter(params)
-        -- Load background image
-        bgImage = gfx.image.new("images/ui/title_bg")
+        -- Load animated background frames (loop frames 9-13)
+        for i = 9, 13 do
+            animFrames[i] = gfx.image.new("images/launcher/card-highlighted/" .. i)
+        end
+        animSeqIndex = 1
+        animTickCounter = 0
 
         -- Pick initial tagline
         pickNewTagline()
         taglineTimer = 0
+        crankAccumulator = 0
         titleState = STATE_SPLASH
         selectedIndex = 1
 
@@ -325,6 +366,17 @@ function GameManager:createTitleScene()
     end
 
     function titleScene:update()
+        -- Advance background animation
+        animTickCounter = animTickCounter + 1
+        local entry = animSequence[animSeqIndex]
+        if animTickCounter >= entry[2] then
+            animTickCounter = 0
+            animSeqIndex = animSeqIndex + 1
+            if animSeqIndex > #animSequence then
+                animSeqIndex = 1
+            end
+        end
+
         if titleState == STATE_SPLASH then
             -- Blink "Press any button" text
             blinkTimer = blinkTimer + 1
@@ -340,8 +392,21 @@ function GameManager:createTitleScene()
                 pickNewTagline()
             end
 
-            -- Check for any button to switch to menu
-            if InputManager.buttonJustPressed.a or InputManager.buttonJustPressed.b then
+            -- Easter egg: cranking cycles taglines (one full rotation = new tagline)
+            local crankChange = playdate.getCrankChange()
+            if math.abs(crankChange) > 1 then
+                crankAccumulator = crankAccumulator + crankChange
+                if math.abs(crankAccumulator) >= 360 then
+                    crankAccumulator = crankAccumulator % 360
+                    pickNewTagline()
+                    taglineTimer = 0
+                end
+            end
+
+            -- Any button press opens the menu (crank does not)
+            if InputManager.buttonJustPressed.a or InputManager.buttonJustPressed.b
+                or InputManager.buttonJustPressed.up or InputManager.buttonJustPressed.down
+                or InputManager.buttonJustPressed.left or InputManager.buttonJustPressed.right then
                 titleState = STATE_MENU
                 selectedIndex = 1
             end
@@ -386,30 +451,31 @@ function GameManager:createTitleScene()
     end
 
     function titleScene:drawOverlay()
-        -- Draw background image (full screen)
-        if bgImage then
-            bgImage:draw(0, 0)
-        else
-            gfx.clear(gfx.kColorBlack)
+        -- Draw animated background (anchored upper-left on white)
+        gfx.clear(gfx.kColorWhite)
+        local frameIdx = animSequence[animSeqIndex][1]
+        local frameImg = animFrames[frameIdx]
+        if frameImg then
+            frameImg:draw(0, 0)
         end
 
         if titleState == STATE_SPLASH then
-            -- Draw tagline in a 145x90 box positioned to bottom-right of rocket
-            local boxX = 250
+            -- Draw tagline from center-screen to near right edge
+            local boxX = 180
             local boxY = 125
-            local boxWidth = 145
+            local boxWidth = 215
             local boxHeight = 90
 
             -- Format tagline with Roobert body font
             FontManager:setBodyFont()
             local taglineText = "*" .. currentTagline .. "*"
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+            gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
             gfx.drawTextInRect(taglineText, boxX, boxY, boxWidth, boxHeight, nil, nil, kTextAlignment.left)
 
             -- Draw blinking prompt at bottom
             if showText then
                 FontManager:setMenuFont()
-                gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 gfx.drawTextAligned("Press Any Button to Start", Constants.SCREEN_WIDTH / 2, 210, kTextAlignment.center)
             end
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
@@ -427,43 +493,36 @@ function GameManager:createTitleScene()
                 local isSelected = (i == selectedIndex)
 
                 if isSelected then
-                    -- Selected: white fill, black text
-                    gfx.setColor(gfx.kColorWhite)
-                    gfx.fillRoundRect(menuX - 4, y - 2, menuWidth, itemHeight - 2, 3)
-                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-                else
-                    -- Unselected: black bg, white border, white text
+                    -- Selected: black fill, white text
                     gfx.setColor(gfx.kColorBlack)
                     gfx.fillRoundRect(menuX - 4, y - 2, menuWidth, itemHeight - 2, 3)
-                    gfx.setColor(gfx.kColorWhite)
-                    gfx.drawRoundRect(menuX - 4, y - 2, menuWidth, itemHeight - 2, 3)
                     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+                else
+                    -- Unselected: white bg, black border, black text
+                    gfx.setColor(gfx.kColorWhite)
+                    gfx.fillRoundRect(menuX - 4, y - 2, menuWidth, itemHeight - 2, 3)
+                    gfx.setColor(gfx.kColorBlack)
+                    gfx.drawRoundRect(menuX - 4, y - 2, menuWidth, itemHeight - 2, 3)
+                    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
                 end
 
                 gfx.drawText(item, menuX, y)
                 gfx.setImageDrawMode(gfx.kDrawModeCopy)
             end
 
-            -- Draw navigation hint at bottom
-            FontManager:setBodyFont()
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-            gfx.drawTextAligned("D-pad + A to select", Constants.SCREEN_WIDTH / 2, 210, kTextAlignment.center)
+            -- Draw navigation hint below menu
+            local hintY = menuY + #menuItems * itemHeight + 4
+            gfx.setFont(FontManager.smallBoldFont)
+            gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+            gfx.drawTextAligned("D-pad + Ⓐ to select", menuX + menuWidth - 4, hintY, kTextAlignment.right)
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
 
-        -- Draw version number in lower left corner (with outline for visibility)
-        FontManager:setBodyFont()
+        -- Draw version number in lower left corner
+        gfx.setFont(FontManager.smallBoldFont)
         local versionText = "v" .. Constants.VERSION
-        local vx, vy = 4, Constants.SCREEN_HEIGHT - 14
+        local vx, vy = 4, Constants.SCREEN_HEIGHT - 12
         gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-        for dx = -1, 1 do
-            for dy = -1, 1 do
-                if dx ~= 0 or dy ~= 0 then
-                    gfx.drawText(versionText, vx + dx, vy + dy)
-                end
-            end
-        end
-        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
         gfx.drawText(versionText, vx, vy)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
@@ -486,12 +545,18 @@ function GameManager:createEpisodeSelectScene()
             AudioManager:playMusic("sounds/music_title_theme", true)
         end
 
-        -- Show episode select UI
-        EpisodeSelect:show(function(episodeId)
-            -- Episode selected - start it
-            GameManager:startNewEpisode(episodeId)
-            GameManager:setState(GameManager.states.EPISODE_TITLE)
-        end)
+        -- Show episode select UI (with resume callback)
+        EpisodeSelect:show(
+            function(episodeId)
+                -- Episode selected - start new game
+                GameManager:startNewEpisode(episodeId)
+                GameManager:setState(GameManager.states.EPISODE_TITLE)
+            end,
+            function(sessionData)
+                -- Resume saved session
+                GameManager:resumeEpisode(sessionData)
+            end
+        )
     end
 
     function scene:update()
@@ -775,12 +840,12 @@ function GameManager:createGameOverScene()
 
         -- Footer: white rule above, white text on black
         gfx.setColor(gfx.kColorBlack)
-        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
         gfx.setColor(gfx.kColorWhite)
-        gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+        gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
         FontManager:setFooterFont()
         gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        gfx.drawTextAligned("Press [A]   D-pad/Crank to scroll", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.drawTextAligned("Press [A]   D-pad/Crank to scroll", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 
@@ -795,7 +860,6 @@ end
 -- Create episode title scene (shows before intro panels)
 function GameManager:createEpisodeTitleScene()
     local scene = {}
-    local bgImage = nil
     local elapsedTime = 0
     local fadeAlpha = 0
     local inputDelayTime = 1.0      -- 1 second before input accepted
@@ -803,6 +867,15 @@ function GameManager:createEpisodeTitleScene()
     local fadeDuration = 0.5        -- 0.5 second fade
     local isFading = false
     local fadeComplete = false
+
+    -- Background animation (card-highlighted loop frames)
+    local epAnimFrames = {}
+    local epAnimSequence = {
+        {9, 21}, {10, 15}, {11, 24}, {12, 24}, {13, 42},
+        {12, 27}, {11, 18}, {10, 24}
+    }
+    local epAnimSeqIndex = 1
+    local epAnimTickCounter = 0
 
     -- Text wrapping helper
     local function wrapText(text, maxWidth, font)
@@ -842,8 +915,12 @@ function GameManager:createEpisodeTitleScene()
         isFading = false
         fadeComplete = false
 
-        -- Load background image
-        bgImage = gfx.image.new("images/ui/episode_title_bg")
+        -- Load animated background frames (loop frames 9-13)
+        for i = 9, 13 do
+            epAnimFrames[i] = gfx.image.new("images/launcher/card-highlighted/" .. i)
+        end
+        epAnimSeqIndex = 1
+        epAnimTickCounter = 0
 
         -- Stop title theme music when starting an episode
         if AudioManager then
@@ -853,6 +930,17 @@ function GameManager:createEpisodeTitleScene()
 
     function scene:update()
         local dt = 1/30  -- Approximate frame time
+
+        -- Advance background animation
+        epAnimTickCounter = epAnimTickCounter + 1
+        local epEntry = epAnimSequence[epAnimSeqIndex]
+        if epAnimTickCounter >= epEntry[2] then
+            epAnimTickCounter = 0
+            epAnimSeqIndex = epAnimSeqIndex + 1
+            if epAnimSeqIndex > #epAnimSequence then
+                epAnimSeqIndex = 1
+            end
+        end
 
         elapsedTime = elapsedTime + dt
 
@@ -885,87 +973,83 @@ function GameManager:createEpisodeTitleScene()
     end
 
     function scene:drawOverlay()
-        -- Draw background
-        if bgImage then
-            bgImage:draw(0, 0)
-        else
-            gfx.clear(gfx.kColorWhite)
+        -- Draw animated background (anchored upper-left on white)
+        gfx.clear(gfx.kColorWhite)
+        local epFrameIdx = epAnimSequence[epAnimSeqIndex][1]
+        local epFrameImg = epAnimFrames[epFrameIdx]
+        if epFrameImg then
+            epFrameImg:draw(0, 0)
         end
 
         -- Get episode data
         local episodeData = EpisodesData.get(GameManager.currentEpisodeId)
         if not episodeData then return end
 
-        -- Use Roobert Bold Halved for episode title
-        local boldFont = FontManager.titleFont
-
-        -- Build episode title text: "EP X: Title"
-        local titleText = "EP " .. GameManager.currentEpisodeId .. ": " .. string.upper(episodeData.title)
+        -- Episode number words for display
+        local episodeWords = { "One", "Two", "Three", "Four", "Five" }
+        local episodeLabel = "Episode " .. (episodeWords[GameManager.currentEpisodeId] or tostring(GameManager.currentEpisodeId))
+        local titleText = string.upper(episodeData.title)
         local taglineText = episodeData.tagline or ""
 
-        -- Text positioning - below the logo (roughly bottom third of screen)
-        local textStartY = 145
-        local maxTextWidth = Constants.SCREEN_WIDTH - 40  -- 20px padding each side
+        local maxTextWidth = Constants.SCREEN_WIDTH - 40
         local centerX = Constants.SCREEN_WIDTH / 2
 
-        -- Draw title with thick outline for legibility
-        gfx.setFont(boldFont)
+        -- Line 1: "Episode One" in large font
+        FontManager:setEpisodeTitleFont()
+        local epFont = FontManager.episodeTitleFont
+        local epLabelY = 130
 
-        -- Check if title needs wrapping (unlikely but safety check)
-        local titleWidth = boldFont:getTextWidth(titleText)
-        local titleLines = { titleText }
-        if titleWidth > maxTextWidth then
-            titleLines = wrapText(titleText, maxTextWidth, boldFont)
-        end
-
-        local titleY = textStartY
-        local lineHeight = boldFont:getHeight() + 6
-
-        for _, line in ipairs(titleLines) do
-            -- Draw thick outline (3px radius for bolder look)
-            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-            for dx = -3, 3 do
-                for dy = -3, 3 do
-                    if dx ~= 0 or dy ~= 0 then
-                        gfx.drawTextAligned("*" .. line .. "*", centerX + dx, titleY + dy, kTextAlignment.center)
-                    end
+        -- Draw with white outline for contrast on animated bg
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        for dx = -3, 3 do
+            for dy = -3, 3 do
+                if dx ~= 0 or dy ~= 0 then
+                    gfx.drawTextAligned(episodeLabel, centerX + dx, epLabelY + dy, kTextAlignment.center)
                 end
             end
-
-            -- Draw main text
-            gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-            gfx.drawTextAligned("*" .. line .. "*", centerX, titleY, kTextAlignment.center)
-
-            titleY = titleY + lineHeight
         end
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+        gfx.drawTextAligned(episodeLabel, centerX, epLabelY, kTextAlignment.center)
 
-        -- Draw tagline with bold font and outline
-        local taglineY = titleY + 10
+        -- Line 2: Episode title in large font (e.g., "SPIN CYCLE")
+        local titleY = epLabelY + epFont:getHeight() + 4
 
-        -- Wrap tagline if needed (use bold font for measurement)
-        local taglineWidth = boldFont:getTextWidth(taglineText)
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        for dx = -3, 3 do
+            for dy = -3, 3 do
+                if dx ~= 0 or dy ~= 0 then
+                    gfx.drawTextAligned(titleText, centerX + dx, titleY + dy, kTextAlignment.center)
+                end
+            end
+        end
+        gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+        gfx.drawTextAligned(titleText, centerX, titleY, kTextAlignment.center)
+
+        -- Line 3: Tagline in body font
+        FontManager:setBodyFont()
+        local taglineFont = FontManager.bodyFont
+        local taglineY = titleY + epFont:getHeight() + 10
+
+        -- Wrap tagline if needed
+        local taglineWidth = taglineFont:getTextWidth(taglineText)
         local taglineLines = { taglineText }
         if taglineWidth > maxTextWidth then
-            taglineLines = wrapText(taglineText, maxTextWidth, boldFont)
+            taglineLines = wrapText(taglineText, maxTextWidth, taglineFont)
         end
 
-        local taglineLineHeight = boldFont:getHeight() + 4
+        local taglineLineHeight = taglineFont:getHeight() + 4
 
         for _, line in ipairs(taglineLines) do
-            -- Draw outline (2px radius for tagline)
             gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
             for dx = -2, 2 do
                 for dy = -2, 2 do
                     if dx ~= 0 or dy ~= 0 then
-                        gfx.drawTextAligned("*" .. line .. "*", centerX + dx, taglineY + dy, kTextAlignment.center)
+                        gfx.drawTextAligned(line, centerX + dx, taglineY + dy, kTextAlignment.center)
                     end
                 end
             end
-
-            -- Draw main text (bold)
             gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-            gfx.drawTextAligned("*" .. line .. "*", centerX, taglineY, kTextAlignment.center)
-
+            gfx.drawTextAligned(line, centerX, taglineY, kTextAlignment.center)
             taglineY = taglineY + taglineLineHeight
         end
 
@@ -1015,7 +1099,6 @@ function GameManager:createEpisodeTitleScene()
 
     function scene:exit()
         Utils.debugPrint("Exiting episode title scene")
-        bgImage = nil
     end
 
     return scene
@@ -1216,17 +1299,17 @@ function GameManager:createVictoryScene()
             -- Research Spec Unlocked
             if specData then
                 gfx.setColor(gfx.kColorBlack)
-                gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, 38)
+                gfx.fillRect(10, contentY, Constants.SCREEN_WIDTH - 20, 46)
                 gfx.setColor(gfx.kColorWhite)
-                gfx.drawRect(10, contentY, Constants.SCREEN_WIDTH - 20, 38)
+                gfx.drawRect(10, contentY, Constants.SCREEN_WIDTH - 20, 46)
                 -- Double border for emphasis
-                gfx.drawRect(9, contentY - 1, Constants.SCREEN_WIDTH - 18, 40)
+                gfx.drawRect(9, contentY - 1, Constants.SCREEN_WIDTH - 18, 48)
                 gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-                gfx.drawText("Research Spec Unlocked:", 18, contentY + 4)
+                gfx.drawText("Research Spec Unlocked:", 20, contentY + 6)
                 FontManager:setBodyFont()
-                gfx.drawText(specData.name .. " - " .. specData.description, 18, contentY + 20)
+                gfx.drawText(specData.name .. " - " .. specData.description, 20, contentY + 24)
                 FontManager:setMenuFont()
-                contentY = contentY + 46
+                contentY = contentY + 54
             end
 
             -- Stats row: Level, RP, Time
@@ -1248,8 +1331,8 @@ function GameManager:createVictoryScene()
             local boxPadding = 6
             local boxMargin = 10
 
-            -- Calculate Grant Funds earned (2% of RP, same as defeat)
-            local grantFundsEarned = math.floor((stats.totalRP or 0) / 50)
+            -- Calculate Grant Funds earned (5% of RP for victory)
+            local grantFundsEarned = math.floor((stats.totalRP or 0) / 20)
 
             -- Grant Funds Earned
             if grantFundsEarned > 0 then
@@ -1380,12 +1463,12 @@ function GameManager:createVictoryScene()
 
             -- Footer: white rule above, white text on black
             gfx.setColor(gfx.kColorBlack)
-            gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+            gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
             gfx.setColor(gfx.kColorWhite)
-            gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+            gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
             FontManager:setFooterFont()
             gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-            gfx.drawTextAligned("[A] Continue   D-pad/Crank to scroll", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+            gfx.drawTextAligned("[A] Continue   D-pad/Crank to scroll", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         end
     end
@@ -1730,12 +1813,12 @@ function GameManager:createSettingsScene()
 
         -- Footer: white rule above, white text on black
         gfx.setColor(gfx.kColorBlack)
-        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
         gfx.setColor(gfx.kColorWhite)
-        gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+        gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
         FontManager:setFooterFont()
         gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        gfx.drawTextAligned("D-pad to navigate, A to select", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.drawTextAligned("D-pad to navigate, A to select", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
         -- Reset confirmation dialog (terminal style)
@@ -1927,12 +2010,12 @@ function GameManager:createResearchMenuScene()
 
         -- Footer: white rule above, white text on black
         gfx.setColor(gfx.kColorBlack)
-        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+        gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
         gfx.setColor(gfx.kColorWhite)
-        gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+        gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
         FontManager:setFooterFont()
         gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        gfx.drawTextAligned("D-pad navigate   A select   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.drawTextAligned("D-pad navigate   A select   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
     end
 

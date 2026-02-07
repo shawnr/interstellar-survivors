@@ -12,9 +12,9 @@ CulturalAttache.DATA = {
     imagePath = "images/episodes/ep1/ep1_boss_cultural_attache",
 
     -- Boss stats (Episode 1 - easiest boss)
-    baseHealth = 200,
-    baseSpeed = 0.2,
-    baseDamage = 5,
+    baseHealth = 400,
+    baseSpeed = 0.25,
+    baseDamage = 8,
     rpValue = 100,
 
     -- Collision
@@ -41,7 +41,7 @@ function CulturalAttache:init(x, y)
     self.phaseTimer = 0
     self.attackTimer = 0
     self.dronesSpawned = 0
-    self.maxDronesPerWave = 3
+    self.maxDronesPerWave = 5
 
     -- Poetry scroll reference
     self.poetryScroll = nil
@@ -118,8 +118,8 @@ function CulturalAttache:updateApproach(dt)
     local dist = math.sqrt(dx * dx + dy * dy)
 
     if dist > self.range and dist > 0 then
-        local moveX = (dx / dist) * self.speed
-        local moveY = (dy / dist) * self.speed
+        local moveX = (dx / dist) * self.speed * 5  -- Fast approach
+        local moveY = (dy / dist) * self.speed * 5
         self.x = self.x + moveX
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
@@ -140,7 +140,7 @@ function CulturalAttache:updateDroneWave(dt)
     self:orbitStation(dt)
 
     -- Spawn drones periodically
-    if self.attackTimer >= 1.5 and self.dronesSpawned < self.maxDronesPerWave then
+    if self.attackTimer >= 1.0 and self.dronesSpawned < self.maxDronesPerWave then
         self:spawnDrone()
         self.attackTimer = 0
         self.dronesSpawned = self.dronesSpawned + 1
@@ -173,7 +173,7 @@ function CulturalAttache:updateEnraged(dt)
     self:orbitStation(dt, 1.5)
 
     -- Rapidly spawn drones and use poetry
-    if self.attackTimer >= 0.8 then
+    if self.attackTimer >= 0.5 then
         if math.random() < 0.6 then
             self:spawnDrone()
         else
@@ -212,7 +212,7 @@ function CulturalAttache:spawnDrone()
     local spawnY = self.y + math.sin(offsetAngle) * 30
 
     local drone = GreetingDrone(spawnX, spawnY, { health = 1, damage = 1, speed = 1 })
-    table.insert(GameplayScene.mobs, drone)
+    GameplayScene:queueMob(drone)
 end
 
 function CulturalAttache:startPoetryAttack()
@@ -228,9 +228,7 @@ end
 
 function CulturalAttache:applySlowEffect()
     if GameplayScene and GameplayScene.station then
-        GameplayScene.station.rotationSlow = 0.4  -- 60% slower
-        GameplayScene.station.rotationSlowTimer = 2.5
-
+        GameplayScene.station:applyDebuff("rotationSlow", 0.4, 2.5)
         GameplayScene:showMessage("Poetry slows rotation!", 2.0)
     end
 end
@@ -257,50 +255,8 @@ function CulturalAttache:onDestroyed()
     end
 end
 
--- Override health bar for boss (compact bar in bottom border area)
 function CulturalAttache:drawHealthBar()
-    if not self.active then return end
-
-    -- Compact boss health bar in bottom left area
-    local barWidth = 170
-    local barHeight = 14
-    local barX = 6
-    local barY = Constants.SCREEN_HEIGHT - 20
-
-    local healthPercent = self.health / self.maxHealth
-    local fillWidth = math.floor(healthPercent * (barWidth - 2))
-
-    -- Health bar background (black = empty)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(barX, barY, barWidth, barHeight)
-
-    -- Health bar fill (white = health remaining)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-
-    -- Draw boss name inside the bar using smaller font
-    local bossName = "ATTACHE"
-    local textX = barX + barWidth / 2
-    local textY = barY + 2
-
-    -- Use tighter tracking for compact text
-    gfx.setFontTracking(-1)
-
-    -- Use clip rect to draw text in two colors
-    -- First draw white text (for the empty/black portion)
-    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Then draw black text (for the filled/white portion)
-    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Clear clip rect and restore draw mode
-    gfx.clearClipRect()
-    gfx.setImageDrawMode(gfx.kDrawModeCopy)
-    gfx.setFontTracking(0)
+    self:drawBossHealthBar("ATTACHE")
 end
 
 return CulturalAttache

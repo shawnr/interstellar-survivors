@@ -48,6 +48,9 @@ function AudioManager:init()
 
     self:loadSFX("menu_select", "sounds/sfx_menu_select")
     self:loadSFX("menu_confirm", "sounds/sfx_menu_confirm")
+    self:loadSFX("menu_back", "sounds/sfx_menu_back")
+    self:loadSFX("menu_move", "sounds/sfx_menu_select")    -- Navigation reuses select sound
+    self:loadSFX("menu_error", "sounds/sfx_menu_back")     -- Error reuses back sound
     self:loadSFX("panel_advance", "sounds/sfx_panel_advance")
 
     -- Load saved volume settings

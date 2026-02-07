@@ -14,9 +14,9 @@ Chomper.DATA = {
     frameDuration = 0.2,  -- 200ms per frame - chomping animation
 
     -- Boss stats (Episode 4)
-    baseHealth = 500,
-    baseSpeed = 0.25,
-    baseDamage = 8,
+    baseHealth = 1000,
+    baseSpeed = 0.30,
+    baseDamage = 14,
     rpValue = 180,
 
     -- Collision - larger boss
@@ -47,8 +47,8 @@ function Chomper:init(x, y)
     self.chargeTimer = 0
 
     -- Charge cooldown
-    self.chargeCooldown = 8  -- Seconds between charges
-    self.chargeSpeed = 4     -- Speed during charge
+    self.chargeCooldown = 6  -- Seconds between charges
+    self.chargeSpeed = 5     -- Speed during charge
 
     -- Set Z-index (bosses above normal mobs)
     self:setZIndex(75)
@@ -116,8 +116,8 @@ function Chomper:enterPhase(newPhase)
         GameplayScene:showMessage("INCOMING!")
     elseif newPhase == Chomper.PHASES.ENRAGED then
         GameplayScene:showMessage("IT'S ANGRY NOW!")
-        self.chargeCooldown = 5  -- Faster charges when enraged
-        self.chargeSpeed = 6
+        self.chargeCooldown = 3  -- Faster charges when enraged
+        self.chargeSpeed = 7
     end
 end
 
@@ -127,8 +127,8 @@ function Chomper:updateApproach(dt)
     local dist = math.sqrt(dx * dx + dy * dy)
 
     if dist > self.range and dist > 0 then
-        local moveX = (dx / dist) * self.speed
-        local moveY = (dy / dist) * self.speed
+        local moveX = (dx / dist) * self.speed * 5  -- Fast approach
+        local moveY = (dy / dist) * self.speed * 5
         self.x = self.x + moveX
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
@@ -266,7 +266,9 @@ function Chomper:onHitStation()
         local dy = self.y - self.targetY
         local attackAngle = math.atan(dx, -dy) * (180 / math.pi)
         GameplayScene.station:takeDamage(self.damage, attackAngle, "ram")
-        GameplayScene:showMessage("CHOMP!", 1.0)
+        -- Apply rotation slow on charge impact
+        GameplayScene.station:applyDebuff("rotationSlow", 0.3, 3.0)
+        GameplayScene:showMessage("CHOMP! Rotation jammed!", 1.5)
     end
 end
 
@@ -290,7 +292,7 @@ function Chomper:spawnDebris()
     local spawnY = self.y + math.sin(offsetAngle) * 40
 
     local debris = DebrisChunk(spawnX, spawnY, { health = 0.8, damage = 0.8, speed = 1.2 })
-    table.insert(GameplayScene.mobs, debris)
+    GameplayScene:queueMob(debris)
 end
 
 function Chomper:onDestroyed()
@@ -313,50 +315,8 @@ function Chomper:onDestroyed()
     end
 end
 
--- Override health bar for boss (compact bar in bottom border area)
 function Chomper:drawHealthBar()
-    if not self.active then return end
-
-    -- Compact boss health bar in bottom left area
-    local barWidth = 170
-    local barHeight = 14
-    local barX = 6
-    local barY = Constants.SCREEN_HEIGHT - 20
-
-    local healthPercent = self.health / self.maxHealth
-    local fillWidth = math.floor(healthPercent * (barWidth - 2))
-
-    -- Health bar background (black = empty)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(barX, barY, barWidth, barHeight)
-
-    -- Health bar fill (white = health remaining)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-
-    -- Draw boss name inside the bar using smaller font
-    local bossName = "CHOMPER"
-    local textX = barX + barWidth / 2
-    local textY = barY + 2
-
-    -- Use tighter tracking for compact text
-    gfx.setFontTracking(-1)
-
-    -- Use clip rect to draw text in two colors
-    -- First draw white text (for the empty/black portion)
-    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Then draw black text (for the filled/white portion)
-    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Clear clip rect and restore draw mode
-    gfx.clearClipRect()
-    gfx.setImageDrawMode(gfx.kDrawModeCopy)
-    gfx.setFontTracking(0)
+    self:drawBossHealthBar("CHOMPER")
 end
 
 return Chomper

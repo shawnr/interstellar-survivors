@@ -128,8 +128,9 @@ local function initialize()
     local menu = playdate.getSystemMenu()
 
     menu:addMenuItem("Main Menu", function()
-        -- Return to title screen
+        -- Save session state and return to title screen
         if GameManager.currentState == GameManager.states.GAMEPLAY then
+            GameplayScene:saveSessionState()
             GameplayScene:exit()
         end
         GameManager:setState(GameManager.states.TITLE)
@@ -158,13 +159,19 @@ local function initialize()
     GameManager:setState(GameManager.states.TITLE)
 end
 
--- Save game data when app terminates
+-- Save game data and session state when app terminates
 function playdate.gameWillTerminate()
+    if GameManager.currentState == GameManager.states.GAMEPLAY then
+        GameplayScene:saveSessionState()
+    end
     SaveManager:flush()
 end
 
--- Save game data when device sleeps
+-- Save game data and session state when device sleeps
 function playdate.deviceWillSleep()
+    if GameManager.currentState == GameManager.states.GAMEPLAY then
+        GameplayScene:saveSessionState()
+    end
     SaveManager:flush()
 end
 

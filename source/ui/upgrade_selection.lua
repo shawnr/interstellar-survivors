@@ -26,33 +26,29 @@ function UpgradeSelection:show(tools, bonusItems, callback)
 
     -- Add tools (up to 2)
     for i = 1, math.min(2, #tools) do
-        local iconOnBlack, iconOnWhite = nil, nil
+        local iconOnBlack = nil
         if tools[i].iconPath then
             local filename = tools[i].iconPath:match("([^/]+)$")
             iconOnBlack = gfx.image.new("images/icons_on_black/" .. filename)
-            iconOnWhite = gfx.image.new("images/icons_on_white/" .. filename)
         end
         table.insert(self.options, {
             type = "tool",
             data = tools[i],
             iconOnBlack = iconOnBlack,
-            iconOnWhite = iconOnWhite
         })
     end
 
     -- Add bonus items (up to 2)
     for i = 1, math.min(2, #bonusItems) do
-        local iconOnBlack, iconOnWhite = nil, nil
+        local iconOnBlack = nil
         if bonusItems[i].iconPath then
             local filename = bonusItems[i].iconPath:match("([^/]+)$")
             iconOnBlack = gfx.image.new("images/icons_on_black/" .. filename)
-            iconOnWhite = gfx.image.new("images/icons_on_white/" .. filename)
         end
         table.insert(self.options, {
             type = "bonus",
             data = bonusItems[i],
             iconOnBlack = iconOnBlack,
-            iconOnWhite = iconOnWhite
         })
     end
 
@@ -75,11 +71,11 @@ function UpgradeSelection:update()
     if InputManager.buttonJustPressed.up or InputManager.buttonJustPressed.right then
         self.selectedIndex = self.selectedIndex - 1
         if self.selectedIndex < 1 then self.selectedIndex = #self.options end
-        AudioManager:playSFX("menu_move", 0.5)
+        if AudioManager then AudioManager:playSFX("menu_move", 0.5) end
     elseif InputManager.buttonJustPressed.down or InputManager.buttonJustPressed.left then
         self.selectedIndex = self.selectedIndex + 1
         if self.selectedIndex > #self.options then self.selectedIndex = 1 end
-        AudioManager:playSFX("menu_move", 0.5)
+        if AudioManager then AudioManager:playSFX("menu_move", 0.5) end
     elseif InputManager.buttonJustPressed.a then
         self:confirmSelection()
     end
@@ -94,18 +90,19 @@ function UpgradeSelection:update()
             self.selectedIndex = self.selectedIndex + 1
             if self.selectedIndex > #self.options then self.selectedIndex = 1 end
             self.crankAccum = 0
-            AudioManager:playSFX("menu_move", 0.5)
+            if AudioManager then AudioManager:playSFX("menu_move", 0.5) end
         elseif self.crankAccum <= -threshold then
             self.selectedIndex = self.selectedIndex - 1
             if self.selectedIndex < 1 then self.selectedIndex = #self.options end
             self.crankAccum = 0
-            AudioManager:playSFX("menu_move", 0.5)
+            if AudioManager then AudioManager:playSFX("menu_move", 0.5) end
         end
     end
 end
 
 function UpgradeSelection:confirmSelection()
     if #self.options == 0 then return end
+    if AudioManager then AudioManager:playSFX("card_confirm", 0.5) end
     local selected = self.options[self.selectedIndex]
     if self.onSelect then
         self.onSelect(selected.type, selected.data)
@@ -317,7 +314,7 @@ function UpgradeSelection:draw()
     -- Calculate positions for centered layout: "Up/Down: Select  (A): Confirm"
     local leftText = "Up/Down: Select   "
     local rightText = ": Confirm"
-    local font = FontManager.bodyFont
+    local font = FontManager.footerFont
     local leftWidth = font:getTextWidth(leftText)
     local rightWidth = font:getTextWidth(rightText)
     local totalWidth = leftWidth + (iconRadius * 2) + rightWidth

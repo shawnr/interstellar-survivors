@@ -189,12 +189,3 @@ function TeslaCoil:upgrade(bonusItem)
     return success
 end
 
--- Apply bonus item effect
-function TeslaCoil:applyBonusEffect(bonusId, level)
-    TeslaCoil.super.applyBonusEffect(self, bonusId, level)
-
-    if bonusId == "arc_capacitors" then
-        -- Arc Capacitors: +1 chain target per level
-        self.extraChainTargets = level
-    end
-end

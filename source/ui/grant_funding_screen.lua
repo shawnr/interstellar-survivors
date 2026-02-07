@@ -192,7 +192,7 @@ function GrantFundingScreen:draw()
 
     -- Draw stats list with scrolling
     local startY = 46
-    local itemHeight = 46
+    local itemHeight = 56
     local funds = SaveManager:getGrantFunds()
 
     local startIdx = self.scrollOffset + 1
@@ -220,13 +220,13 @@ function GrantFundingScreen:draw()
 
     -- Footer: BLACK background with white rule above and WHITE text
     gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
     gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     FontManager:setFooterFont()
     gfx.drawTextAligned("[D-pad] Navigate   [A] Purchase   [B] Back",
-        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Draw confirmation dialog if active
@@ -237,7 +237,7 @@ end
 
 function GrantFundingScreen:drawStatItem(stat, y, isSelected, funds)
     local itemWidth = Constants.SCREEN_WIDTH - 40
-    local rowHeight = 42
+    local rowHeight = 52
     local leftPadding = 32
     local rightPadding = 32
 
@@ -258,31 +258,27 @@ function GrantFundingScreen:drawStatItem(stat, y, isSelected, funds)
     -- Stat name and level (first line)
     FontManager:setMenuFont()
     local levelText = "Lv " .. stat.currentLevel .. "/4"
-    gfx.drawText("*" .. stat.data.name .. "*", leftPadding, y + 6)
-    gfx.drawTextAligned("*" .. levelText .. "*", Constants.SCREEN_WIDTH - rightPadding, y + 6, kTextAlignment.right)
+    gfx.drawText("*" .. stat.data.name .. "*", leftPadding, y + 8)
+    gfx.drawTextAligned("*" .. levelText .. "*", Constants.SCREEN_WIDTH - rightPadding, y + 8, kTextAlignment.right)
 
     -- Second line: next upgrade info or MAXED
     FontManager:setBodyFont()
     if stat.maxed then
-        gfx.drawText("*MAXED OUT*", leftPadding, y + 24)
+        gfx.drawText("*MAXED OUT*", leftPadding, y + 28)
     else
         -- Show next upgrade and cost
         local costText = "Cost: " .. stat.cost
         local canAfford = funds >= stat.cost
 
-        -- Show abbreviated next label
-        local shortLabel = stat.nextLabel
-        if #shortLabel > 22 then
-            shortLabel = shortLabel:sub(1, 19) .. "..."
-        end
-
-        gfx.drawText(shortLabel, leftPadding, y + 24)
+        -- Show next upgrade label (allow wrapping for long text)
+        local maxLabelWidth = Constants.SCREEN_WIDTH - leftPadding - rightPadding - 90
+        gfx.drawTextInRect(stat.nextLabel, leftPadding, y + 28, maxLabelWidth, 22)
 
         -- Cost on right side: bold if affordable
         if canAfford then
-            gfx.drawTextAligned("*" .. costText .. "*", Constants.SCREEN_WIDTH - rightPadding, y + 24, kTextAlignment.right)
+            gfx.drawTextAligned("*" .. costText .. "*", Constants.SCREEN_WIDTH - rightPadding, y + 28, kTextAlignment.right)
         else
-            gfx.drawTextAligned(costText, Constants.SCREEN_WIDTH - rightPadding, y + 24, kTextAlignment.right)
+            gfx.drawTextAligned(costText, Constants.SCREEN_WIDTH - rightPadding, y + 28, kTextAlignment.right)
         end
     end
 

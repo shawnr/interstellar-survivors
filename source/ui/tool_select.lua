@@ -63,31 +63,31 @@ function ToolSelect:update()
     if not self.isVisible then return end
 
     -- Handle input
-    if playdate.buttonJustPressed(playdate.kButtonLeft) then
+    if InputManager.buttonJustPressed.left then
         self.selectedIndex = self.selectedIndex - 1
         if self.selectedIndex < 1 then
             self.selectedIndex = #self.tools
         end
         if AudioManager then AudioManager:playSFX("menu_move") end
-    elseif playdate.buttonJustPressed(playdate.kButtonRight) then
+    elseif InputManager.buttonJustPressed.right then
         self.selectedIndex = self.selectedIndex + 1
         if self.selectedIndex > #self.tools then
             self.selectedIndex = 1
         end
         if AudioManager then AudioManager:playSFX("menu_move") end
-    elseif playdate.buttonJustPressed(playdate.kButtonUp) then
+    elseif InputManager.buttonJustPressed.up then
         self.selectedIndex = self.selectedIndex - self.columns
         if self.selectedIndex < 1 then
             self.selectedIndex = self.selectedIndex + #self.tools
         end
         if AudioManager then AudioManager:playSFX("menu_move") end
-    elseif playdate.buttonJustPressed(playdate.kButtonDown) then
+    elseif InputManager.buttonJustPressed.down then
         self.selectedIndex = self.selectedIndex + self.columns
         if self.selectedIndex > #self.tools then
             self.selectedIndex = self.selectedIndex - #self.tools
         end
         if AudioManager then AudioManager:playSFX("menu_move") end
-    elseif playdate.buttonJustPressed(playdate.kButtonA) then
+    elseif InputManager.buttonJustPressed.a then
         -- Select this tool
         local selectedTool = self.tools[self.selectedIndex]
         if selectedTool and self.callback then
@@ -108,7 +108,7 @@ function ToolSelect:draw()
     -- Draw title
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     FontManager:setTitleFont()
-    gfx.drawTextAligned("*CHOOSE STARTING TOOL*", Constants.SCREEN_WIDTH / 2, 15, kTextAlignment.center)
+    gfx.drawTextAligned("CHOOSE STARTING TOOL", Constants.SCREEN_WIDTH / 2, 15, kTextAlignment.center)
 
     -- Grid layout
     local gridStartX = 30

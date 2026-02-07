@@ -476,7 +476,7 @@ function DatabaseScreen:drawCategoryMenu()
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
     FontManager:setTitleFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned("*DATABASE*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.drawTextAligned("DATABASE", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Category list with scrolling
@@ -548,12 +548,12 @@ function DatabaseScreen:drawCategoryMenu()
 
     -- Footer - WHITE rule, WHITE text on BLACK
     gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
     gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
     FontManager:setFooterFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned("D-pad navigate   A select   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    gfx.drawTextAligned("D-pad navigate   A select   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
@@ -574,7 +574,7 @@ function DatabaseScreen:drawEntryList()
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
     FontManager:setTitleFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned("*" .. catName .. "*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.drawTextAligned(catName, Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
     -- Entry list
@@ -669,12 +669,12 @@ function DatabaseScreen:drawEntryList()
 
     -- Footer - WHITE rule, WHITE text on BLACK
     gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
     gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
     FontManager:setFooterFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned("D-pad navigate   A view   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+    gfx.drawTextAligned("D-pad navigate   A view   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
@@ -691,14 +691,8 @@ function DatabaseScreen:drawDetailView()
     gfx.drawLine(0, 40, Constants.SCREEN_WIDTH, 40)
     FontManager:setTitleFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned("*" .. string.upper(entry.name) .. "*", Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
+    gfx.drawTextAligned(string.upper(entry.name), Constants.SCREEN_WIDTH / 2, 12, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
-
-    -- Content area - BLACK background with WHITE border
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(10, 48, Constants.SCREEN_WIDTH - 20, Constants.SCREEN_HEIGHT - 78)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.drawRect(10, 48, Constants.SCREEN_WIDTH - 20, Constants.SCREEN_HEIGHT - 78)
 
     -- All detail content drawn in WHITE on BLACK
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
@@ -722,16 +716,16 @@ function DatabaseScreen:drawDetailView()
 
     -- Footer - WHITE rule, WHITE text on BLACK
     gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
     gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
 
     FontManager:setFooterFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     if self.currentCategoryId == "gameplay" then
-        gfx.drawTextAligned("D-pad/Crank scroll   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.drawTextAligned("D-pad/Crank scroll   B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
     else
-        gfx.drawTextAligned("B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        gfx.drawTextAligned("B back", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
     end
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
@@ -982,63 +976,63 @@ end
 
 function DatabaseScreen:drawControlsDetail()
     local margin = 20
-    local contentTop = 50
-    local contentHeight = Constants.SCREEN_HEIGHT - 75
+    local contentTop = 44
+    local contentHeight = Constants.SCREEN_HEIGHT - 70
 
     -- Set clip rect for scrolling
-    gfx.setClipRect(10, contentTop, Constants.SCREEN_WIDTH - 20, contentHeight)
+    gfx.setClipRect(0, contentTop, Constants.SCREEN_WIDTH - 14, contentHeight)
 
     local y = contentTop - self.gameplayScrollOffset
 
     -- Section: Crank
-    FontManager:setMenuFont()
-    gfx.drawText("*CRANK*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("CRANK", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Rotate the crank to spin your station.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Tools fire in the direction they face.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Aim by positioning tools toward enemies.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: D-Pad
-    FontManager:setMenuFont()
-    gfx.drawText("*D-PAD*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("D-PAD", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Navigate menus (Up/Down or Left/Right).", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Scroll content in some screens.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: A Button
-    FontManager:setMenuFont()
-    gfx.drawText("*A BUTTON*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("A BUTTON", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Confirm selections in menus.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Continue through story panels.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: B Button
-    FontManager:setMenuFont()
-    gfx.drawText("*B BUTTON*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("B BUTTON", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Go back / Cancel.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Pause during gameplay.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: Menu Button
-    FontManager:setMenuFont()
-    gfx.drawText("*MENU BUTTON*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("MENU BUTTON", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Pause the game during an episode.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Calculate max scroll
     self.gameplayMaxScroll = math.max(0, y + self.gameplayScrollOffset - Constants.SCREEN_HEIGHT + 30)
@@ -1053,59 +1047,59 @@ end
 
 function DatabaseScreen:drawSettingsDetail()
     local margin = 20
-    local contentTop = 50
-    local contentHeight = Constants.SCREEN_HEIGHT - 75
+    local contentTop = 44
+    local contentHeight = Constants.SCREEN_HEIGHT - 70
 
     -- Set clip rect for scrolling
-    gfx.setClipRect(10, contentTop, Constants.SCREEN_WIDTH - 20, contentHeight)
+    gfx.setClipRect(0, contentTop, Constants.SCREEN_WIDTH - 14, contentHeight)
 
     local y = contentTop - self.gameplayScrollOffset
 
     -- Section: Music Volume
-    FontManager:setMenuFont()
-    gfx.drawText("*MUSIC VOLUME*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("MUSIC VOLUME", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Adjust background music volume.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Range: 0% (off) to 100% (full).", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: SFX Volume
-    FontManager:setMenuFont()
-    gfx.drawText("*SFX VOLUME*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("SFX VOLUME", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Adjust sound effects volume.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Includes hits, pickups, and UI sounds.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: Creative Mode
-    FontManager:setMenuFont()
-    gfx.drawText("*CREATIVE MODE*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("CREATIVE MODE", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Sandbox mode for exploration.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("- Unlock all content instantly", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("- Customize episode/wave timing", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("- Optional invincibility", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: Reset All Data
-    FontManager:setMenuFont()
-    gfx.drawText("*RESET ALL DATA*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("RESET ALL DATA", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Clears all save data and progress.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Resets episodes, specs, and database.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Cannot be undone!", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Calculate max scroll
     self.gameplayMaxScroll = math.max(0, y + self.gameplayScrollOffset - Constants.SCREEN_HEIGHT + 30)
@@ -1120,77 +1114,77 @@ end
 
 function DatabaseScreen:drawStationSystemsDetail()
     local margin = 20
-    local contentTop = 50
-    local contentHeight = Constants.SCREEN_HEIGHT - 75
+    local contentTop = 44
+    local contentHeight = Constants.SCREEN_HEIGHT - 70
 
     -- Set clip rect for scrolling
-    gfx.setClipRect(10, contentTop, Constants.SCREEN_WIDTH - 20, contentHeight)
+    gfx.setClipRect(0, contentTop, Constants.SCREEN_WIDTH - 14, contentHeight)
 
     local y = contentTop - self.gameplayScrollOffset
 
     -- Section: Tools
-    FontManager:setMenuFont()
-    gfx.drawText("*TOOLS*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("TOOLS", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Weapons that auto-fire from your station.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Max 8 different tools per episode.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Each tool can be upgraded to level 4.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Pair a max tool + bonus item to evolve.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: Bonus Items
-    FontManager:setMenuFont()
-    gfx.drawText("*BONUS ITEMS*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("BONUS ITEMS", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Passive upgrades and stat boosts.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Max 8 different items per episode.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Each item can be upgraded to level 4.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Some items pair with tools for evolution.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: Level Up
-    FontManager:setMenuFont()
-    gfx.drawText("*LEVEL UP*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("LEVEL UP", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Collect RP (Research Points) from enemies.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Fill the bar at top to level up.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Choose from 2 tools and 2 bonus items.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: Research Specs
-    FontManager:setMenuFont()
-    gfx.drawText("*RESEARCH SPECS*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("RESEARCH SPECS", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("Permanent bonuses unlocked by", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("completing episodes.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Active specs apply to all future runs.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Section: Episodes
-    FontManager:setMenuFont()
-    gfx.drawText("*EPISODES*", margin, y)
-    y = y + 18
+    FontManager:setBoldFont()
+    gfx.drawText("EPISODES", margin, y)
+    y = y + 22
     FontManager:setBodyFont()
     gfx.drawText("7 waves of enemies + 1 boss fight.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Defeat the boss to complete the episode.", margin, y)
-    y = y + 16
+    y = y + 20
     gfx.drawText("Each episode has unique enemies.", margin, y)
-    y = y + 26
+    y = y + 32
 
     -- Calculate max scroll
     self.gameplayMaxScroll = math.max(0, y + self.gameplayScrollOffset - Constants.SCREEN_HEIGHT + 30)
@@ -1211,9 +1205,9 @@ function DatabaseScreen:drawScrollIndicator()
     end
 
     -- Draw small scroll bar on right (white on black)
-    local barX = Constants.SCREEN_WIDTH - 18
-    local barY = 55
-    local barH = Constants.SCREEN_HEIGHT - 85
+    local barX = Constants.SCREEN_WIDTH - 12
+    local barY = 48
+    local barH = Constants.SCREEN_HEIGHT - 78
     local thumbH = math.max(20, barH * 0.3)
     local thumbY = barY + scrollPct * (barH - thumbH)
 

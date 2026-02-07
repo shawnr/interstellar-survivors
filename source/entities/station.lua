@@ -3,18 +3,6 @@
 
 local gfx <const> = playdate.graphics
 
--- Pre-computed unit circle points for shield arc (performance optimization)
--- 25 points for 24 segments, representing normalized positions from 0 to 1
-local SHIELD_UNIT_CIRCLE = {}
-local SHIELD_SEGMENTS = 24
-for i = 0, SHIELD_SEGMENTS do
-    local t = i / SHIELD_SEGMENTS  -- 0 to 1
-    SHIELD_UNIT_CIRCLE[i] = {
-        cos = math.cos(t * math.pi),  -- Coverage is typically pi radians (half circle)
-        sin = math.sin(t * math.pi)
-    }
-end
-
 class('Station').extends(Entity)
 
 -- Override sprite methods for manual drawing (NOT in sprite system)
@@ -99,6 +87,10 @@ function Station:init()
 
     -- Damage state tracking
     self.damageState = 0  -- 0 = healthy, 1 = damaged, 2 = critical
+
+    -- Damage flash effect (expanding ring on HP damage)
+    self.damageFlashTimer = 0
+    self.damageFlashDuration = 0.1  -- 3 frames at 30fps
 
     -- Debuff tracking
     self.rotationSlow = 1.0        -- Rotation speed multiplier (1.0 = normal)
@@ -213,6 +205,11 @@ function Station:update()
         if self.controlsInvertedTimer <= 0 then
             self.controlsInverted = false  -- Reset to normal controls
         end
+    end
+
+    -- Update damage flash timer
+    if self.damageFlashTimer > 0 then
+        self.damageFlashTimer = self.damageFlashTimer - dt
     end
 
     -- Update shield cooldown and opacity
@@ -426,6 +423,9 @@ function Station:takeDamage(amount, attackAngle, damageType)
     local finalDamage = math.max(1, math.floor(amount * (1 - damageReduction)))
 
     self.health = math.max(0, self.health - finalDamage)
+
+    -- Trigger damage flash
+    self.damageFlashTimer = self.damageFlashDuration
 
     -- Play hit sound
     if AudioManager then
@@ -660,4 +660,111 @@ function Station:drawShieldFlash()
     end
 
     gfx.setLineWidth(1)
+end
+
+-- Apply a debuff to the station (one at a time — clears all others first)
+function Station:applyDebuff(debuffType, value, duration)
+    -- Clear all existing debuffs first (one at a time rule)
+    self.rotationSlow = 1.0
+    self.rotationSlowTimer = 0
+    self.fireRateSlow = 1.0
+    self.fireRateSlowTimer = 0
+    self.controlsInverted = false
+    self.controlsInvertedTimer = 0
+
+    -- Apply the new debuff
+    if debuffType == "rotationSlow" then
+        self.rotationSlow = value
+        self.rotationSlowTimer = duration
+    elseif debuffType == "fireRateSlow" then
+        self.fireRateSlow = value
+        self.fireRateSlowTimer = duration
+    elseif debuffType == "controlsInverted" then
+        self.controlsInverted = true
+        self.controlsInvertedTimer = duration
+    end
+end
+
+-- Check which debuff is currently active (returns type and remaining time)
+function Station:getActiveDebuff()
+    if self.controlsInverted and self.controlsInvertedTimer > 0 then
+        return "controlsInverted", self.controlsInvertedTimer
+    elseif self.rotationSlow < 1.0 and self.rotationSlowTimer > 0 then
+        return "rotationSlow", self.rotationSlowTimer
+    elseif self.fireRateSlow < 1.0 and self.fireRateSlowTimer > 0 then
+        return "fireRateSlow", self.fireRateSlowTimer
+    end
+    return nil, 0
+end
+
+-- Draw damage flash (expanding ring when station takes HP damage)
+function Station:drawDamageFlash()
+    if self.damageFlashTimer <= 0 then return end
+    local progress = 1 - (self.damageFlashTimer / self.damageFlashDuration)
+    local radius = 32 + progress * 16  -- Expands from 32 to 48
+    gfx.setColor(gfx.kColorWhite)
+    gfx.setLineWidth(2)
+    gfx.drawCircleAtPoint(self.x, self.y, radius)
+    gfx.setLineWidth(1)
+end
+
+-- Draw visual indicator for active debuff (non-rotating overlay around station)
+function Station:drawDebuffIndicator()
+    local debuffType = self:getActiveDebuff()
+    if not debuffType then return end
+
+    local cx = self.x
+    local cy = self.y
+    gfx.setColor(gfx.kColorWhite)
+    gfx.setLineWidth(1)
+
+    if debuffType == "rotationSlow" then
+        -- Wavy circle: radius oscillates with sin
+        local segments = 16
+        local baseR = 38
+        local time = playdate.getCurrentTimeMilliseconds() * 0.005
+        local pi2 = math.pi * 2
+        for i = 0, segments - 1 do
+            local a1 = (i / segments) * pi2
+            local a2 = ((i + 1) / segments) * pi2
+            local r1 = baseR + 3 * math.sin(a1 * 3 + time)
+            local r2 = baseR + 3 * math.sin(a2 * 3 + time)
+            gfx.drawLine(
+                cx + math.cos(a1) * r1, cy + math.sin(a1) * r1,
+                cx + math.cos(a2) * r2, cy + math.sin(a2) * r2
+            )
+        end
+
+    elseif debuffType == "controlsInverted" then
+        -- CCW chevron ring: 6 chevrons rotating counterclockwise
+        local numChevrons = 6
+        local chevR = 38
+        local time = playdate.getCurrentTimeMilliseconds() * 0.003
+        local pi2 = math.pi * 2
+        local halfPi = math.pi / 2
+        for i = 0, numChevrons - 1 do
+            local baseAngle = (i / numChevrons) * pi2 + time
+            local px = cx + math.cos(baseAngle) * chevR
+            local py = cy + math.sin(baseAngle) * chevR
+            -- Chevron points tangentially (counterclockwise direction)
+            local tangent = baseAngle + halfPi
+            local tipX = px + math.cos(tangent) * 5
+            local tipY = py + math.sin(tangent) * 5
+            local backAngle1 = tangent + 2.5
+            local backAngle2 = tangent - 2.5
+            gfx.drawLine(px + math.cos(backAngle1) * 4, py + math.sin(backAngle1) * 4, tipX, tipY)
+            gfx.drawLine(px + math.cos(backAngle2) * 4, py + math.sin(backAngle2) * 4, tipX, tipY)
+        end
+
+    elseif debuffType == "fireRateSlow" then
+        -- Dashed circle: 8 dashes with gaps
+        local dashR = 38
+        local dashCount = 8
+        local dashAngle = 360 / (dashCount * 2)
+        for i = 0, dashCount - 1 do
+            local startA = i * dashAngle * 2
+            local endA = startA + dashAngle
+            gfx.drawArc(cx, cy, dashR, startA, endA)
+        end
+    end
 end

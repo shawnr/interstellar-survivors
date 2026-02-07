@@ -32,7 +32,7 @@ class('PlasmaSprayer').extends(Tool)
 PlasmaSprayer.DATA = {
     id = "plasma_sprayer",
     name = "Plasma Sprayer",
-    description = "Cone spray. Dmg: 3x5",
+    description = "Cone spray. Dmg: 4x4",
     imagePath = "images/tools/tool_plasma_sprayer",
     iconPath = "images/tools/tool_plasma_sprayer",
     projectileImage = "images/tools/tool_plasma_droplet",
@@ -44,7 +44,7 @@ PlasmaSprayer.DATA = {
     damageType = "plasma",
 
     pairsWithBonus = "fuel_injector",
-    upgradedName = "Inferno Cannon",
+    upgradedName = "Inferno Projector",
     upgradedImagePath = "images/tools/tool_plasma_sprayer",
     upgradedProjectileImage = "images/tools/tool_inferno_droplet",
     upgradedDamage = 6,

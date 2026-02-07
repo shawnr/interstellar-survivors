@@ -12,9 +12,9 @@ ImprobabilityEngine.DATA = {
     imagePath = "images/episodes/ep3/ep3_boss_improbability",
 
     -- Boss stats (Episode 3)
-    baseHealth = 400,
-    baseSpeed = 0.2,
-    baseDamage = 7,
+    baseHealth = 800,
+    baseSpeed = 0.25,
+    baseDamage = 12,
     rpValue = 150,
 
     -- Collision
@@ -41,7 +41,7 @@ function ImprobabilityEngine:init(x, y)
     self.phaseTimer = 0
     self.attackTimer = 0
     self.spawnsThisPhase = 0
-    self.maxSpawnsPerPhase = 4
+    self.maxSpawnsPerPhase = 6
 
     -- Reality warp state
     self.warpActive = false
@@ -51,6 +51,10 @@ function ImprobabilityEngine:init(x, y)
     -- Teleport cooldown
     self.teleportTimer = 0
     self.canTeleport = false
+
+    -- Debuff debounce: minimum time between debuff applications
+    self.lastDebuffTime = -999
+    self.debuffDebounce = 3.0  -- seconds between debuffs
 
     -- Set Z-index (bosses above normal mobs)
     self:setZIndex(75)
@@ -123,7 +127,7 @@ function ImprobabilityEngine:enterPhase(newPhase)
     elseif newPhase == ImprobabilityEngine.PHASES.ENRAGED then
         GameplayScene:showMessage("CAUSALITY COLLAPSE!")
         self.speed = self.speed * 1.8
-        self.maxSpawnsPerPhase = 6
+        self.maxSpawnsPerPhase = 8
         self.canTeleport = true
     end
 end
@@ -134,8 +138,8 @@ function ImprobabilityEngine:updateApproach(dt)
     local dist = math.sqrt(dx * dx + dy * dy)
 
     if dist > self.range and dist > 0 then
-        local moveX = (dx / dist) * self.speed
-        local moveY = (dy / dist) * self.speed
+        local moveX = (dx / dist) * self.speed * 5  -- Fast approach
+        local moveY = (dy / dist) * self.speed * 5
         self.x = self.x + moveX
         self.y = self.y + moveY
         self:moveTo(self.x, self.y)
@@ -153,7 +157,7 @@ function ImprobabilityEngine:updateProbabilityStorm(dt)
     self:erraticOrbit(dt)
 
     -- Spawn probability fluctuations periodically
-    if self.attackTimer >= 1.4 and self.spawnsThisPhase < self.maxSpawnsPerPhase then
+    if self.attackTimer >= 0.9 and self.spawnsThisPhase < self.maxSpawnsPerPhase then
         self:spawnFluctuation()
         self.attackTimer = 0
         self.spawnsThisPhase = self.spawnsThisPhase + 1
@@ -184,14 +188,14 @@ function ImprobabilityEngine:updateParadox(dt)
     self:erraticOrbit(dt)
 
     -- Spawn paradox nodes
-    if self.attackTimer >= 1.8 and self.spawnsThisPhase < 3 then
+    if self.attackTimer >= 1.2 and self.spawnsThisPhase < 4 then
         self:spawnParadoxNode()
         self.attackTimer = 0
         self.spawnsThisPhase = self.spawnsThisPhase + 1
     end
 
     -- After spawning, back to probability storm
-    if self.spawnsThisPhase >= 3 and self.phaseTimer >= 5 then
+    if self.spawnsThisPhase >= 4 and self.phaseTimer >= 5 then
         self:enterPhase(ImprobabilityEngine.PHASES.PROBABILITY_STORM)
     end
 end
@@ -205,7 +209,7 @@ function ImprobabilityEngine:updateEnraged(dt)
     end
 
     -- Rapid chaotic attacks
-    if self.attackTimer >= 0.5 then
+    if self.attackTimer >= 0.35 then
         local roll = math.random(100)
         if roll <= 50 then
             self:spawnFluctuation()
@@ -273,7 +277,7 @@ function ImprobabilityEngine:spawnFluctuation()
     local spawnY = self.y + math.sin(offsetAngle) * 35
 
     local fluctuation = ProbabilityFluctuation(spawnX, spawnY, { health = 1.3, damage = 1.2, speed = 1.1 })
-    table.insert(GameplayScene.mobs, fluctuation)
+    GameplayScene:queueMob(fluctuation)
 end
 
 function ImprobabilityEngine:spawnParadoxNode()
@@ -284,7 +288,7 @@ function ImprobabilityEngine:spawnParadoxNode()
     local spawnY = self.y + math.sin(offsetAngle) * 40
 
     local node = ParadoxNode(spawnX, spawnY, { health = 1.4, damage = 1.3, speed = 0.9 })
-    table.insert(GameplayScene.mobs, node)
+    GameplayScene:queueMob(node)
 end
 
 function ImprobabilityEngine:startRealityWarp()
@@ -295,32 +299,30 @@ end
 
 function ImprobabilityEngine:endRealityWarp()
     self.warpActive = false
-    -- Remove all lingering effects
-    self:clearAllDebuffs()
+    -- Debuffs time out naturally (short duration, one-at-a-time rule)
 end
 
 function ImprobabilityEngine:applyRealityGlitch()
-    if GameplayScene and GameplayScene.station then
-        local station = GameplayScene.station
+    if not GameplayScene or not GameplayScene.station then return end
 
-        -- Don't stack control inversion if already active
-        if not station.controlsInverted then
-            station.controlsInverted = true
-            station.controlsInvertedTimer = 2.5
-        end
+    -- Debounce: don't apply debuffs too frequently
+    local now = self.phaseTimer + (self.phase - 1) * 100  -- monotonic-ish timer
+    if now - self.lastDebuffTime < self.debuffDebounce then
+        return
+    end
+    self.lastDebuffTime = now
 
-        -- Also apply a random debuff (only if not already active)
-        local roll = math.random(3)
-        if roll == 1 and station.rotationSlow >= 1.0 then
-            -- Slow rotation
-            station.rotationSlow = 0.5
-            station.rotationSlowTimer = 2.0
-        elseif roll == 2 and station.fireRateSlow >= 1.0 then
-            -- Slow fire rate
-            station.fireRateSlow = 0.6
-            station.fireRateSlowTimer = 2.0
-        end
-        -- roll == 3: just inverted controls
+    -- Pick one random debuff to apply (applyDebuff handles clearing others)
+    local roll = math.random(3)
+    if roll == 1 then
+        GameplayScene.station:applyDebuff("controlsInverted", true, 2.5)
+        GameplayScene:showMessage("Reality inverted!", 1.5)
+    elseif roll == 2 then
+        GameplayScene.station:applyDebuff("rotationSlow", 0.5, 2.0)
+        GameplayScene:showMessage("Probability drag!", 1.5)
+    else
+        GameplayScene.station:applyDebuff("fireRateSlow", 0.6, 2.0)
+        GameplayScene:showMessage("Temporal distortion!", 1.5)
     end
 end
 
@@ -339,7 +341,7 @@ end
 function ImprobabilityEngine:onDestroyed()
     self.active = false
 
-    -- End all lingering effects
+    -- Clear any lingering debuffs when boss dies
     self:clearAllDebuffs()
 
     if GameManager then
@@ -359,50 +361,8 @@ function ImprobabilityEngine:onDestroyed()
     end
 end
 
--- Override health bar for boss (compact bar in bottom border area)
 function ImprobabilityEngine:drawHealthBar()
-    if not self.active then return end
-
-    -- Compact boss health bar in bottom left area
-    local barWidth = 170
-    local barHeight = 14
-    local barX = 6
-    local barY = Constants.SCREEN_HEIGHT - 20
-
-    local healthPercent = self.health / self.maxHealth
-    local fillWidth = math.floor(healthPercent * (barWidth - 2))
-
-    -- Health bar background (black = empty)
-    gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(barX, barY, barWidth, barHeight)
-
-    -- Health bar fill (white = health remaining)
-    gfx.setColor(gfx.kColorWhite)
-    gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-
-    -- Draw boss name inside the bar using smaller font
-    local bossName = "IMPROBABLE"
-    local textX = barX + barWidth / 2
-    local textY = barY + 2
-
-    -- Use tighter tracking for compact text
-    gfx.setFontTracking(-1)
-
-    -- Use clip rect to draw text in two colors
-    -- First draw white text (for the empty/black portion)
-    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Then draw black text (for the filled/white portion)
-    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
-    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
-    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
-
-    -- Clear clip rect and restore draw mode
-    gfx.clearClipRect()
-    gfx.setImageDrawMode(gfx.kDrawModeCopy)
-    gfx.setFontTracking(0)
+    self:drawBossHealthBar("IMPROBABLE")
 end
 
 return ImprobabilityEngine

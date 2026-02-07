@@ -83,7 +83,7 @@ function SilkWeaver:fire()
         if GameplayScene and GameplayScene.station then
             -- Small chance to hit
             if math.random() < 0.3 then
-                GameplayScene.station:takeDamage(self.damage)
+                GameplayScene.station:takeDamage(self.damage, angle, "projectile")
                 -- Apply slow effect
                 self:applySlowEffect()
             end
@@ -94,10 +94,6 @@ end
 function SilkWeaver:applySlowEffect()
     -- Slow station rotation for a short time
     if GameplayScene and GameplayScene.station then
-        -- Apply a rotation slow debuff
-        GameplayScene.station.rotationSlow = 0.5  -- 50% slower
-        GameplayScene.station.rotationSlowTimer = 2.0  -- 2 seconds
-
-        -- Slow effect applied
+        GameplayScene.station:applyDebuff("rotationSlow", 0.5, 2.0)
     end
 end

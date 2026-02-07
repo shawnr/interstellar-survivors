@@ -2,6 +2,69 @@
 -- Heat-seeking missile that targets the highest HP enemy
 -- Reference: Murderbot Diaries - ART/Perihelion's modified mapping drones
 
+local gfx <const> = playdate.graphics
+
+-- Generate programmatic drone projectile image
+-- Drawn facing RIGHT (sprite convention: -90° rotation applied by system)
+-- Cylindrical drone with explosive payload, nose cone at right, fins at left
+local function generateDroneProjectile(isUpgraded)
+    local w = isUpgraded and 18 or 16
+    local h = isUpgraded and 12 or 10
+    local img = gfx.image.new(w, h)
+    gfx.pushContext(img)
+
+    local cy = math.floor(h / 2)  -- center y
+    local bodyEnd = w - 4  -- where nose cone starts
+
+    -- White fill for all parts
+    gfx.setColor(gfx.kColorWhite)
+
+    -- Stabilizer fins (left side, swept back)
+    gfx.fillTriangle(3, cy - 2, 0, 0, 0, cy - 2)           -- top fin
+    gfx.fillTriangle(3, cy + 1, 0, h - 1, 0, cy + 1)       -- bottom fin
+
+    -- Tail/engine section
+    gfx.fillRect(2, cy - 2, 2, 4)
+
+    -- Explosive payload (bulging section, taller than body)
+    local exH = isUpgraded and 10 or 8
+    local exY = cy - math.floor(exH / 2)
+    gfx.fillRect(4, exY, 3, exH)
+
+    -- Drone body (narrow horizontal cylinder)
+    gfx.fillRect(7, cy - 2, bodyEnd - 7, 4)
+
+    -- Nose cone (pointing right)
+    gfx.fillTriangle(w - 1, cy, bodyEnd, cy - 3, bodyEnd, cy + 3)
+
+    -- Black outlines and details for contrast
+    gfx.setColor(gfx.kColorBlack)
+
+    -- Body outline
+    gfx.drawRect(7, cy - 2, bodyEnd - 7, 4)
+
+    -- Explosive section outline
+    gfx.drawRect(4, exY, 3, exH)
+
+    -- Explosive strap detail (vertical band)
+    gfx.drawLine(5, exY, 5, exY + exH - 1)
+
+    -- Drone viewport (small dark window on body)
+    gfx.fillRect(bodyEnd - 2, cy - 1, 1, 2)
+
+    -- Upgraded: extra explosive detail
+    if isUpgraded then
+        gfx.drawLine(6, exY + 1, 6, exY + exH - 2)
+    end
+
+    gfx.popContext()
+    return img
+end
+
+-- Module-level cached projectile images
+local droneProjImage = nil
+local upgradedDroneProjImage = nil
+
 -- Shared update function for homing projectiles (avoids per-projectile closure)
 local function homingUpdate(self)
     if not self.active then return end
@@ -36,6 +99,18 @@ local function homingUpdate(self)
 
         self.dx, self.dy = Utils.angleToVector(self.angle)
         self.drawRotation = self.angle - 90
+
+        -- Update pre-rotated draw image for new angle
+        if self._rotCache then
+            local step = Utils.getRotationStep(self.drawRotation)
+            if step ~= self._lastRotStep then
+                self._lastRotStep = step
+                self.drawImage = self._rotCache.images[step]
+                local off = self._rotCache.offsets[step]
+                self._drawHalfW = off[1]
+                self._drawHalfH = off[2]
+            end
+        end
     elseif self.isHoming then
         -- Target lost - find new highest HP target
         self.homingTarget = nil
@@ -65,7 +140,7 @@ class('ModifiedMappingDrone').extends(Tool)
 
 ModifiedMappingDrone.DATA = {
     id = "modified_mapping_drone",
-    name = "Mapping Drone",
+    name = "Mod. Mapping Drone",
     description = "Seeks highest HP. Dmg: 18",
     imagePath = "images/tools/tool_mapping_drone",
     iconPath = "images/tools/tool_mapping_drone",
@@ -78,7 +153,7 @@ ModifiedMappingDrone.DATA = {
     damageType = "explosive",
 
     pairsWithBonus = "targeting_matrix",
-    upgradedName = "Perihelion Strike",
+    upgradedName = "Perihelion Express",
     upgradedImagePath = "images/tools/tool_mapping_drone",
     upgradedDamage = 35,
 }
@@ -86,6 +161,16 @@ ModifiedMappingDrone.DATA = {
 function ModifiedMappingDrone:init()
     ModifiedMappingDrone.super.init(self, ModifiedMappingDrone.DATA)
     self.homingAccuracyBonus = 0
+
+    -- Generate programmatic projectile images (once, shared via module locals)
+    if not droneProjImage then
+        droneProjImage = generateDroneProjectile(false)
+        Utils.imageCache["_drone_proj"] = droneProjImage
+    end
+    if not upgradedDroneProjImage then
+        upgradedDroneProjImage = generateDroneProjectile(true)
+        Utils.imageCache["_drone_proj_upgraded"] = upgradedDroneProjImage
+    end
 end
 
 function ModifiedMappingDrone:fire()
@@ -132,12 +217,14 @@ end
 
 -- Create a homing projectile that tracks toward target
 function ModifiedMappingDrone:createHomingProjectile(x, y, angle, target)
-    -- Use the standard projectile pool but we'll override behavior
+    -- Use programmatic drone image for better visibility
+    local cacheKey = self.isEvolved and "_drone_proj_upgraded" or "_drone_proj"
+
     local proj = GameplayScene:createProjectile(
         x, y, angle,
         self.projectileSpeed * (1 + self.projectileSpeedBonus),
         self.damage,
-        self.data.projectileImage,
+        cacheKey,
         false  -- Not piercing - explodes on contact
     )
 

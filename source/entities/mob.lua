@@ -24,6 +24,13 @@ class('MOB').extends(Entity)
 -- Module-level cache for pre-rotated mob image center offsets (shared across instances by imagePath)
 local MOB_ROTATION_OFFSETS = {}
 
+-- Clear rotation offset caches (call between episodes to free memory)
+function MOB.clearRotationCache()
+    for k in pairs(MOB_ROTATION_OFFSETS) do
+        MOB_ROTATION_OFFSETS[k] = nil
+    end
+end
+
 -- Override sprite methods for manual drawing (NOT in sprite system)
 -- This eliminates sprite.update() processing overhead for all mobs (~18 sprites)
 -- MOBs are drawn manually in GameplayScene:drawOverlay() instead
@@ -119,19 +126,16 @@ function MOB:init(x, y, mobData, waveMultipliers)
     -- Set center point FIRST
     self:setCenter(0.5, 0.5)
 
-    -- Set collision rect
-    local w = mobData.width or 16
-    local h = mobData.height or 16
+    -- Set collision rect (enforce minimum 24x24 to prevent projectile tunneling)
+    local w = math_max(mobData.width or 16, 24)
+    local h = math_max(mobData.height or 16, 24)
     self:setCollideRect(0, 0, w, h)
 
     -- Z-index (mobs behind projectiles)
     self:setZIndex(50)
 
-    -- Cache radius for collision checks (use explicit mobData dimensions, not sprite size)
-    -- This ensures collision works even if sprite fails to load
-    local collisionW = mobData.width or 16
-    local collisionH = mobData.height or 16
-    self.cachedRadius = math.max(collisionW, collisionH) / 2
+    -- Cache radius for collision checks (use enforced minimum dimensions)
+    self.cachedRadius = math_max(w, h) / 2
 
     -- Store initial position (moveTo is a no-op since not in sprite system)
     self.x = x
@@ -452,6 +456,45 @@ end
 -- Get radius for collision (cached for performance)
 function MOB:getRadius()
     return self.cachedRadius or 8
+end
+
+-- Shared boss health bar: compact bar with two-color name text in bottom-left
+-- Bosses override drawHealthBar to call this with their display name
+function MOB:drawBossHealthBar(bossName)
+    if not self.active then return end
+
+    local barWidth = 170
+    local barHeight = 14
+    local barX = 6
+    local barY = Constants.SCREEN_HEIGHT - 20
+
+    local healthPercent = self.health / self.maxHealth
+    local fillWidth = math_floor(healthPercent * (barWidth - 2))
+
+    gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(barX, barY, barWidth, barHeight)
+
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
+
+    local textX = barX + barWidth / 2
+    local textY = barY + 2
+
+    gfx.setFontTracking(-1)
+
+    -- White text on empty/black portion
+    gfx.setClipRect(barX + 1 + fillWidth, barY + 1, barWidth - fillWidth - 2, barHeight - 2)
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
+
+    -- Black text on filled/white portion
+    gfx.setClipRect(barX + 1, barY + 1, fillWidth, barHeight - 2)
+    gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+    gfx.drawTextAligned(bossName, textX, textY, kTextAlignment.center)
+
+    gfx.clearClipRect()
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    gfx.setFontTracking(0)
 end
 
 -- Called when a ramming MOB hits the station

@@ -118,6 +118,19 @@ function UpgradeSystem:getUpgradeOptions(station)
     local toolOptions = {}
     local bonusOptions = {}
 
+    -- Check for bonus frequency research spec (peer_review: bonus items more frequent)
+    local bonusFrequency = 0
+    if ResearchSpecSystem then
+        bonusFrequency = ResearchSpecSystem:getBonusFrequency()
+    end
+    -- With bonus frequency, sometimes offer 3 bonus items and 1 tool instead of 2+2
+    local maxTools = 2
+    local maxBonus = 2
+    if bonusFrequency > 0 and math.random() < bonusFrequency then
+        maxTools = 1
+        maxBonus = 3
+    end
+
     -- Count unique tools owned
     local uniqueToolsOwned = #station.tools
 
@@ -166,9 +179,9 @@ function UpgradeSystem:getUpgradeOptions(station)
         end
     end
 
-    -- Randomly select up to 2 tools
+    -- Randomly select tools
     self:shuffleArray(eligibleTools)
-    for i = 1, math.min(2, #eligibleTools) do
+    for i = 1, math.min(maxTools, #eligibleTools) do
         local option = eligibleTools[i]
         local displayData = {
             id = option.data.id,
@@ -226,9 +239,9 @@ function UpgradeSystem:getUpgradeOptions(station)
         end
     end
 
-    -- Randomly select up to 2 bonus items
+    -- Randomly select bonus items
     self:shuffleArray(eligibleBonus)
-    for i = 1, math.min(2, #eligibleBonus) do
+    for i = 1, math.min(maxBonus, #eligibleBonus) do
         local option = eligibleBonus[i]
         local displayData = {
             id = option.data.id,
@@ -404,9 +417,6 @@ function UpgradeSystem:applyBonusEffect(bonusData, station, level)
         station.maxHealth = math.floor(station.maxHealth * (1 + applyValue))
         local healthGain = station.maxHealth - oldMax
         station.health = station.health + healthGain
-
-    elseif effect == "rotation_speed" then
-        station.rotationBonus = (station.rotationBonus or 0) + applyValue
 
     elseif effect == "fire_rate" then
         -- Apply to all tools

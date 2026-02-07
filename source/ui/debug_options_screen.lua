@@ -49,7 +49,7 @@ function DebugOptionsScreen:update()
     local startY = 48
     local itemHeight = 24
     local contentTop = 48
-    local contentBottom = Constants.SCREEN_HEIGHT - 22 - itemHeight  -- Leave room for one item above footer
+    local contentBottom = Constants.SCREEN_HEIGHT - 26 - itemHeight  -- Leave room for one item above footer
 
     -- Navigation
     if InputManager.buttonJustPressed.up then
@@ -154,7 +154,7 @@ function DebugOptionsScreen:draw()
     local startY = 48
     local itemHeight = 24
     local contentTop = 48
-    local contentBottom = Constants.SCREEN_HEIGHT - 22
+    local contentBottom = Constants.SCREEN_HEIGHT - 26
 
     -- Set clip rect to content area (between title and footer)
     gfx.setClipRect(0, contentTop, Constants.SCREEN_WIDTH, contentBottom - contentTop)
@@ -214,15 +214,15 @@ function DebugOptionsScreen:draw()
 
     -- Footer bar with black background
     gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, 22)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
     -- White rule above footer
     gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
     -- White footer text
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     FontManager:setFooterFont()
     gfx.drawTextAligned("D-pad: Navigate/Adjust   A: Toggle   B: Back",
-        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 

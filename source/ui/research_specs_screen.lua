@@ -166,11 +166,11 @@ function ResearchSpecsScreen:draw()
         )
     end
 
-    -- Footer: white rule above, BLACK background with WHITE text
-    gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 22, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 22)
+    -- Footer: BLACK background with white rule above and WHITE text
     gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 21, Constants.SCREEN_WIDTH, 21)
+    gfx.fillRect(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, 26)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
 
     local unlockCount = 0
     for _, s in ipairs(self.specs) do
@@ -180,7 +180,7 @@ function ResearchSpecsScreen:draw()
     FontManager:setFooterFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     gfx.drawTextAligned(unlockCount .. "/" .. #self.specs .. " Unlocked   [B] Back",
-        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 16, kTextAlignment.center)
+        Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
