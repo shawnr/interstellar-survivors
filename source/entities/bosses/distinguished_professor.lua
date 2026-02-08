@@ -13,9 +13,9 @@ DistinguishedProfessor.DATA = {
     projectileImage = "images/episodes/ep5/ep5_citation_beam",
 
     -- Boss stats (Episode 5 - hardest boss)
-    baseHealth = 1200,
+    baseHealth = 5000,
     baseSpeed = 0.28,
-    baseDamage = 14,
+    baseDamage = 28,
     rpValue = 200,
 
     -- Collision
@@ -35,7 +35,7 @@ DistinguishedProfessor.PHASES = {
     APPROACH = 1,           -- Moving into position
     LECTURING = 2,          -- Firing citation beams
     SUMMONING = 3,          -- Summoning debate drones
-    ENRAGED = 4,            -- Below 30% - rapid fire, chaining beams
+    ENRAGED = 4,            -- Below 50% - rapid fire, chaining beams
 }
 
 function DistinguishedProfessor:init(x, y)
@@ -87,7 +87,7 @@ function DistinguishedProfessor:update(dt)
     self.fireCooldown = self.fireCooldown - dt
 
     -- Check for enraged phase
-    if self.health / self.maxHealth <= 0.3 and self.phase ~= DistinguishedProfessor.PHASES.ENRAGED then
+    if self.health / self.maxHealth <= 0.5 and self.phase ~= DistinguishedProfessor.PHASES.ENRAGED then
         self:enterPhase(DistinguishedProfessor.PHASES.ENRAGED)
     end
 
@@ -250,7 +250,7 @@ function DistinguishedProfessor:spawnDebateDrone()
     local spawnX = self.x + math.cos(offsetAngle) * 35
     local spawnY = self.y + math.sin(offsetAngle) * 35
 
-    local drone = DebateDrone(spawnX, spawnY, { health = 1.2, damage = 1.1, speed = 1.2 })
+    local drone = DebateDrone(spawnX, spawnY, { health = 2, damage = 1.5, speed = 1.2 })
     GameplayScene:queueMob(drone)
 end
 

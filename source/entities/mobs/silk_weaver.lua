@@ -15,7 +15,7 @@ SilkWeaver.DATA = {
     projectileImage = "images/episodes/ep1/ep1_silk_projectile",
 
     -- Stats - hovers at range
-    baseHealth = 12,
+    baseHealth = 28,
     baseSpeed = 0.6,
     baseDamage = 2,
     rpValue = 15,
@@ -94,6 +94,6 @@ end
 function SilkWeaver:applySlowEffect()
     -- Slow station rotation for a short time
     if GameplayScene and GameplayScene.station then
-        GameplayScene.station:applyDebuff("rotationSlow", 0.3, 2.0)
+        GameplayScene.station:applyDebuff("rotationSlow", 0.2, 2.0)
     end
 end

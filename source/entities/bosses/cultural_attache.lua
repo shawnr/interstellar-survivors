@@ -12,9 +12,9 @@ CulturalAttache.DATA = {
     imagePath = "images/episodes/ep1/ep1_boss_cultural_attache",
 
     -- Boss stats (Episode 1 - easiest boss)
-    baseHealth = 400,
+    baseHealth = 1800,
     baseSpeed = 0.25,
-    baseDamage = 8,
+    baseDamage = 16,
     rpValue = 100,
 
     -- Collision
@@ -30,7 +30,7 @@ CulturalAttache.PHASES = {
     APPROACH = 1,   -- Moving into position
     DRONE_WAVE = 2, -- Launching greeting drones
     POETRY = 3,     -- Poetry attack (slows rotation)
-    ENRAGED = 4,    -- Below 30% health - more aggressive
+    ENRAGED = 4,    -- Below 50% health - more aggressive
 }
 
 function CulturalAttache:init(x, y)
@@ -84,7 +84,7 @@ function CulturalAttache:update(dt)
     self.attackTimer = self.attackTimer + dt
 
     -- Check for enraged phase
-    if self.health / self.maxHealth <= 0.3 and self.phase ~= CulturalAttache.PHASES.ENRAGED then
+    if self.health / self.maxHealth <= 0.5 and self.phase ~= CulturalAttache.PHASES.ENRAGED then
         self:enterPhase(CulturalAttache.PHASES.ENRAGED)
     end
 
@@ -216,7 +216,7 @@ function CulturalAttache:spawnDrone()
     local spawnX = self.x + math.cos(offsetAngle) * 30
     local spawnY = self.y + math.sin(offsetAngle) * 30
 
-    local drone = GreetingDrone(spawnX, spawnY, { health = 1, damage = 1, speed = 1 })
+    local drone = GreetingDrone(spawnX, spawnY, { health = 2, damage = 1.5, speed = 1 })
     GameplayScene:queueMob(drone)
 end
 
@@ -233,7 +233,7 @@ end
 
 function CulturalAttache:applySlowEffect()
     if GameplayScene and GameplayScene.station then
-        GameplayScene.station:applyDebuff("rotationSlow", 0.4, 2.5)
+        GameplayScene.station:applyDebuff("rotationSlow", 0.2, 2.5)
     end
 end
 

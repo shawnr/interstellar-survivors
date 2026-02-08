@@ -3,8 +3,8 @@
 
 Constants = {
     -- Version info (keep in sync with pdxinfo)
-    VERSION = "0.1.232",
-    BUILD = 234,
+    VERSION = "0.1.238",
+    BUILD = 240,
 
     -- Screen dimensions
     SCREEN_WIDTH = 400,
@@ -13,7 +13,7 @@ Constants = {
     -- Station
     STATION_CENTER_X = 200,
     STATION_CENTER_Y = 120,
-    STATION_BASE_HEALTH = 500,   -- Increased for better survivability
+    STATION_BASE_HEALTH = 350,   -- Grant funding scales: L1=385, L2=437, L4=700
     STATION_RADIUS = 32,
     STATION_SLOTS = 8,
 

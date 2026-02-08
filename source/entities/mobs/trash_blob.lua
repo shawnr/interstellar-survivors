@@ -13,7 +13,7 @@ TrashBlob.DATA = {
     imagePath = nil,  -- Generated programmatically
 
     -- Consolidated stats (~3 debris chunks worth)
-    baseHealth = 24,
+    baseHealth = 50,
     baseSpeed = 0.5,  -- Slower than debris chunks
     baseDamage = 12,
     rpValue = 24,

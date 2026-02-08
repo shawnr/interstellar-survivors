@@ -15,7 +15,7 @@ DefenseTurret.DATA = {
     projectileImage = "images/episodes/ep4/ep4_turret_projectile",
 
     -- Stats - stationary turret
-    baseHealth = 20,
+    baseHealth = 45,
     baseSpeed = 0.3,
     baseDamage = 6,
     rpValue = 20,
@@ -71,7 +71,7 @@ function DefenseTurret:fire()
 
     -- Sometimes apply rotationSlow on fire (like Chomper boss)
     if math.random(100) <= 7 and GameplayScene and GameplayScene.station then
-        GameplayScene.station:applyDebuff("rotationSlow", 0.3, 3.0)
+        GameplayScene.station:applyDebuff("rotationSlow", 0.2, 3.0)
     end
 
     -- Create projectile aimed at station

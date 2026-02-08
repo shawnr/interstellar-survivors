@@ -61,6 +61,7 @@ function GameplayScene:init()
     self.pickups = {}
     self.pickupTimer = 30       -- First pickup at 30s
     self.pickupInterval = 30    -- Every 30 seconds
+    self.pendingThief = nil     -- Delayed thief spawn (1s after pickup)
 
     -- Wave management (7 waves over 1 minute for testing)
     self.currentWave = 1
@@ -623,8 +624,8 @@ function GameplayScene:enter(params)
     end
 
     -- Set initial spawn interval based on episode difficulty
-    -- Episode 1: 1.8s, Episodes 2-3: faster, Episode 4: slower (TrashBlobs = fewer entities)
-    local episodeSpawnIntervals = { 1.8, 0.9, 0.8, 1.0, 0.6 }
+    -- Episode 1: 1.5s, later episodes faster, Episode 4: slower (fewer but tougher)
+    local episodeSpawnIntervals = { 1.5, 0.8, 0.7, 0.9, 0.5 }
     local episodeId = GameManager.currentEpisodeId or 1
     self.spawnInterval = episodeSpawnIntervals[episodeId] or 1.5
 
@@ -923,6 +924,19 @@ function GameplayScene:updatePickups(dt)
         self.pickupTimer = self.pickupInterval
     end
 
+    -- Delayed thief spawn (appears 1 second after pickup)
+    if self.pendingThief then
+        self.pendingThief.timer = self.pendingThief.timer - dt
+        if self.pendingThief.timer <= 0 then
+            local pt = self.pendingThief
+            -- Only spawn if the pickup is still active
+            if pt.pickup and pt.pickup.active then
+                self:spawnPickupThief(pt.pickupX, pt.pickupY, pt.pickup)
+            end
+            self.pendingThief = nil
+        end
+    end
+
     -- Update active pickups (swap-and-pop removal)
     local pickups = self.pickups
     local i = 1
@@ -941,7 +955,16 @@ function GameplayScene:updatePickups(dt)
 end
 
 function GameplayScene:spawnRandomPickup()
-    local x, y = Utils.randomEdgePoint(20)
+    -- Spawn at a far corner (left/right edge, top/bottom) for maximum travel distance
+    local corners = {
+        { x = -20, y = -20 },                                              -- Top-left
+        { x = Constants.SCREEN_WIDTH + 20, y = -20 },                      -- Top-right
+        { x = -20, y = Constants.SCREEN_HEIGHT + 20 },                     -- Bottom-left
+        { x = Constants.SCREEN_WIDTH + 20, y = Constants.SCREEN_HEIGHT + 20 }, -- Bottom-right
+    }
+    local corner = corners[math_random(#corners)]
+    local x, y = corner.x, corner.y
+
     local data = PickupsData[math_random(#PickupsData)]
     local pickup = Pickup(x, y, data)
     self.pickups[#self.pickups + 1] = pickup
@@ -951,26 +974,33 @@ function GameplayScene:spawnRandomPickup()
         AudioManager:playSFX("card_select", 0.4)
     end
 
-    -- 75% chance to spawn a pickup thief on the opposite side
+    -- 75% chance to schedule a pickup thief at opposite corner (1 second delay)
     if math_random(100) <= 75 then
-        self:spawnPickupThief(x, y, pickup)
+        self.pendingThief = {
+            timer = 1.0,
+            pickupX = x,
+            pickupY = y,
+            pickup = pickup,
+        }
     end
 end
 
 function GameplayScene:spawnPickupThief(pickupX, pickupY, pickup)
-    -- Spawn on opposite side of screen from pickup
-    local thiefX = Constants.SCREEN_WIDTH - pickupX
-    local thiefY = Constants.SCREEN_HEIGHT - pickupY
-    -- Ensure spawn point is off-screen
-    if thiefX > 20 and thiefX < Constants.SCREEN_WIDTH - 20 then
-        thiefX = pickupX < 200 and Constants.SCREEN_WIDTH + 20 or -20
+    -- Spawn at the opposite corner from the pickup
+    local thiefX, thiefY
+    if pickupX < Constants.SCREEN_WIDTH / 2 then
+        thiefX = Constants.SCREEN_WIDTH + 20
+    else
+        thiefX = -20
     end
-    if thiefY > 20 and thiefY < Constants.SCREEN_HEIGHT - 20 then
-        thiefY = pickupY < 120 and Constants.SCREEN_HEIGHT + 20 or -20
+    if pickupY < Constants.SCREEN_HEIGHT / 2 then
+        thiefY = Constants.SCREEN_HEIGHT + 20
+    else
+        thiefY = -20
     end
 
     local multipliers = {
-        health = 1.0 + (self.currentWave - 1) * 0.2,
+        health = 1.0 + (self.currentWave - 1) * 0.3,
         damage = 1.0,
         speed = 1.0
     }
@@ -1130,8 +1160,8 @@ function GameplayScene:spawnMOB()
 
         -- Wave multipliers (scaling difficulty)
         local multipliers = {
-            health = 1.0 + (self.currentWave - 1) * 0.2,
-            damage = 1.0 + (self.currentWave - 1) * 0.12,
+            health = 1.0 + (self.currentWave - 1) * 0.3,
+            damage = 1.0 + (self.currentWave - 1) * 0.25,
             speed = 1.0
         }
 
@@ -1206,9 +1236,9 @@ end
 
 -- Episode 2: Corporate bureaucracy - Survey Drones and Efficiency Monitors
 function GameplayScene:chooseEpisode2MOB(x, y, multipliers, roll)
-    -- Slightly tougher multipliers for Episode 2
-    multipliers.health = multipliers.health * 1.2
-    multipliers.damage = multipliers.damage * 1.1
+    -- Tougher multipliers for Episode 2
+    multipliers.health = multipliers.health * 1.5
+    multipliers.damage = multipliers.damage * 1.3
 
     if self.currentWave <= 2 then
         -- Early waves: Mostly Survey Drones
@@ -1240,9 +1270,9 @@ end
 
 -- Episode 3: Probability anomaly zone - Probability Fluctuations and Paradox Nodes
 function GameplayScene:chooseEpisode3MOB(x, y, multipliers, roll)
-    -- Episode 3 has weird reality-bending stuff
-    multipliers.health = multipliers.health * 1.3
-    multipliers.damage = multipliers.damage * 1.15
+    -- Episode 3: reality-bending mobs hit hard
+    multipliers.health = multipliers.health * 1.8
+    multipliers.damage = multipliers.damage * 1.5
 
     if self.currentWave <= 2 then
         -- Early waves: Mostly Probability Fluctuations
@@ -1275,10 +1305,9 @@ end
 -- Episode 4: Debris field - Trash Blobs and Defense Turrets
 -- Uses TrashBlob (larger, consolidated) instead of many small DebrisChunks for performance
 function GameplayScene:chooseEpisode4MOB(x, y, multipliers, roll)
-    -- Episode 4: Increased multipliers to compensate for reduced mob count (MAX_ACTIVE_MOBS = 24)
-    -- Mobs are tougher but fewer, maintaining similar difficulty
-    multipliers.health = multipliers.health * 1.5  -- Was 1.2
-    multipliers.damage = multipliers.damage * 1.2  -- Was 1.1
+    -- Episode 4: Fewer but much tougher mobs
+    multipliers.health = multipliers.health * 2.2
+    multipliers.damage = multipliers.damage * 1.8
     multipliers.rp = (multipliers.rp or 1.0) * 1.25  -- +25% RP to maintain progression
 
     if self.currentWave <= 2 then
@@ -1313,9 +1342,9 @@ end
 
 -- Episode 5: Academic conference - Debate Drones and Citation Platforms
 function GameplayScene:chooseEpisode5MOB(x, y, multipliers, roll)
-    -- Episode 5 is the final challenge
-    multipliers.health = multipliers.health * 1.4
-    multipliers.damage = multipliers.damage * 1.25
+    -- Episode 5: final challenge - hardest multipliers
+    multipliers.health = multipliers.health * 2.5
+    multipliers.damage = multipliers.damage * 2.0
 
     if self.currentWave <= 2 then
         -- Early waves: Mostly Debate Drones
@@ -1460,12 +1489,15 @@ function GameplayScene:checkCollisions()
 
     -- Projectiles vs MOBs (using spatial partitioning)
     -- Performance: check each projectile on a subset of frames to reduce work per frame
-    -- Fast projectiles (speed >= 12): checked every 2 frames (prevents tunneling through mobs)
-    -- Slow projectiles: checked every 3 frames (safe at lower speeds with 24px minimum mob size)
+    -- Very fast projectiles (speed >= 16): checked every frame (prevents tunneling)
+    -- Normal projectiles (speed >= 8): checked every 2 frames
+    -- Slow projectiles: checked every 3 frames
+    -- Speed bonus is scaled by skip factor to cover travel distance between checks
     local projectiles = self.projectilePool:getActive()
 
     local minTravelDistSq = 100  -- 10px minimum travel from spawn
-    local FAST_PROJ_SPEED = 12   -- Threshold for 2-frame collision checking
+    local VERY_FAST_SPEED = 16   -- Threshold for every-frame checking
+    local NORMAL_SPEED = 8       -- Threshold for 2-frame checking
 
     local projCount = #projectiles
 
@@ -1475,14 +1507,21 @@ function GameplayScene:checkCollisions()
     for pi = 1, projCount do
         local proj = projectiles[pi]
         if proj and proj.active then
-            -- Fast projectiles: check every 2 frames; slow: every 3
+            -- Tiered collision check frequency based on speed
             -- Use stable _collisionId instead of array index (survives swap-and-pop)
             local shouldCheck
+            local skipFrames
             local cid = proj._collisionId
-            if proj.speed >= FAST_PROJ_SPEED then
+            local projSpeed = proj.speed
+            if projSpeed >= VERY_FAST_SPEED then
+                shouldCheck = true  -- Every frame
+                skipFrames = 1
+            elseif projSpeed >= NORMAL_SPEED then
                 shouldCheck = (cid % 2 == frameMod2)
+                skipFrames = 2
             else
                 shouldCheck = (cid % 3 == frameMod3)
+                skipFrames = 3
             end
 
             if shouldCheck then
@@ -1494,7 +1533,8 @@ function GameplayScene:checkCollisions()
 
                 if travelDistSq >= minTravelDistSq then
                     local nearbyMobs = self:getMobsNearPosition(px, py)
-                    local projSpeedBonus = (proj.speed or 8) * 0.25
+                    -- Scale speed bonus by skip frames to cover travel distance between checks
+                    local projSpeedBonus = (projSpeed or 8) * skipFrames * 0.5
 
                     local nearbyCount = self._nearbyMobsLastCount or #nearbyMobs
                     for mi = 1, nearbyCount do
@@ -1598,7 +1638,7 @@ function GameplayScene:checkCollisions()
                     if effect == "slow" then
                         -- 10% chance to apply debuff (was 100% - too frequent with multiple shooters)
                         if math_random(100) <= 10 then
-                            self.station:applyDebuff("rotationSlow", 0.3, 2.0)
+                            self.station:applyDebuff("rotationSlow", 0.2, 2.0)
                         end
                     end
 
@@ -1662,8 +1702,8 @@ function GameplayScene:spawnBoss()
 
     table.insert(self.mobs, self.boss)
 
-    -- Stop regular mob spawning (or slow it down significantly)
-    self.spawnInterval = 5.0
+    -- Slow mob spawning during boss (keep pressure on player)
+    self.spawnInterval = 3.0
 end
 
 -- Called from Tool when it fires
@@ -1943,6 +1983,12 @@ function GameplayScene:drawOverlay()
                 tool.drawImage:draw(tool.x - tool._drawHalfW, tool.y - tool._drawHalfH)
             end
         end
+    end
+
+    -- Draw salvage drone (above tools, below projectiles)
+    local drone = self.salvageDrone
+    if drone and drone.active and drone.drawImage then
+        drone.drawImage:draw(drone.x - drone._drawHalfW, drone.y - drone._drawHalfH)
     end
 
     -- Draw enemy projectiles — pre-rotated images, use draw() not drawRotated()
@@ -2588,7 +2634,6 @@ function GameplayScene:deserializeState(data)
         local drone = SalvageDrone()
         drone.speed = data.salvageDroneSpeed or 4.5
         drone.searchRadius = data.salvageDroneRange or 250
-        drone:add()
         self.salvageDrone = drone
     end
 

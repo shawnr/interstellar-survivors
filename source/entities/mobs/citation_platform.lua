@@ -15,7 +15,7 @@ CitationPlatform.DATA = {
     projectileImage = "images/episodes/ep5/ep5_citation_beam",
 
     -- Stats - hovers at range
-    baseHealth = 16,
+    baseHealth = 38,
     baseSpeed = 0.5,
     baseDamage = 7,
     rpValue = 22,

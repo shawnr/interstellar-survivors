@@ -10,7 +10,7 @@ DebateDrone.DATA = {
     imagePath = "images/episodes/ep5/ep5_debate_drone",
 
     -- Stats - fast and annoying
-    baseHealth = 5,
+    baseHealth = 12,
     baseSpeed = 1.2,
     baseDamage = 3,
     rpValue = 8,

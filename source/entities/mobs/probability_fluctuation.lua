@@ -12,7 +12,7 @@ ProbabilityFluctuation.DATA = {
     frameDuration = 0.1,  -- 100ms per frame - flickery effect
 
     -- Stats - flickery and unpredictable
-    baseHealth = 7,
+    baseHealth = 18,
     baseSpeed = 1.1,
     baseDamage = 5,
     rpValue = 12,

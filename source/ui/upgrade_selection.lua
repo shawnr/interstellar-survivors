@@ -24,8 +24,8 @@ function UpgradeSelection:show(tools, bonusItems, callback)
     self.onSelect = callback
     self.options = {}
 
-    -- Add tools (up to 2)
-    for i = 1, math.min(2, #tools) do
+    -- Add tools (count controlled by UpgradeSystem)
+    for i = 1, #tools do
         local iconOnBlack = nil
         if tools[i].iconPath then
             local filename = tools[i].iconPath:match("([^/]+)$")
@@ -38,8 +38,8 @@ function UpgradeSelection:show(tools, bonusItems, callback)
         })
     end
 
-    -- Add bonus items (up to 2)
-    for i = 1, math.min(2, #bonusItems) do
+    -- Add bonus items (count controlled by UpgradeSystem)
+    for i = 1, #bonusItems do
         local iconOnBlack = nil
         if bonusItems[i].iconPath then
             local filename = bonusItems[i].iconPath:match("([^/]+)$")

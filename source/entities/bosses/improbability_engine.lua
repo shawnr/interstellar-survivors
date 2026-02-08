@@ -12,9 +12,9 @@ ImprobabilityEngine.DATA = {
     imagePath = "images/episodes/ep3/ep3_boss_improbability",
 
     -- Boss stats (Episode 3)
-    baseHealth = 800,
+    baseHealth = 3500,
     baseSpeed = 0.25,
-    baseDamage = 12,
+    baseDamage = 24,
     rpValue = 150,
 
     -- Collision
@@ -31,7 +31,7 @@ ImprobabilityEngine.PHASES = {
     PROBABILITY_STORM = 2,  -- Spawning probability fluctuations
     REALITY_WARP = 3,       -- Warping reality (inverts/randomizes effects)
     PARADOX = 4,            -- Paradox node summoning
-    ENRAGED = 5,            -- Below 30% - full chaos mode
+    ENRAGED = 5,            -- Below 50% - full chaos mode
 }
 
 function ImprobabilityEngine:init(x, y)
@@ -99,7 +99,7 @@ function ImprobabilityEngine:update(dt)
     end
 
     -- Check for enraged phase
-    if self.health / self.maxHealth <= 0.3 and self.phase ~= ImprobabilityEngine.PHASES.ENRAGED then
+    if self.health / self.maxHealth <= 0.5 and self.phase ~= ImprobabilityEngine.PHASES.ENRAGED then
         self:enterPhase(ImprobabilityEngine.PHASES.ENRAGED)
     end
 
@@ -281,7 +281,7 @@ function ImprobabilityEngine:spawnFluctuation()
     local spawnX = self.x + math.cos(offsetAngle) * 35
     local spawnY = self.y + math.sin(offsetAngle) * 35
 
-    local fluctuation = ProbabilityFluctuation(spawnX, spawnY, { health = 1.3, damage = 1.2, speed = 1.1 })
+    local fluctuation = ProbabilityFluctuation(spawnX, spawnY, { health = 2, damage = 1.5, speed = 1.1 })
     GameplayScene:queueMob(fluctuation)
 end
 
@@ -292,7 +292,7 @@ function ImprobabilityEngine:spawnParadoxNode()
     local spawnX = self.x + math.cos(offsetAngle) * 40
     local spawnY = self.y + math.sin(offsetAngle) * 40
 
-    local node = ParadoxNode(spawnX, spawnY, { health = 1.4, damage = 1.3, speed = 0.9 })
+    local node = ParadoxNode(spawnX, spawnY, { health = 2, damage = 1.5, speed = 0.9 })
     GameplayScene:queueMob(node)
 end
 
@@ -322,9 +322,9 @@ function ImprobabilityEngine:applyRealityGlitch()
     if roll == 1 then
         GameplayScene.station:applyDebuff("controlsInverted", true, 2.5)
     elseif roll == 2 then
-        GameplayScene.station:applyDebuff("rotationSlow", 0.5, 2.0)
+        GameplayScene.station:applyDebuff("rotationSlow", 0.2, 2.0)
     else
-        GameplayScene.station:applyDebuff("fireRateSlow", 0.6, 2.0)
+        GameplayScene.station:applyDebuff("fireRateSlow", 0.2, 2.0)
     end
 end
 

@@ -12,7 +12,7 @@ SurveyDrone.DATA = {
     frameDuration = 0.15,  -- 150ms per frame
 
     -- Stats
-    baseHealth = 6,
+    baseHealth = 15,
     baseSpeed = 1.0,
     baseDamage = 4,
     rpValue = 10,

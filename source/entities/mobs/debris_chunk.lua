@@ -10,7 +10,7 @@ DebrisChunk.DATA = {
     imagePath = "images/episodes/ep4/ep4_debris_chunk",
 
     -- Stats - varies by variant
-    baseHealth = 8,
+    baseHealth = 20,
     baseSpeed = 0.7,
     baseDamage = 5,
     rpValue = 8,

@@ -12,9 +12,9 @@ ProductivityLiaison.DATA = {
     imagePath = "images/episodes/ep2/ep2_boss_productivity_liaison",
 
     -- Boss stats (Episode 2)
-    baseHealth = 600,
+    baseHealth = 2700,
     baseSpeed = 0.28,
-    baseDamage = 10,
+    baseDamage = 20,
     rpValue = 120,
 
     -- Collision
@@ -30,7 +30,7 @@ ProductivityLiaison.PHASES = {
     APPROACH = 1,       -- Moving into position
     SURVEY_SWARM = 2,   -- Launching survey drones
     FEEDBACK = 3,       -- Feedback pulse attack
-    ENRAGED = 4,        -- Below 30% health - performance improvement plan
+    ENRAGED = 4,        -- Below 50% health - performance improvement plan
 }
 
 function ProductivityLiaison:init(x, y)
@@ -82,7 +82,7 @@ function ProductivityLiaison:update(dt)
     self.attackTimer = self.attackTimer + dt
 
     -- Check for enraged phase
-    if self.health / self.maxHealth <= 0.3 and self.phase ~= ProductivityLiaison.PHASES.ENRAGED then
+    if self.health / self.maxHealth <= 0.5 and self.phase ~= ProductivityLiaison.PHASES.ENRAGED then
         self:enterPhase(ProductivityLiaison.PHASES.ENRAGED)
     end
 
@@ -206,7 +206,7 @@ function ProductivityLiaison:spawnSurveyDrone()
     local spawnY = self.y + math.sin(offsetAngle) * 30
 
     -- Spawn Episode 2 survey drones, not Episode 1 greeting drones
-    local drone = SurveyDrone(spawnX, spawnY, { health = 1.2, damage = 1.1, speed = 1.2 })
+    local drone = SurveyDrone(spawnX, spawnY, { health = 2, damage = 1.5, speed = 1.2 })
     GameplayScene:queueMob(drone)
 end
 
@@ -222,7 +222,7 @@ end
 
 function ProductivityLiaison:applyFeedbackDebuff()
     if GameplayScene and GameplayScene.station then
-        GameplayScene.station:applyDebuff("fireRateSlow", 0.5, 2.0)
+        GameplayScene.station:applyDebuff("fireRateSlow", 0.2, 2.0)
     end
 end
 

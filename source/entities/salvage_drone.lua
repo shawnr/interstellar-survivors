@@ -1,14 +1,21 @@
 -- Salvage Drone Entity
 -- A small drone that flies around collecting RP collectibles for the player
+-- NOT in sprite system: drawn manually by GameplayScene in drawOverlay()
 
 local gfx <const> = playdate.graphics
+local math_floor <const> = math.floor
+local math_sqrt <const> = math.sqrt
+local math_cos <const> = math.cos
+local math_sin <const> = math.sin
+local math_rad <const> = math.rad
+local math_deg <const> = math.deg
+local math_atan <const> = math.atan
+local math_ceil <const> = math.ceil
 
-class('SalvageDrone').extends(gfx.sprite)
+class('SalvageDrone').extends()
 
 function SalvageDrone:init()
-    SalvageDrone.super.init(self)
-
-    -- Create a visible drone sprite (larger, 20x20)
+    -- Create a visible drone image (20x20)
     local img = gfx.image.new(20, 20)
     gfx.pushContext(img)
     gfx.setColor(gfx.kColorWhite)
@@ -24,15 +31,15 @@ function SalvageDrone:init()
     gfx.setLineWidth(1)
     gfx.drawCircleAtPoint(10, 10, 6)
     gfx.popContext()
-    self:setImage(img)
 
-    self:setCenter(0.5, 0.5)
-    self:setZIndex(250)  -- Above collectibles, below UI
+    -- Manual drawing data (matches game entity pattern)
+    self.drawImage = img
+    self._drawHalfW = 10
+    self._drawHalfH = 10
 
     -- Position near station initially
     self.x = Constants.STATION_CENTER_X + 40
     self.y = Constants.STATION_CENTER_Y
-    self:moveTo(self.x, self.y)
 
     -- Movement properties
     self.speed = 6.0          -- Faster movement speed for quicker collection
@@ -82,16 +89,11 @@ function SalvageDrone:update()
             self:collectTarget()
         elseif distSq > 0 then
             -- Move toward target (only calculate sqrt when needed)
-            local invDist = 1 / math.sqrt(distSq)
+            local invDist = 1 / math_sqrt(distSq)
             local moveX = dx * invDist * self.speed
             local moveY = dy * invDist * self.speed
             self.x = self.x + moveX
             self.y = self.y + moveY
-            self:moveTo(self.x, self.y)
-
-            -- Face movement direction
-            local angle = math.deg(math.atan(dy, dx))
-            self:setRotation(angle)
         end
     else
         -- No target - orbit around station
@@ -100,19 +102,57 @@ function SalvageDrone:update()
 end
 
 function SalvageDrone:findClosestCollectible()
-    if not GameplayScene or not GameplayScene.collectibles then
-        return nil
+    if not GameplayScene then return nil end
+
+    local searchRadiusSq = self.searchRadius * self.searchRadius
+
+    -- Priority 1: Pickup items (only when close to station - let player see them first)
+    if GameplayScene.pickups then
+        local pickups = GameplayScene.pickups
+        local count = #pickups
+        local closestDistSq = searchRadiusSq
+        local closest = nil
+        -- Only grab pickups within 95px of station center (~50px outside collection zone)
+        local stationX = Constants.STATION_CENTER_X
+        local stationY = Constants.STATION_CENTER_Y
+        local pickupGrabRadiusSq = 95 * 95
+
+        for i = 1, count do
+            local pickup = pickups[i]
+            if pickup.active then
+                -- Check if pickup is close enough to station
+                local psx = pickup.x - stationX
+                local psy = pickup.y - stationY
+                local stationDistSq = psx * psx + psy * psy
+                if stationDistSq < pickupGrabRadiusSq then
+                    local dx = self.x - pickup.x
+                    local dy = self.y - pickup.y
+                    local distSq = dx * dx + dy * dy
+                    if distSq < closestDistSq then
+                        closestDistSq = distSq
+                        closest = pickup
+                    end
+                end
+            end
+        end
+
+        if closest then return closest end
     end
 
+    -- Priority 2: RP collectibles
+    if not GameplayScene.collectibles then return nil end
+
     local closest = nil
-    local closestDistSq = self.searchRadius * self.searchRadius  -- Use squared distance
+    local closestDistSq = searchRadiusSq
 
     local collectibles = GameplayScene.collectibles
     local count = #collectibles
     for i = 1, count do
         local collectible = collectibles[i]
         if collectible.active then
-            local distSq = Utils.distanceSquared(self.x, self.y, collectible.x, collectible.y)
+            local cdx = self.x - collectible.x
+            local cdy = self.y - collectible.y
+            local distSq = cdx * cdx + cdy * cdy
             if distSq < closestDistSq then
                 closestDistSq = distSq
                 closest = collectible
@@ -132,6 +172,12 @@ function SalvageDrone:collectTarget()
     -- Guard: ensure collectible is still active (may have been collected elsewhere)
     if not collectible.active then return end
 
+    -- Handle Pickup items (distinguished by pickupRadius field)
+    if collectible.pickupRadius then
+        collectible:collect()
+        return
+    end
+
     -- Only do special handling for RP collectibles
     if collectible.collectibleType == Collectible.TYPES.RP then
         -- Play collect sound
@@ -145,8 +191,8 @@ function SalvageDrone:collectTarget()
         local station = GameplayScene and GameplayScene.station
         if station and station.health < station.maxHealth then
             -- Convert 25% of RP to health
-            local healthAmount = math.ceil(rpValue * 0.25)
-            local rpAmount = math.floor(rpValue * 0.75)
+            local healthAmount = math_ceil(rpValue * 0.25)
+            local rpAmount = math_floor(rpValue * 0.75)
 
             -- Heal station (cap at max health)
             station:heal(healthAmount)
@@ -178,22 +224,17 @@ function SalvageDrone:orbitStation()
         self.orbitAngle = self.orbitAngle - 360
     end
 
-    local rad = math.rad(self.orbitAngle)
-    local targetX = Constants.STATION_CENTER_X + math.cos(rad) * self.orbitRadius
-    local targetY = Constants.STATION_CENTER_Y + math.sin(rad) * self.orbitRadius
+    local rad = math_rad(self.orbitAngle)
+    local targetX = Constants.STATION_CENTER_X + math_cos(rad) * self.orbitRadius
+    local targetY = Constants.STATION_CENTER_Y + math_sin(rad) * self.orbitRadius
 
     -- Smoothly move toward orbit position
     self.x = self.x + (targetX - self.x) * 0.1
     self.y = self.y + (targetY - self.y) * 0.1
-    self:moveTo(self.x, self.y)
-
-    -- Face orbit direction
-    self:setRotation(self.orbitAngle + 90)
 end
 
 function SalvageDrone:deactivate()
     self.active = false
-    self:remove()
 end
 
 return SalvageDrone

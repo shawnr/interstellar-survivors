@@ -52,7 +52,7 @@ EpisodesData = {
             {
                 imagePath = "images/episodes/ep1/ep1_ending_2",
                 lines = {
-                    "A spider named Maserati has stowed away in the sample bay.",
+                    "A spider named Porsche has stowed away in the sample bay.",
                     "She claims diplomatic immunity.",
                     "She's also reorganized our filing system.",
                 }
@@ -62,7 +62,7 @@ EpisodesData = {
                 lines = {
                     "Research Spec unlocked:",
                     "Their silk has remarkable tensile properties.",
-                    "Maserati is very smug about this.",
+                    "Porsche is very smug about this.",
                 }
             },
         },
@@ -334,6 +334,65 @@ EpisodesData = {
         unlockCondition = "episode_4",
     },
 }
+
+-- Station name pool for game intro (classic sci-fi references)
+local STATION_NAMES = {
+    "ISS Mostly Harmless",
+    "ISS Kobayashi Maru",
+    "ISS Event Horizon",
+    "ISS Rocinante",
+    "ISS Serenity",
+    "ISS Nostromo",
+    "ISS Axiom",
+    "ISS Red Dwarf",
+    "ISS Bebop",
+    "ISS Heart of Gold",
+    "ISS Discovery One",
+    "ISS Millennium Pigeon",
+    "ISS Sulaco",
+    "ISS Prometheus",
+    "ISS Yamato",
+    "ISS Normandy",
+    "ISS Pillar of Autumn",
+    "ISS Galactica",
+    "ISS Valley Forge",
+    "ISS Dark Star",
+}
+
+-- Get the 3-panel game intro sequence with a random station name
+function EpisodesData.getGameIntroPanels()
+    local stationName = STATION_NAMES[math.random(#STATION_NAMES)]
+
+    return {
+        {
+            imagePath = "images/episodes/ep1/ep1_intro_1",
+            lines = {
+                "INTERSTELLAR SCIENCE COUNCIL - OFFICIAL DISPATCH",
+                "You have been selected for the ISC Deep Space Research Initiative.",
+                "A state-of-the-art research station has been allocated to your crew.",
+                "All equipment has been requisitioned per Form 7G-Sigma.",
+            }
+        },
+        {
+            imagePath = "images/episodes/ep1/ep1_intro_2",
+            lines = {
+                "Your equipment is expensive. Please do not break it.",
+                "Under NO circumstances should research tools be used as weapons.",
+                "Even the ones with cutting edges. ESPECIALLY those.",
+                "The ISC favors diplomacy. Failure to be diplomatic will be noted in your file.",
+            }
+        },
+        {
+            imagePath = "images/episodes/ep1/ep1_intro_3",
+            lines = {
+                "You are the crew of the " .. stationName .. ".",
+                "You are the thinkers, the dreamers, the ones who filled out the right paperwork.",
+                "Your sacrifice in the name of science is appreciated, if not technically voluntary.",
+                "Good luck. Your life insurance premiums have been pre-adjusted.",
+            }
+        },
+    }
+end
 
 -- Get episode data by ID
 function EpisodesData.get(episodeId)

@@ -151,4 +151,4 @@ Full game design document is in `/Interstellar Survivors.md`
 
 ## Current Version
 
-v0.1.232 (build 234)
+v0.1.236 (build 238)

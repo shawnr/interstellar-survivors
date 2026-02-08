@@ -10,8 +10,8 @@ Asteroid.DATA = {
     description = "Common space debris that threatens the station by ramming",
     imagePath = "images/shared/asteroid",
 
-    -- Base stats (easiest enemy - one hit kill)
-    baseHealth = 3,
+    -- Base stats
+    baseHealth = 8,
     baseSpeed = 0.5,   -- Slow approach
     baseDamage = 5,
     rpValue = 5,

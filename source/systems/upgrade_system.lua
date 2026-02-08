@@ -179,9 +179,52 @@ function UpgradeSystem:getUpgradeOptions(station)
         end
     end
 
+    -- Get bonus items: can always re-select to upgrade up to max level
+    local eligibleBonus = {}
+    for _, bonusData in ipairs(self.availableBonusItems) do
+        local currentLevel = self.ownedBonusItems[bonusData.id] or 0
+
+        if currentLevel < MAX_LEVEL then
+            -- Only offer new bonus items if under the combined equipment limit
+            if currentLevel == 0 then
+                if totalEquipment < MAX_EQUIPMENT then
+                    table.insert(eligibleBonus, {
+                        data = bonusData,
+                        isNew = true,
+                        currentLevel = currentLevel,
+                        nextLevel = currentLevel + 1
+                    })
+                end
+            else
+                -- Already owned, can upgrade
+                table.insert(eligibleBonus, {
+                    data = bonusData,
+                    isNew = false,
+                    currentLevel = currentLevel,
+                    nextLevel = currentLevel + 1
+                })
+            end
+        end
+    end
+
+    -- Redistribute slots when one category has fewer eligible options
+    local totalSlots = maxTools + maxBonus
+    local toolSlots = math.min(maxTools, #eligibleTools)
+    local bonusSlots = math.min(maxBonus, #eligibleBonus)
+
+    -- Fill remaining slots from whichever pool has more
+    local remaining = totalSlots - toolSlots - bonusSlots
+    if remaining > 0 then
+        local extraTools = math.min(remaining, #eligibleTools - toolSlots)
+        toolSlots = toolSlots + extraTools
+        remaining = remaining - extraTools
+        local extraBonuses = math.min(remaining, #eligibleBonus - bonusSlots)
+        bonusSlots = bonusSlots + extraBonuses
+    end
+
     -- Randomly select tools
     self:shuffleArray(eligibleTools)
-    for i = 1, math.min(maxTools, #eligibleTools) do
+    for i = 1, math.min(toolSlots, #eligibleTools) do
         local option = eligibleTools[i]
         local displayData = {
             id = option.data.id,
@@ -211,37 +254,9 @@ function UpgradeSystem:getUpgradeOptions(station)
         table.insert(toolOptions, displayData)
     end
 
-    -- Get bonus items: can always re-select to upgrade up to max level
-    local eligibleBonus = {}
-    for _, bonusData in ipairs(self.availableBonusItems) do
-        local currentLevel = self.ownedBonusItems[bonusData.id] or 0
-
-        if currentLevel < MAX_LEVEL then
-            -- Only offer new bonus items if under the combined equipment limit
-            if currentLevel == 0 then
-                if totalEquipment < MAX_EQUIPMENT then
-                    table.insert(eligibleBonus, {
-                        data = bonusData,
-                        isNew = true,
-                        currentLevel = currentLevel,
-                        nextLevel = currentLevel + 1
-                    })
-                end
-            else
-                -- Already owned, can upgrade
-                table.insert(eligibleBonus, {
-                    data = bonusData,
-                    isNew = false,
-                    currentLevel = currentLevel,
-                    nextLevel = currentLevel + 1
-                })
-            end
-        end
-    end
-
     -- Randomly select bonus items
     self:shuffleArray(eligibleBonus)
-    for i = 1, math.min(maxBonus, #eligibleBonus) do
+    for i = 1, math.min(bonusSlots, #eligibleBonus) do
         local option = eligibleBonus[i]
         local displayData = {
             id = option.data.id,
@@ -522,7 +537,6 @@ function UpgradeSystem:applyBonusEffect(bonusData, station, level)
             drone.speed = 4.0 + level * 0.5
             -- Search radius: 200 base + 50 per level (level 1: 250, level 4: 400)
             drone.searchRadius = 200 + level * 50
-            drone:add()
             GameplayScene.salvageDrone = drone
             Utils.debugPrint("Salvage Drone deployed! Speed: " .. drone.speed .. ", Range: " .. drone.searchRadius)
         elseif GameplayScene and GameplayScene.salvageDrone then

@@ -24,7 +24,8 @@ GameManager = {
         GAME_OVER = "game_over",
         VICTORY = "victory",
         STORY_ENDING = "story_ending",
-        CREDITS = "credits"
+        CREDITS = "credits",
+        GAME_INTRO = "game_intro"
     },
 
     -- Current state tracking
@@ -63,6 +64,9 @@ function GameManager:init()
 
     -- Create story intro scene
     self.scenes[self.states.STORY_INTRO] = self:createStoryIntroScene()
+
+    -- Create game intro scene (first-time story)
+    self.scenes[self.states.GAME_INTRO] = self:createGameIntroScene()
 
     -- Register gameplay scene
     GameplayScene:init()
@@ -321,7 +325,7 @@ function GameManager:createTitleScene()
         "Now with 40% more inexplicable alien artifacts!",
         "Your sacrifice will be noted. Literally.",
         "Knowledge is power. Power is survival. Survival is unlikely.",
-        "Maserati sends her regards.",
+        "Porsche sends her regards.",
         "Do NOT insult the poetry.",
         "Diplomatic hugs incoming.",
         "11,000 verses. One fly.",
@@ -419,8 +423,13 @@ function GameManager:createTitleScene()
             if InputManager.buttonJustPressed.a or InputManager.buttonJustPressed.b
                 or InputManager.buttonJustPressed.up or InputManager.buttonJustPressed.down
                 or InputManager.buttonJustPressed.left or InputManager.buttonJustPressed.right then
-                titleState = STATE_MENU
-                selectedIndex = 1
+                -- First time: show game intro story
+                if not SaveManager:getSetting("introSeen", false) then
+                    GameManager:setState(GameManager.states.GAME_INTRO)
+                else
+                    titleState = STATE_MENU
+                    selectedIndex = 1
+                end
             end
         else
             -- Menu state
@@ -1218,6 +1227,39 @@ function GameManager:createStoryIntroScene()
     return scene
 end
 
+-- Create game intro scene (first-time story sequence)
+function GameManager:createGameIntroScene()
+    local scene = {}
+
+    function scene:enter(params)
+        Utils.debugPrint("Entering game intro scene")
+
+        -- Get intro panels (with random station name)
+        local panels = EpisodesData.getGameIntroPanels()
+        StoryPanel:show(panels, function()
+            -- Mark as seen
+            SaveManager:setSetting("introSeen", true)
+            SaveManager:flush()
+            -- Return to title
+            GameManager:setState(GameManager.states.TITLE)
+        end)
+    end
+
+    function scene:update()
+        StoryPanel:update()
+    end
+
+    function scene:drawOverlay()
+        StoryPanel:draw()
+    end
+
+    function scene:exit()
+        Utils.debugPrint("Exiting game intro scene")
+    end
+
+    return scene
+end
+
 -- Create victory scene (shows ending panels then detailed stats)
 function GameManager:createVictoryScene()
     local scene = {}
@@ -1535,6 +1577,7 @@ function GameManager:createSettingsScene()
         { label = "Music Volume", type = "slider", key = "musicVolume", min = 0, max = 1, step = 0.1 },
         { label = "SFX Volume", type = "slider", key = "sfxVolume", min = 0, max = 1, step = 0.1 },
         { label = "Creative Mode", type = "debug_toggle", key = "debugMode" },  -- Special type with gear icon
+        { label = "Replay Intro", type = "action", action = "replay_intro" },
         { label = "Reset All Data", type = "action", action = "reset" },
         { label = "Back", type = "action", action = "back" },
     }
@@ -1675,6 +1718,8 @@ function GameManager:createSettingsScene()
             if InputManager.buttonJustPressed.a then
                 if item.action == "back" then
                     GameManager:setState(previousState or GameManager.states.EPISODE_SELECT)
+                elseif item.action == "replay_intro" then
+                    GameManager:setState(GameManager.states.GAME_INTRO)
                 elseif item.action == "reset" then
                     confirmingReset = true
                     confirmIndex = 2  -- Default to "No"

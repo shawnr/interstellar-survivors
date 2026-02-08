@@ -14,9 +14,9 @@ Chomper.DATA = {
     frameDuration = 0.2,  -- 200ms per frame - chomping animation
 
     -- Boss stats (Episode 4)
-    baseHealth = 1000,
+    baseHealth = 4200,
     baseSpeed = 0.30,
-    baseDamage = 14,
+    baseDamage = 28,
     rpValue = 180,
 
     -- Collision - larger boss
@@ -33,7 +33,7 @@ Chomper.PHASES = {
     CIRCLING = 2,       -- Circling the station
     CHARGING = 3,       -- Charging at the station
     RECOVERING = 4,     -- Recovering after a charge
-    ENRAGED = 5,        -- Below 30% health - faster charges
+    ENRAGED = 5,        -- Below 50% health - faster charges
 }
 
 function Chomper:init(x, y)
@@ -92,7 +92,7 @@ function Chomper:update(dt)
     self.attackTimer = self.attackTimer + dt
 
     -- Check for enraged phase
-    if self.health / self.maxHealth <= 0.3 and self.phase ~= Chomper.PHASES.ENRAGED then
+    if self.health / self.maxHealth <= 0.5 and self.phase ~= Chomper.PHASES.ENRAGED then
         self:enterPhase(Chomper.PHASES.ENRAGED)
     end
 
@@ -272,7 +272,7 @@ function Chomper:onHitStation()
         local attackAngle = math.atan(dx, -dy) * (180 / math.pi)
         GameplayScene.station:takeDamage(self.damage, attackAngle, "ram")
         -- Apply rotation slow on charge impact
-        GameplayScene.station:applyDebuff("rotationSlow", 0.3, 3.0)
+        GameplayScene.station:applyDebuff("rotationSlow", 0.2, 3.0)
     end
 end
 

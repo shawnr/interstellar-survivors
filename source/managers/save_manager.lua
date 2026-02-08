@@ -13,6 +13,7 @@ SaveManager = {
             musicVolume = 0.7,
             sfxVolume = 1.0,
             debugMode = false,
+            introSeen = false,
         },
         -- Debug mode sub-settings (used when debugMode is true)
         debugSettings = {
@@ -82,6 +83,7 @@ function SaveManager:loadGameData()
             self.gameData.settings.musicVolume = data.settings.musicVolume or 0.7
             self.gameData.settings.sfxVolume = data.settings.sfxVolume or 1.0
             self.gameData.settings.debugMode = data.settings.debugMode or false
+            self.gameData.settings.introSeen = data.settings.introSeen or false
         end
 
         -- Load debug settings
@@ -444,6 +446,7 @@ function SaveManager:resetAllData()
             musicVolume = 0.7,
             sfxVolume = 1.0,
             debugMode = false,
+            introSeen = false,
         },
         debugSettings = {
             episodeLength = 60,

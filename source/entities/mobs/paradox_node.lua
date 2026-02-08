@@ -10,7 +10,7 @@ ParadoxNode.DATA = {
     imagePath = "images/episodes/ep3/ep3_paradox_node",
 
     -- Stats - slow but tanky
-    baseHealth = 18,
+    baseHealth = 40,
     baseSpeed = 0.5,
     baseDamage = 10,
     rpValue = 25,
@@ -47,9 +47,9 @@ function ParadoxNode:onHitStation()
         if roll == 1 then
             GameplayScene.station:applyDebuff("controlsInverted", true, 2.5)
         elseif roll == 2 then
-            GameplayScene.station:applyDebuff("rotationSlow", 0.3, 2.0)
+            GameplayScene.station:applyDebuff("rotationSlow", 0.2, 2.0)
         else
-            GameplayScene.station:applyDebuff("fireRateSlow", 0.6, 2.0)
+            GameplayScene.station:applyDebuff("fireRateSlow", 0.2, 2.0)
         end
     end
     ParadoxNode.super.onHitStation(self)

@@ -10,7 +10,7 @@ EfficiencyMonitor.DATA = {
     imagePath = "images/episodes/ep2/ep2_efficiency_monitor",
 
     -- Stats - slower but more health and damage
-    baseHealth = 15,
+    baseHealth = 35,
     baseSpeed = 0.6,
     baseDamage = 8,
     rpValue = 20,
@@ -44,7 +44,7 @@ end
 -- Override onHitStation to sometimes apply fireRateSlow (like Productivity Liaison boss)
 function EfficiencyMonitor:onHitStation()
     if GameplayScene and GameplayScene.station and math.random(100) <= 15 then
-        GameplayScene.station:applyDebuff("fireRateSlow", 0.5, 2.0)
+        GameplayScene.station:applyDebuff("fireRateSlow", 0.2, 2.0)
     end
     EfficiencyMonitor.super.onHitStation(self)
 end

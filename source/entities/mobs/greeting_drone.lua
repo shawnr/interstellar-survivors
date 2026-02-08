@@ -12,7 +12,7 @@ GreetingDrone.DATA = {
     frameDuration = 0.12,  -- 120ms per frame
 
     -- Stats - faster than asteroids but less damage
-    baseHealth = 5,
+    baseHealth = 12,
     baseSpeed = 1.2,    -- Fast!
     baseDamage = 3,
     rpValue = 8,
