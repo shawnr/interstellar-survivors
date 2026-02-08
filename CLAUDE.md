@@ -69,9 +69,10 @@ source/
 │   ├── tools/                  # 14 tool implementations
 │   ├── projectile.lua          # Projectile with object pooling
 │   ├── mob.lua                 # MOB base class
-│   ├── mobs/                   # 11 episode-specific MOBs
+│   ├── mobs/                   # 12 episode-specific MOBs + 1 special (pickup_thief)
 │   ├── bosses/                 # 5 boss implementations
-│   └── collectible.lua         # RP collectibles
+│   ├── collectible.lua         # RP collectibles
+│   └── pickup.lua              # Pickup items (HP/RP bonus collectibles)
 ├── systems/
 │   ├── upgrade_system.lua      # Tool/Bonus item management, evolution
 │   └── research_spec_system.lua
@@ -87,7 +88,8 @@ source/
 │   ├── tools_data.lua          # Tool stats (14 tools)
 │   ├── bonus_items_data.lua    # Bonus item definitions (30 items)
 │   ├── episodes_data.lua       # Episode configs and story panels
-│   └── research_specs_data.lua # Research spec definitions (9 specs)
+│   ├── research_specs_data.lua # Research spec definitions (9 specs)
+│   └── pickups_data.lua        # 49 pickup item definitions
 └── images/                     # All game sprites and pre-processed icons
 ```
 
@@ -98,7 +100,7 @@ source/
 | 1 | Spin Cycle | Greeting Drone, Silk Weaver, Asteroid | Cultural Attache |
 | 2 | Productivity Review | Survey Drone, Efficiency Monitor | Productivity Liaison |
 | 3 | Whose Idea Was This? | Probability Fluctuation, Paradox Node | Improbability Engine |
-| 4 | Garbage Day | Debris Chunk, Defense Turret | Chomper |
+| 4 | Garbage Day | Debris Chunk, Trash Blob, Defense Turret | Chomper |
 | 5 | Academic Standards | Debate Drone, Citation Platform | Distinguished Professor |
 
 ## Debug Mode
@@ -149,4 +151,4 @@ Full game design document is in `/Interstellar Survivors.md`
 
 ## Current Version
 
-v0.1.221 (build 223)
+v0.1.232 (build 234)

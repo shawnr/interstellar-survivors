@@ -207,6 +207,10 @@ end
 -- Show a temporary message on screen
 function GameplayScene:showMessage(text, duration)
     duration = duration or 2.0
+    -- Cap messages to prevent unbounded growth
+    if #self.messages >= 5 then
+        table.remove(self.messages, 1)
+    end
     table.insert(self.messages, {
         text = text,
         timer = duration,

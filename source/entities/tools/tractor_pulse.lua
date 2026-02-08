@@ -59,7 +59,7 @@ function TractorPulse:pullCollectibles(firingAngle)
     local range = self.pullRange * (1 + self.rangeBonus)
     local rangeSq = range * range
     local minDistSq = 15 * 15  -- Minimum distance squared
-    local pullStrength = self.upgraded and 12 or 8  -- Faster pull for quicker collection
+    local pullStrength = self.isEvolved and 12 or 8  -- Faster pull for quicker collection
     local pulledAny = false
 
     -- Pull ALL collectibles within range (no cone restriction)

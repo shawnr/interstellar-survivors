@@ -49,7 +49,7 @@ function ThermalLance:fire()
     self:createBeam(fireX, fireY, firingAngle)
 
     -- Play sound
-    -- TODO: AudioManager:playSFX("tool_thermal_lance")
+    if AudioManager then AudioManager:playSFX("tool_thermal_lance", 0.3) end
 end
 
 function ThermalLance:createBeam(x, y, angle)

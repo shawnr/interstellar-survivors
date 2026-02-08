@@ -260,14 +260,14 @@ For the complete Tools table (14 Tools with stats, patterns, and upgrade paths),
 
 | Tool | Available | Pattern | Pairs With | Upgrades To |
 | :---- | :---- | :---- | :---- | :---- |
-| Rail Driver | Start | straight | Alloy Gears | Rail Cannon |
+| Rail Driver | Start | straight | Alloy Gears | Rail Hyper Driver |
 | Frequency Scanner | Start | straight | Expanded Dish | Harmonic Disruptor |
 | Tractor Pulse | Start | cone | Magnetic Coils | Gravity Well |
-| Plasma Sprayer | Episode 1 | cone (5 droplets) | Fuel Injector | Inferno Cannon |
+| Plasma Sprayer | Episode 1 | cone (4 droplets) | Fuel Injector | Inferno Projector |
 | Thermal Lance | Episode 1 | beam | Cooling Vents | Plasma Cutter |
 | Cryo Projector | Episode 2 | spread | Compressor Unit | Absolute Zero |
-| Mapping Drone | Episode 2 | homing (priority) | Targeting Matrix | Perihelion Strike |
-| Micro-Missile Pod | Episode 2 | burst (3 missiles) | Guidance Module | Swarm Launcher |
+| Modified Mapping Drone | Episode 2 | homing (priority) | Targeting Matrix | Perihelion Express |
+| Micro-Missile Pod | Episode 2 | burst (3 missiles) | Guidance Module | Swarm Deployer |
 | EMP Burst | Episode 3 | radial | Capacitor Bank | Ion Storm |
 | Singularity Core | Episode 3 | orbital | Graviton Lens | Black Hole Generator |
 | Tesla Coil | Episode 3 | chain | Arc Capacitors | Storm Generator |
@@ -447,8 +447,9 @@ Background Image: Wreckage stretches to infinity—twisted metal, shattered hull
 
 Threats:
 
-* Debris Swarms (ram) — Chunks of ancient wreckage tumbling toward you. Not malicious, just inevitable.  
-* Defense Turrets (shoot) — Automated systems from an old war, still functional, still shooting at anything that moves.  
+* Debris Swarms (ram) — Chunks of ancient wreckage tumbling toward you. Not malicious, just inevitable.
+* Trash Blobs (ram) — Amorphous masses of compressed refuse. Slow but surprisingly durable, they split into smaller blobs when destroyed.
+* Defense Turrets (shoot) — Automated systems from an old war, still functional, still shooting at anything that moves.
 * Chomper (boss) — The thing that lives here. Very large, very hungry, thinks your station might be food. When it realizes you're not, it calms down. Getting there is the hard part.
 
 Collectibles:
@@ -864,14 +865,14 @@ The following list of taglines should be randomly rotated in on the game title s
 
 | Name | Description | Base Dmg | Type | Pattern | Speed | Fire Rate | Pairs With | Upgraded Tool |
 | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- | :---- |
-| **Rail Driver** | Kinetic launcher. Dmg: 8 | 8 | physical | straight | 10 | 2.0 | Alloy Gears | Rail Cannon |
+| **Rail Driver** | Kinetic launcher. Dmg: 8 | 8 | physical | straight | 10 | 2.0 | Alloy Gears | Rail Hyper Driver |
 | **Frequency Scanner** | Disperses gas clouds. Dmg: 10 | 10 | frequency | straight | 14 | 1.2 | Expanded Dish | Harmonic Disruptor |
 | **Tractor Pulse** | Pulls collectibles. No dmg | 0 | none | cone | 8 | 0.8 | Magnetic Coils | Gravity Well |
-| **Plasma Sprayer** | Cone spray. Dmg: 3x5 | 3 | plasma | cone | 8 | 1.5 | Fuel Injector | Inferno Cannon |
+| **Plasma Sprayer** | Cone spray. Dmg: 4x4 | 4 | plasma | cone | 8 | 1.5 | Fuel Injector | Inferno Projector |
 | **Thermal Lance** | Heat beam. Dmg: 12 | 12 | thermal | beam | 0 | 0.6 | Cooling Vents | Plasma Cutter |
 | **Cryo Projector** | Slows enemies. Dmg: 4 | 4 | cold | spread | 8 | 1.0 | Compressor Unit | Absolute Zero |
-| **Mapping Drone** | Seeks highest HP. Dmg: 18 | 18 | explosive | homing\_priority | 4 | 0.5 | Targeting Matrix | Perihelion Strike |
-| **Micro-Missile Pod** | 3-missile burst. Dmg: 4x3 | 4 | explosive | burst | 7 | 0.6 | Guidance Module | Swarm Launcher |
+| **Modified Mapping Drone** | Seeks highest HP. Dmg: 18 | 18 | explosive | homing\_priority | 4 | 0.5 | Targeting Matrix | Perihelion Express |
+| **Micro-Missile Pod** | 3-missile burst. Dmg: 4x3 | 4 | explosive | burst | 7 | 0.6 | Guidance Module | Swarm Deployer |
 | **EMP Burst** | Disables mechs. Dmg: 6 | 6 | electric | radial | 0 | 0.5 | Capacitor Bank | Ion Storm |
 | **Singularity Core** | Orbital gravity orb. Dmg: 6/tick | 6 | gravity | orbital | 0 | 0.3 | Graviton Lens | Black Hole Generator |
 | **Tesla Coil** | Chain lightning. Dmg: 8 | 8 | electric | chain | 20 | 0.8 | Arc Capacitors | Storm Generator |
@@ -885,14 +886,14 @@ When a max-level Tool (Level 4) is paired with its matching Bonus Item, it evolv
 
 | Upgraded Tool | Base Tool \+ Bonus Item | Upgraded Dmg | Special Effect |
 | :---- | :---- | :---- | :---- |
-| **Rail Cannon** | Rail Driver \+ Alloy Gears | 20 | Projectiles pierce through first target |
+| **Rail Hyper Driver** | Rail Driver \+ Alloy Gears | 20 | Projectiles pierce through first target |
 | **Harmonic Disruptor** | Freq Scanner \+ Expanded Dish | 25 | Chains to nearby MOBs |
 | **Gravity Well** | Tractor Pulse \+ Magnetic Coils | — | 90° cone, ×3 pull, slows MOBs |
-| **Inferno Cannon** | Plasma Sprayer \+ Fuel Injector | 6 | Enhanced cone spray |
+| **Inferno Projector** | Plasma Sprayer \+ Fuel Injector | 6 | Enhanced cone spray |
 | **Plasma Cutter** | Thermal Lance \+ Cooling Vents | 30 | Beam persists, sweeps with rotation |
 | **Absolute Zero** | Cryo Projector \+ Compressor Unit | 10 | Frozen MOBs take ×2 damage from others |
-| **Perihelion Strike** | Mapping Drone \+ Targeting Matrix | 35 | Improved homing accuracy |
-| **Swarm Launcher** | Micro-Missile Pod \+ Guidance Module | 8 | +2 missiles per burst |
+| **Perihelion Express** | Modified Mapping Drone \+ Targeting Matrix | 35 | Improved homing accuracy |
+| **Swarm Deployer** | Micro-Missile Pod \+ Guidance Module | 8 | +2 missiles per burst |
 | **Ion Storm** | EMP Burst \+ Capacitor Bank | 15 | Radius ×2, chain explosions |
 | **Black Hole Generator** | Singularity Core \+ Graviton Lens | 12 | Expanded orbital range |
 | **Storm Generator** | Tesla Coil \+ Arc Capacitors | 16 | +1 chain target |
@@ -938,7 +939,7 @@ When a max-level Tool (Level 4) is paired with its matching Bonus Item, it evolv
 | Plasma Sprayer | Complete Episode 1 |
 | Thermal Lance | Complete Episode 1 |
 | Cryo Projector | Complete Episode 2 |
-| Mapping Drone | Complete Episode 2 |
+| Modified Mapping Drone | Complete Episode 2 |
 | Micro-Missile Pod | Complete Episode 2 |
 | EMP Burst | Complete Episode 3 |
 | Singularity Core | Complete Episode 3 |
@@ -962,7 +963,7 @@ When a max-level Tool (Level 4) is paired with its matching Bonus Item, it evolv
 
 | Name | Description | Effect | Pairs With Tool |
 | :---- | :---- | :---- | :---- |
-| **Alloy Gears** | Precision-machined components. | \+25% physical damage | Rail Driver → Rail Cannon |
+| **Alloy Gears** | Precision-machined components. | \+25% physical damage | Rail Driver → Rail Hyper Driver |
 | **Expanded Dish** | Wider sensor array. | \+25% frequency damage | Freq Scanner → Harmonic Disruptor |
 | **Magnetic Coils** | Enhanced pulling magnets. | Tractor range \+50% | Tractor Pulse → Gravity Well |
 | **Cooling Vents** | Heat dissipation system. | \+25% thermal damage | Thermal Lance → Plasma Cutter |
@@ -970,11 +971,11 @@ When a max-level Tool (Level 4) is paired with its matching Bonus Item, it evolv
 | **Capacitor Bank** | High-capacity storage. | \+25% electric damage | EMP Burst → Ion Storm |
 | **Probe Swarm** | Additional probe units. | \+2 probes per shot | Probe Launcher → Drone Carrier |
 | **Field Amplifier** | Repulsor boost. | Push force \+50% | Repulsor Field → Shockwave Gen |
-| **Targeting Matrix** | Homing accuracy boost. | \+30% homing accuracy | Mapping Drone → Perihelion Strike |
+| **Targeting Matrix** | Homing accuracy boost. | \+30% homing accuracy | Modified Mapping Drone → Perihelion Express |
 | **Graviton Lens** | Orbital range boost. | \+50% orbital range | Singularity Core → Black Hole Gen |
-| **Fuel Injector** | Plasma damage boost. | \+25% plasma damage | Plasma Sprayer → Inferno Cannon |
+| **Fuel Injector** | Plasma damage boost. | \+25% plasma damage | Plasma Sprayer → Inferno Projector |
 | **Arc Capacitors** | Chain lightning boost. | \+1 chain target | Tesla Coil → Storm Generator |
-| **Guidance Module** | Missile burst boost. | \+2 missiles per burst | Micro-Missile Pod → Swarm Launcher |
+| **Guidance Module** | Missile burst boost. | \+2 missiles per burst | Micro-Missile Pod → Swarm Deployer |
 | **Phase Modulators** | Phase damage boost. | \+25% phase damage | Phase Disruptor → Dimensional Rift |
 
 #### General Passive Items
@@ -1111,7 +1112,7 @@ The station has **8 attachment points** arranged around its perimeter like a clo
 
 │  BONUS │ Alloy Gears                    │
 
-│         \+25% physical dmg → Rail Cannon │
+│         \+25% physical dmg → Rail Hyper Driver │
 
 ├─────────────────────────────────────────┤
 
@@ -1149,7 +1150,7 @@ Each card row displays:
 
 ### Special Cases
 
-- If player has a Tool and its matching Bonus Item appears, the synergy is shown inline (e.g., "→ Rail Cannon")  
+- If player has a Tool and its matching Bonus Item appears, the synergy is shown inline (e.g., "→ Rail Hyper Driver")  
 - If all equipment slots are full (8), show "MAXIMUM UPGRADES" and auto-continue
 - If all items unlocked, show "MAXIMUM UPGRADES" and auto-continue
 
@@ -1204,6 +1205,47 @@ Each card row displays:
 - Collectibles **do not block** MOB movement or projectiles  
 - MOBs **cannot destroy** collectibles  
 - Collectibles and MOBs can occupy the same space
+
+### Pickups (Bonus Items)
+
+In addition to RP collectibles, **Pickups** are rare sci-fi themed items that spawn periodically and award HP and/or RP on collection.
+
+| Property | Value |
+| :---- | :---- |
+| Spawn interval | Every 30 seconds |
+| Size | 16x16 procedural vector graphics |
+| Drift speed | 0.4 px/frame toward station |
+| Max speed | 2 px/frame (accelerates near station) |
+| Collection radius | 45 px (auto-collect) |
+| Lifetime | 45 seconds (blinks in last 3 seconds) |
+| Total variants | 49 unique items |
+
+Each pickup has a name, visual style (box, circle, diamond, crystal, canister, pod), and randomized HP/RP rewards within defined ranges. Examples: "Babel Fish Tank", "Unobtanium Fragment", "Probability Drive Coil".
+
+A spawn sound plays when a pickup appears to alert the player.
+
+### Pickup Thief MOB
+
+When a pickup spawns, there is a **75% chance** a Pickup Thief MOB spawns on the opposite side of the screen and races toward the pickup.
+
+| Property | Value |
+| :---- | :---- |
+| Health | 40 (very tanky) |
+| Speed | 0.7 (accelerates near pickup) |
+| Damage | 0 (does not attack station) |
+| Electric immunity | Yes (immune to EMP Burst, Tesla Coil) |
+| Eating delay | 1.5 seconds at pickup before consuming |
+| Food coma | 50% slower after eating |
+
+**Behavior:**
+1. **Chasing** — Moves toward the pickup, speeding up as it gets close
+2. **Eating** — Pauses at pickup for 1.5s (pickup blinks during this time)
+3. **Fleeing** — After eating, moves toward nearest edge at 50% speed
+4. **If killed before eating** — Pickup remains for player collection
+5. **If killed after eating** — Drops 50% of the pickup's RP value as an orb
+6. **If it escapes** — Taunt message: "Pickup Thief stole your [item name]!"
+
+The Pickup Thief is immune to electrical damage, requiring physical weapons (Rail Driver, missiles, probes, etc.) to kill.
 
 ---
 
@@ -1436,7 +1478,7 @@ BOSS\_WARNING\_TIME \= 6:45 (405 seconds)
 | :---- | :---- | :---- |
 | tool\_rail\_driver.png | 16×16 | Rail Driver attachment |
 | tool\_rail\_driver\_projectile.png | 8×4 | Rail Driver projectile |
-| tool\_rail\_cannon.png | 16×16 | Upgraded Rail Cannon |
+| tool\_rail\_cannon.png | 16×16 | Upgraded Rail Hyper Driver |
 | tool\_frequency\_scanner.png | 16×16 | Frequency Scanner |
 | tool\_frequency\_scanner\_beam.png | 32×8 | Scanner beam |
 | tool\_harmonic\_disruptor.png | 16×16 | Upgraded Harmonic Disruptor |
@@ -1785,7 +1827,7 @@ Based on 400×240 Playdate screen:
 | Plasma Sprayer | 1.5 | 0.67 sec |
 | Thermal Lance | 0.6 | 1.67 sec |
 | Cryo Projector | 1.0 | 1.0 sec |
-| Mapping Drone | 0.5 | 2.0 sec |
+| Modified Mapping Drone | 0.5 | 2.0 sec |
 | Micro-Missile Pod | 0.6 | 1.67 sec |
 | EMP Burst | 0.5 | 2.0 sec |
 | Singularity Core | 0.3 | 3.33 sec |
