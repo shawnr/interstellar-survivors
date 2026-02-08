@@ -25,7 +25,7 @@ Want to try the game? Download and sideload it on your Play.date:
 1. Download `InterstellarSurvivors.pdx.zip` from the releases
 2. **Option A (Easiest):** Upload the .zip file to your [Playdate account](https://play.date/account/sideload/) and it will sync to your device
 3. **Option B:** Unzip the file, connect your Play.date to your computer, and drag `InterstellarSurvivors.pdx` to your device
-4. Play!
+4. Survive! Learn!
 
 **Note:** This game is still in active development. Expect bugs, balance changes, and missing features. Feedback welcome!
 
