@@ -72,7 +72,6 @@ function DefenseTurret:fire()
     -- Sometimes apply rotationSlow on fire (like Chomper boss)
     if math.random(100) <= 7 and GameplayScene and GameplayScene.station then
         GameplayScene.station:applyDebuff("rotationSlow", 0.3, 3.0)
-        GameplayScene:showMessage("Turret jams rotation!", 1.5)
     end
 
     -- Create projectile aimed at station

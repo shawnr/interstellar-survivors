@@ -54,6 +54,7 @@ function Projectile:init()
     self.piercing = false
     self.hitCount = 0
     self.maxHits = 1
+    self.damageType = nil  -- "electric" for Tesla Coil projectiles
 
     -- Stable ID for collision frame cycling (assigned at reset)
     self._collisionId = 0
@@ -100,6 +101,7 @@ function Projectile:reset(x, y, angle, speed, damage, imagePath, piercing, optio
     options = options or {}
     local inverted = options.inverted or false
     local rotationOffset = options.rotationOffset or -90  -- Default: sprites face RIGHT
+    self.damageType = options.damageType or nil  -- e.g. "electric" for Tesla Coil
 
     -- Calculate direction
     self.dx, self.dy = Utils.angleToVector(angle)

@@ -22,7 +22,7 @@ local function chainOnHit(self, hitTarget)
             local nearbyCount = #nearbyMobs
             for i = 1, nearbyCount do
                 local mob = nearbyMobs[i]
-                if mob.active and not self.hitTargets[mob] then
+                if mob.active and not self.hitTargets[mob] and not mob.electricImmune then
                     local distSq = Utils.distanceSquared(hitTarget.x, hitTarget.y, mob.x, mob.y)
                     if distSq < nearestDistSq then
                         nearestDistSq = distSq
@@ -34,7 +34,7 @@ local function chainOnHit(self, hitTarget)
 
         if nextTarget then
             local chainAngle = Utils.vectorToAngle(nextTarget.x - hitTarget.x, nextTarget.y - hitTarget.y)
-            local chainOptions = { inverted = true, rotationOffset = -90 }
+            local chainOptions = { inverted = true, rotationOffset = -90, damageType = "electric" }
             local chainProj = GameplayScene:createProjectile(
                 hitTarget.x, hitTarget.y, chainAngle,
                 22,
@@ -114,7 +114,7 @@ end
 function TeslaCoil:createProjectile(x, y, angle)
     if GameplayScene and GameplayScene.projectilePool then
         -- Lightning bolt sprite faces RIGHT, use default -90 offset
-        local lightningOptions = { inverted = true, rotationOffset = -90 }
+        local lightningOptions = { inverted = true, rotationOffset = -90, damageType = "electric" }
         local projectile = GameplayScene.projectilePool:get(
             x, y, angle,
             self.projectileSpeed * (1 + self.projectileSpeedBonus),
@@ -140,7 +140,7 @@ function TeslaCoil:findNearestEnemy(fromX, fromY, preferredAngle)
     local mobCount = #nearbyMobs
     for i = 1, mobCount do
         local mob = nearbyMobs[i]
-        if mob.active then
+        if mob.active and not mob.electricImmune then
             local distSq = Utils.distanceSquared(fromX, fromY, mob.x, mob.y)
             if distSq < nearestDistSq then
                 nearestDistSq = distSq
@@ -154,7 +154,7 @@ end
 
 function TeslaCoil:createChainProjectile(x, y, angle, target)
     -- Lightning bolt sprite faces RIGHT, use default -90 offset
-    local lightningOptions = { inverted = true, rotationOffset = -90 }
+    local lightningOptions = { inverted = true, rotationOffset = -90, damageType = "electric" }
     local proj = GameplayScene:createProjectile(
         x, y, angle,
         self.projectileSpeed * (1 + self.projectileSpeedBonus),

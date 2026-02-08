@@ -1131,6 +1131,7 @@ function GameManager:createStoryIntroScene()
                 showingToolSelect = true
                 showingToolPlacement = false
                 ToolSelect:show(function(selectedToolId)
+                    Utils.debugPrint("ToolSelect: Selected starting tool: " .. tostring(selectedToolId))
                     GameManager.selectedStartingTool = selectedToolId
                     showingToolSelect = false
 
@@ -1141,6 +1142,7 @@ function GameManager:createStoryIntroScene()
                         -- Pass a mock station with empty tools (no tools placed yet)
                         local mockStation = { tools = {} }
                         ToolPlacementScreen:show(toolData, mockStation, function(slotIndex)
+                            Utils.debugPrint("ToolPlacement: Selected slot " .. tostring(slotIndex) .. " for " .. tostring(selectedToolId))
                             GameManager.selectedStartingSlot = slotIndex
                             showingToolPlacement = false
                             GameManager:setState(GameManager.states.GAMEPLAY)

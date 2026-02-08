@@ -1,5 +1,5 @@
 -- EMP Burst Tool
--- Donut-shaped AoE: scrambles mechanical mobs, reduced damage to organic
+-- Donut-shaped AoE: damages and scrambles mechanical mobs only (no effect on organic)
 
 local math_floor <const> = math.floor
 local math_max <const> = math.max
@@ -14,7 +14,7 @@ EMPBurst.DATA = {
     iconPath = "images/tools/tool_emp_burst",
     projectileImage = "images/tools/tool_emp_effect",
 
-    baseDamage = 6,
+    baseDamage = 4,
     fireRate = 0.5,
     projectileSpeed = 0,  -- Instant radial
     pattern = "radial",
@@ -23,7 +23,7 @@ EMPBurst.DATA = {
     pairsWithBonus = "capacitor_bank",
     upgradedName = "Ion Storm",
     upgradedImagePath = "images/tools/tool_ion_storm",
-    upgradedDamage = 15,
+    upgradedDamage = 10,
 }
 
 function EMPBurst:init()
@@ -66,17 +66,15 @@ function EMPBurst:burstDamage(innerR, outerR)
             local dy = mob.y - cy
             local distSq = dx * dx + dy * dy
             -- Only damage mobs inside the donut (between inner and outer radius)
-            if distSq >= innerRSq and distSq <= outerRSq then
+            if distSq >= innerRSq and distSq <= outerRSq and not mob.electricImmune then
                 if mob.isMechanical then
                     -- Mechanical: 2x damage + scramble
                     mob:takeDamage(damage * 2)
                     if mob.applyScramble then
                         mob:applyScramble(1.0)
                     end
-                else
-                    -- Non-mechanical: 0.5x damage (min 1)
-                    mob:takeDamage(math_max(1, math_floor(damage * 0.5)))
                 end
+                -- Non-mechanical mobs: no effect (EMP only affects electronics)
             end
         end
     end

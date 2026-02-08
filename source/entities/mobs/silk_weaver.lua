@@ -94,6 +94,6 @@ end
 function SilkWeaver:applySlowEffect()
     -- Slow station rotation for a short time
     if GameplayScene and GameplayScene.station then
-        GameplayScene.station:applyDebuff("rotationSlow", 0.5, 2.0)
+        GameplayScene.station:applyDebuff("rotationSlow", 0.3, 2.0)
     end
 end

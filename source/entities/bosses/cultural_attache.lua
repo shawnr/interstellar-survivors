@@ -234,7 +234,6 @@ end
 function CulturalAttache:applySlowEffect()
     if GameplayScene and GameplayScene.station then
         GameplayScene.station:applyDebuff("rotationSlow", 0.4, 2.5)
-        GameplayScene:showMessage("Poetry slows rotation!", 2.0)
     end
 end
 

@@ -683,6 +683,17 @@ function Station:applyDebuff(debuffType, value, duration)
         self.controlsInverted = true
         self.controlsInvertedTimer = duration
     end
+
+    -- Show debuff notification (non-stacking — one debuff at a time)
+    if GameplayScene then
+        if debuffType == "rotationSlow" then
+            GameplayScene:showMessage("Rotation slowed!", 1.5)
+        elseif debuffType == "fireRateSlow" then
+            GameplayScene:showMessage("Fire rate slowed!", 1.5)
+        elseif debuffType == "controlsInverted" then
+            GameplayScene:showMessage("Controls inverted!", 1.5)
+        end
+    end
 end
 
 -- Check which debuff is currently active (returns type and remaining time)

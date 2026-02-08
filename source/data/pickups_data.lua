@@ -17,7 +17,6 @@ PickupsData = {
 
     -- Devices & Technology
     { id = "babel_fish_tank", name = "Babel Fish Tank", visual = "canister", hpMin = 10, hpMax = 20, rpMin = 5, rpMax = 15 },
-    { id = "lightsaber_crystal", name = "Lightsaber Crystal", visual = "crystal", hpMin = 0, hpMax = 0, rpMin = 30, rpMax = 50 },
     { id = "holocron", name = "Holocron", visual = "diamond", hpMin = 0, hpMax = 0, rpMin = 25, rpMax = 45 },
     { id = "carbonite_block", name = "Carbonite Block", visual = "box", hpMin = 10, hpMax = 20, rpMin = 5, rpMax = 10 },
     { id = "ansible_relay", name = "Ansible Relay", visual = "diamond", hpMin = 0, hpMax = 0, rpMin = 20, rpMax = 40 },

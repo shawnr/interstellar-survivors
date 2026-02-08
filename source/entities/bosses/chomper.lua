@@ -273,7 +273,6 @@ function Chomper:onHitStation()
         GameplayScene.station:takeDamage(self.damage, attackAngle, "ram")
         -- Apply rotation slow on charge impact
         GameplayScene.station:applyDebuff("rotationSlow", 0.3, 3.0)
-        GameplayScene:showMessage("CHOMP! Rotation jammed!", 1.5)
     end
 end
 

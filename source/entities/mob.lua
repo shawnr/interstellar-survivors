@@ -89,6 +89,7 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.skipRotation = mobData.skipRotation or false  -- Performance: skip setRotation calls
     self.isMechanical = mobData.isMechanical or false
     self.isBoss = mobData.isBoss or false
+    self.electricImmune = mobData.electricImmune or false
 
     -- Movement
     self.targetX = Constants.STATION_CENTER_X

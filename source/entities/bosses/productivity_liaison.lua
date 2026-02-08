@@ -223,7 +223,6 @@ end
 function ProductivityLiaison:applyFeedbackDebuff()
     if GameplayScene and GameplayScene.station then
         GameplayScene.station:applyDebuff("fireRateSlow", 0.5, 2.0)
-        GameplayScene:showMessage("Productivity declining!", 1.5)
     end
 end
 

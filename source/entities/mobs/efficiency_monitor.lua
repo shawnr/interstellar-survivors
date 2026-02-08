@@ -45,7 +45,6 @@ end
 function EfficiencyMonitor:onHitStation()
     if GameplayScene and GameplayScene.station and math.random(100) <= 15 then
         GameplayScene.station:applyDebuff("fireRateSlow", 0.5, 2.0)
-        GameplayScene:showMessage("Productivity declining!", 1.5)
     end
     EfficiencyMonitor.super.onHitStation(self)
 end

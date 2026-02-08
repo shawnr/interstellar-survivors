@@ -74,6 +74,9 @@ import "entities/mobs/defense_turret"
 import "entities/mobs/debate_drone"
 import "entities/mobs/citation_platform"
 
+-- Shared MOBs
+import "entities/mobs/pickup_thief"
+
 -- Import bosses
 import "entities/bosses/cultural_attache"
 import "entities/bosses/productivity_liaison"

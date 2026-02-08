@@ -195,7 +195,6 @@ function DistinguishedProfessor:updateEnraged(dt)
         self:spawnDroneSquad()
         if GameplayScene and GameplayScene.station then
             GameplayScene.station:applyDebuff("controlsInverted", true, 2.5)
-            GameplayScene:showMessage("Confusing rhetoric!", 1.5)
         end
         self.attackTimer = 0
     end

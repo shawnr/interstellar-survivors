@@ -214,7 +214,9 @@ function ToolSelect:draw()
         -- Draw icon
         local icon = tool.iconOnBlack
         if icon then
-            icon:drawScaled(iconX, iconY, iconSize / 32)
+            local iconW, iconH = icon:getSize()
+            local scale = iconSize / math.max(iconW, iconH)
+            icon:drawScaled(iconX, iconY, scale)
         else
             gfx.setColor(gfx.kColorWhite)
             gfx.drawRect(iconX, iconY, iconSize, iconSize)
@@ -257,29 +259,9 @@ function ToolSelect:draw()
     FontManager:setFooterFont()
 
     local footerTextY = panelY + panelH - footerH + 3
-    local footerCenterX = 200
-    local iconRadius = 7
-
-    local leftText = "Up/Down: Select   "
-    local rightText = ": Confirm"
-    local font = FontManager.footerFont
-    local leftWidth = font:getTextWidth(leftText)
-    local rightWidth = font:getTextWidth(rightText)
-    local totalWidth = leftWidth + (iconRadius * 2) + rightWidth
-
-    local startX = footerCenterX - totalWidth / 2
 
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawText(leftText, startX, footerTextY)
-
-    -- Draw A button icon
-    local iconCenterX = startX + leftWidth + iconRadius
-    local iconCenterY = footerTextY + font:getHeight() / 2
-    self:drawAButtonIcon(iconCenterX, iconCenterY, iconRadius)
-
-    -- Draw rest of footer text
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawText(rightText, startX + leftWidth + (iconRadius * 2), footerTextY)
+    gfx.drawTextAligned("Up/Down: Select   A: Confirm", 200, footerTextY, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 

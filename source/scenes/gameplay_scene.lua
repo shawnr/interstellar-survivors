@@ -666,6 +666,7 @@ function GameplayScene:enter(params)
 
     -- Give station a starting tool (use selected tool if available, otherwise Rail Driver)
     local startingToolId = GameManager.selectedStartingTool or "rail_driver"
+    Utils.debugPrint("Starting tool: " .. tostring(startingToolId) .. " (selected: " .. tostring(GameManager.selectedStartingTool) .. ", slot: " .. tostring(GameManager.selectedStartingSlot) .. ")")
     local startingTool = nil
 
     -- Get the tool class from UpgradeSystem
@@ -673,11 +674,14 @@ function GameplayScene:enter(params)
         local toolClass = UpgradeSystem:getToolClass(startingToolId)
         if toolClass then
             startingTool = toolClass()
+        else
+            Utils.debugPrint("WARNING: No tool class found for " .. tostring(startingToolId))
         end
     end
 
     -- Fallback to Rail Driver if tool class not found
     if not startingTool then
+        Utils.debugPrint("WARNING: Using fallback Rail Driver")
         startingTool = RailDriver()
         startingToolId = "rail_driver"
     end
@@ -937,6 +941,45 @@ function GameplayScene:spawnRandomPickup()
     local data = PickupsData[math_random(#PickupsData)]
     local pickup = Pickup(x, y, data)
     self.pickups[#self.pickups + 1] = pickup
+
+    -- Play spawn notification sound
+    if AudioManager then
+        AudioManager:playSFX("card_select", 0.4)
+    end
+
+    -- 75% chance to spawn a pickup thief on the opposite side
+    if math_random(100) <= 75 then
+        self:spawnPickupThief(x, y, pickup)
+    end
+end
+
+function GameplayScene:spawnPickupThief(pickupX, pickupY, pickup)
+    -- Spawn on opposite side of screen from pickup
+    local thiefX = Constants.SCREEN_WIDTH - pickupX
+    local thiefY = Constants.SCREEN_HEIGHT - pickupY
+    -- Ensure spawn point is off-screen
+    if thiefX > 20 and thiefX < Constants.SCREEN_WIDTH - 20 then
+        thiefX = pickupX < 200 and Constants.SCREEN_WIDTH + 20 or -20
+    end
+    if thiefY > 20 and thiefY < Constants.SCREEN_HEIGHT - 20 then
+        thiefY = pickupY < 120 and Constants.SCREEN_HEIGHT + 20 or -20
+    end
+
+    local multipliers = {
+        health = 1.0 + (self.currentWave - 1) * 0.2,
+        damage = 1.0,
+        speed = 1.0
+    }
+    local thief = PickupThief(thiefX, thiefY, multipliers, pickup)
+    self.mobs[#self.mobs + 1] = thief
+
+    -- Alert the player
+    self:showMessage(thief.variantName .. " incoming!", 2.0)
+
+    -- Play alert sound
+    if AudioManager then
+        AudioManager:playSFX("wave_start", 0.5)
+    end
 end
 
 function GameplayScene:updateSpawning(dt)
@@ -1462,25 +1505,30 @@ function GameplayScene:checkCollisions()
                             local collisionDistSq = collisionDist * collisionDist
 
                             if distSq < collisionDistSq then
-                                -- Get damage with critical hit check
-                                local damage = proj:getDamage()
-                                local critChance = self.station.critChance
-                                if critChance and critChance > 0 and math_random() < critChance then
-                                    damage = damage * 2
-                                end
-
-                                if proj.usesTickDamage then
-                                    local canDamage = proj:onHit(mob)
-                                    if canDamage then
-                                        mob:takeDamage(damage, nil, px, py)
-                                    end
+                                -- Electric projectiles pass through electricImmune mobs
+                                if mob.electricImmune and proj.damageType == "electric" then
+                                    -- Skip: organic creature immune to electricity
                                 else
-                                    mob:takeDamage(damage, nil, px, py)
-                                    proj:onHit(mob)
-                                end
+                                    -- Get damage with critical hit check
+                                    local damage = proj:getDamage()
+                                    local critChance = self.station.critChance
+                                    if critChance and critChance > 0 and math_random() < critChance then
+                                        damage = damage * 2
+                                    end
 
-                                if not proj.active then
-                                    break
+                                    if proj.usesTickDamage then
+                                        local canDamage = proj:onHit(mob)
+                                        if canDamage then
+                                            mob:takeDamage(damage, nil, px, py)
+                                        end
+                                    else
+                                        mob:takeDamage(damage, nil, px, py)
+                                        proj:onHit(mob)
+                                    end
+
+                                    if not proj.active then
+                                        break
+                                    end
                                 end
                             end
                         end
@@ -1544,8 +1592,10 @@ function GameplayScene:checkCollisions()
 
                     local effect = proj:getEffect()
                     if effect == "slow" then
-                        self.station.rotationSlow = 0.5
-                        self.station.rotationSlowTimer = 2.0
+                        -- 10% chance to apply debuff (was 100% - too frequent with multiple shooters)
+                        if math_random(100) <= 10 then
+                            self.station:applyDebuff("rotationSlow", 0.3, 2.0)
+                        end
                     end
 
                     proj:deactivate()

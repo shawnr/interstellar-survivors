@@ -7,6 +7,7 @@ local gfx <const> = playdate.graphics
 local math_floor <const> = math.floor
 local math_sqrt <const> = math.sqrt
 local math_min <const> = math.min
+local math_max <const> = math.max
 local math_sin <const> = math.sin
 local math_random <const> = math.random
 
@@ -79,10 +80,9 @@ function Pickup:init(x, y, pickupData)
     self.x = x
     self.y = y
 
-    -- Movement: drift toward station (like collectibles but slower)
-    self.speed = 0.3
-    self.maxSpeed = 3
-    self.passiveDrift = 0.05
+    -- Movement: gentle drift toward station (~20s from far edge to collection)
+    self.driftSpeed = 0.4   -- px/frame constant drift (leisurely float)
+    self.maxSpeed = 2
     self.collectRadius = 55
     self.pickupRadius = 45
     self.collectRadiusSq = self.collectRadius * self.collectRadius
@@ -152,22 +152,20 @@ function Pickup:update(dt)
         return
     end
 
-    -- Within collect radius: accelerate toward station
-    if distSq < self.collectRadiusSq then
-        if distSq > 1 then
-            local dist = math_sqrt(distSq)
-            local speedMult = 1 + (1 - dist / self.collectRadius) * 3
-            local currentSpeed = math_min(self.speed * speedMult, self.maxSpeed)
-            local invDist = 1 / dist
-            self.x = self.x + dx * invDist * currentSpeed
-            self.y = self.y + dy * invDist * currentSpeed
+    -- Move toward station
+    if distSq > 1 then
+        local dist = math_sqrt(distSq)
+        local invDist = 1 / dist
+        local moveSpeed = self.driftSpeed
+
+        -- Accelerate when close to station
+        if dist < self.collectRadius then
+            local accelMult = 1 + (1 - dist / self.collectRadius) * 4
+            moveSpeed = math_min(math_max(moveSpeed, self.driftSpeed * accelMult), self.maxSpeed)
         end
-    else
-        -- Passive drift toward station (slow)
-        if distSq > 1 then
-            self.x = self.x + dx * 0.0005
-            self.y = self.y + dy * 0.0005
-        end
+
+        self.x = self.x + dx * invDist * moveSpeed
+        self.y = self.y + dy * invDist * moveSpeed
     end
 
     -- Bobbing animation

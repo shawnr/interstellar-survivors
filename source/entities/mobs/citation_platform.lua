@@ -71,7 +71,6 @@ function CitationPlatform:fire()
     -- Sometimes apply controlsInverted on fire (like Distinguished Professor boss)
     if math.random(100) <= 5 and GameplayScene and GameplayScene.station then
         GameplayScene.station:applyDebuff("controlsInverted", true, 2.5)
-        GameplayScene:showMessage("Confusing citation!", 1.5)
     end
 
     -- Create projectile aimed at station
