@@ -23,6 +23,7 @@ SurveyDrone.DATA = {
     range = 1,
     emits = false,
     skipRotation = true,  -- Performance: no rotation updates
+    isMechanical = true,
 }
 
 function SurveyDrone:init(x, y, waveMultipliers)

@@ -129,21 +129,21 @@ function UpgradeSelection:drawAButtonIcon(x, y, radius)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
--- Helper function to get "Helps:" text for a bonus item
-function UpgradeSelection:getHelpsText(bonusData)
+-- Helper function to get type text for a bonus item
+function UpgradeSelection:getBonusTypeText(bonusData)
     if not bonusData.pairsWithTool then
-        return "Helps: All"
+        return "BONUS"
     end
 
     -- Look up the tool name
     local toolId = bonusData.pairsWithTool
     local toolData = ToolsData and ToolsData[toolId]
     if toolData then
-        return "Helps: " .. toolData.name
+        return "UPGR. " .. toolData.name
     else
         -- Fallback: format the tool ID nicely
         local toolName = toolId:gsub("_", " "):gsub("(%a)([%w_']*)", function(a, b) return string.upper(a) .. b end)
-        return "Helps: " .. toolName
+        return "UPGR. " .. toolName
     end
 end
 
@@ -154,9 +154,9 @@ function UpgradeSelection:draw()
     local panelX, panelY = 10, 10
     local panelW, panelH = 380, 220
     local headerH = 30
-    local footerH = 24
-    local toolCardH = 50   -- Height for tool cards
-    local bonusCardH = 64  -- Taller cards for bonus items (includes "Helps:" line)
+    local footerH = 26
+    local toolCardH = 54   -- Height for tool cards
+    local bonusCardH = 68  -- Taller cards for bonus items (includes type line)
     local cardMargin = 6
     local cardW = panelW - (cardMargin * 2)
     local contentAreaH = panelH - headerH - footerH
@@ -278,17 +278,19 @@ function UpgradeSelection:draw()
         end
         gfx.drawText("*" .. name .. levelText .. "*", textX, textY)
 
-        -- Description on second line
+        -- Description on second line (increased spacing)
         local desc = option.data.description or ""
-        gfx.drawText(desc, textX, textY + 16)
+        gfx.drawText(desc, textX, textY + 18)
 
-        -- For bonus items, show "Helps:" line on third row
+        -- For bonus items, show type text on third row (small bold, right-aligned)
         if option.type == "bonus" then
-            local helpsText = self:getHelpsText(option.data)
-            gfx.drawText(helpsText, textX, textY + 32)
+            local bonusText = self:getBonusTypeText(option.data)
+            gfx.setFont(FontManager.smallBoldFont)
+            gfx.drawTextAligned(bonusText, cardX + cardW - 10, textY + 36, kTextAlignment.right)
+            FontManager:setBodyFamily()
         end
 
-        -- Type badge on right: WHITE text on black (or BLACK text on white when selected)
+        -- Type badge on right
         local badge = option.type == "tool" and "[TOOL]" or "[ITEM]"
         gfx.drawTextAligned(badge, cardX + cardW - 10, textY, kTextAlignment.right)
 
@@ -307,7 +309,7 @@ function UpgradeSelection:draw()
     -- 7. Draw footer instructions: white text on black background
     FontManager:setFooterFont()
 
-    local footerTextY = panelY + panelH - footerH + 5
+    local footerTextY = panelY + panelH - footerH + 3
     local footerCenterX = 200
     local iconRadius = 7
 

@@ -34,8 +34,23 @@ end
 function GrantFundingScreen:refreshStats()
     self.stats = {}
 
+    -- Check if all base stats are maxed (for showing Expanded Memory)
+    local baseStats = { "health", "damage", "shields", "research" }
+    local allBaseMaxed = true
+    for _, statId in ipairs(baseStats) do
+        if SaveManager:getGrantFundingLevel(statId) < 4 then
+            allBaseMaxed = false
+            break
+        end
+    end
+
     local statOrder = GrantFundingData.getStatOrder()
     for _, statId in ipairs(statOrder) do
+        -- Only show expanded_memory if all base stats are maxed
+        if statId == "expanded_memory" and not allBaseMaxed then
+            goto continue
+        end
+
         local data = GrantFundingData.get(statId)
         local currentLevel = SaveManager:getGrantFundingLevel(statId)
         local nextLevel = currentLevel + 1
@@ -59,6 +74,8 @@ function GrantFundingScreen:refreshStats()
             nextLabel = nextLabel,
             maxed = maxed,
         })
+
+        ::continue::
     end
 end
 
@@ -264,7 +281,7 @@ function GrantFundingScreen:drawStatItem(stat, y, isSelected, funds)
     -- Second line: next upgrade info or MAXED
     FontManager:setBodyFont()
     if stat.maxed then
-        gfx.drawText("*MAXED OUT*", leftPadding, y + 28)
+        gfx.drawText("*MAX*", leftPadding, y + 28)
     else
         -- Show next upgrade and cost
         local costText = "Cost: " .. stat.cost

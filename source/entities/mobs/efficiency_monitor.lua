@@ -21,6 +21,7 @@ EfficiencyMonitor.DATA = {
     range = 1,
     emits = false,
     skipRotation = true,  -- Performance: no rotation updates
+    isMechanical = true,
 }
 
 function EfficiencyMonitor:init(x, y, waveMultipliers)
@@ -38,5 +39,14 @@ function EfficiencyMonitor:update(dt)
     if self:hasReachedStation() then
         self:onHitStation()
     end
+end
+
+-- Override onHitStation to sometimes apply fireRateSlow (like Productivity Liaison boss)
+function EfficiencyMonitor:onHitStation()
+    if GameplayScene and GameplayScene.station and math.random(100) <= 15 then
+        GameplayScene.station:applyDebuff("fireRateSlow", 0.5, 2.0)
+        GameplayScene:showMessage("Productivity declining!", 1.5)
+    end
+    EfficiencyMonitor.super.onHitStation(self)
 end
 

@@ -310,21 +310,29 @@ function StoryPanel:draw()
         self:drawProgressDots(#panel.lines, self.currentLine)
     end
 
-    -- Draw "Press A" right-aligned, 5px from right and top edges
-    local radius = 8
-    local iconX = Constants.SCREEN_WIDTH - 5 - radius  -- 5px from right edge
-    local iconY = 5 + radius  -- 5px from top edge
+    -- Draw "Press A" label with black background in upper right
+    local promptFont = FontManager.promptFont
+    if promptFont then
+        gfx.setFont(promptFont)
+        local label = "Press A"
+        local labelW = promptFont:getTextWidth(label)
+        local labelH = promptFont:getHeight()
+        local padX = 5
+        local padY = 3
+        local bgW = labelW + padX * 2
+        local bgH = labelH + padY * 2
+        local bgX = Constants.SCREEN_WIDTH - bgW - 5
+        local bgY = 5
 
-    -- Draw "Press" text before icon
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    FontManager:setBodyFont()
-    local bodyFont = FontManager.bodyFont
-    local pressWidth = bodyFont:getTextWidth("Press ")
-    gfx.drawText("Press ", iconX - pressWidth - 2, iconY - bodyFont:getHeight()/2)
+        -- Black background
+        gfx.setColor(gfx.kColorBlack)
+        gfx.fillRect(bgX, bgY, bgW, bgH)
 
-    -- Draw the A button icon
-    self:drawAButtonIcon(iconX, iconY, radius)
-    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+        -- White text
+        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        gfx.drawText(label, bgX + padX, bgY + padY)
+        gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    end
 end
 
 return StoryPanel

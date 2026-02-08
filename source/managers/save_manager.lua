@@ -40,7 +40,10 @@ SaveManager = {
             damage = 0,     -- 0-4, increases all damage dealt
             shields = 0,    -- 0-4, increases shield capacity and reduces cooldown
             research = 0,   -- 0-4, increases RP earned
+            expanded_memory = 0, -- 0-4, increases max equipped research specs
         },
+        -- Equipped research specs (nil = auto-equip mode)
+        equippedResearchSpecs = nil,
     },
 
     -- Current episode state (deleted on episode end)
@@ -109,7 +112,11 @@ function SaveManager:loadGameData()
             self.gameData.grantFundingLevels.damage = data.grantFundingLevels.damage or 0
             self.gameData.grantFundingLevels.shields = data.grantFundingLevels.shields or 0
             self.gameData.grantFundingLevels.research = data.grantFundingLevels.research or 0
+            self.gameData.grantFundingLevels.expanded_memory = data.grantFundingLevels.expanded_memory or 0
         end
+
+        -- Load equipped research specs
+        self.gameData.equippedResearchSpecs = data.equippedResearchSpecs  -- nil = auto-equip
 
         Utils.debugPrint("Game data loaded successfully")
     else
@@ -191,6 +198,10 @@ end
 -- ============================================
 
 function SaveManager:isResearchSpecUnlocked(specId)
+    -- Creative mode: all specs are unlocked
+    if self:isDebugFeatureEnabled("unlockAllResearchSpecs") then
+        return true
+    end
     for _, id in ipairs(self.gameData.unlockedResearchSpecs) do
         if id == specId then
             return true
@@ -208,6 +219,15 @@ function SaveManager:unlockResearchSpec(specId)
 end
 
 function SaveManager:getUnlockedResearchSpecs()
+    -- Creative mode: return all spec IDs
+    if self:isDebugFeatureEnabled("unlockAllResearchSpecs") then
+        local allIds = {}
+        local allSpecs = ResearchSpecsData.getAll()
+        for _, spec in ipairs(allSpecs) do
+            allIds[#allIds + 1] = spec.id
+        end
+        return allIds
+    end
     return self.gameData.unlockedResearchSpecs
 end
 
@@ -448,7 +468,9 @@ function SaveManager:resetAllData()
             damage = 0,
             shields = 0,
             research = 0,
+            expanded_memory = 0,
         },
+        equippedResearchSpecs = nil,
     }
     playdate.datastore.delete(self.GAME_DATA_FILE)
     playdate.datastore.delete(self.EPISODE_STATE_FILE)
@@ -481,8 +503,12 @@ function SaveManager:getGrantFunds()
     return self.gameData.grantFunds or 0
 end
 
--- Get grant funding level for a stat (health, damage, shields, research)
+-- Get grant funding level for a stat (health, damage, shields, research, expanded_memory)
 function SaveManager:getGrantFundingLevel(stat)
+    -- Creative mode with Unlock All Research: all stats maxed
+    if self:isDebugFeatureEnabled("unlockAllResearchSpecs") then
+        return 4
+    end
     if not self.gameData.grantFundingLevels then
         return 0
     end
@@ -504,6 +530,21 @@ function SaveManager:upgradeGrantFunding(stat, cost)
     self:markGameDataDirty()
     Utils.debugPrint("Upgraded " .. stat .. " to level " .. (currentLevel + 1))
     return true
+end
+
+-- ============================================
+-- Equipped Research Specs
+-- ============================================
+
+-- Save equipped research spec IDs
+function SaveManager:saveEquippedSpecs(specIds)
+    self.gameData.equippedResearchSpecs = specIds
+    self:markGameDataDirty()
+end
+
+-- Get equipped research spec IDs (nil = auto-equip mode)
+function SaveManager:getEquippedResearchSpecs()
+    return self.gameData.equippedResearchSpecs
 end
 
 return SaveManager

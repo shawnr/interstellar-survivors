@@ -29,6 +29,7 @@ CitationPlatform.DATA = {
     -- Attack properties
     fireRate = 0.5,     -- Shots per second
     projectileSpeed = 3.5,
+    isMechanical = true,
 }
 
 function CitationPlatform:init(x, y, waveMultipliers)
@@ -66,6 +67,12 @@ function CitationPlatform:fire()
     local dx = self.targetX - self.x
     local dy = self.targetY - self.y
     local angle = math_atan(dx, -dy) * RAD_TO_DEG
+
+    -- Sometimes apply controlsInverted on fire (like Distinguished Professor boss)
+    if math.random(100) <= 5 and GameplayScene and GameplayScene.station then
+        GameplayScene.station:applyDebuff("controlsInverted", true, 2.5)
+        GameplayScene:showMessage("Confusing citation!", 1.5)
+    end
 
     -- Create projectile aimed at station
     if GameplayScene and GameplayScene.createEnemyProjectile then

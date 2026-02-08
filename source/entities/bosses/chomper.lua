@@ -24,6 +24,7 @@ Chomper.DATA = {
     height = 56,
     range = 120,
     emits = false,  -- Ramming boss
+    isBoss = true,
 }
 
 -- Boss phases
@@ -81,6 +82,10 @@ function Chomper:update(dt)
     if self.animImageTable and self.frameCount > 1 then
         self:updateAnimation(dt)
     end
+
+    -- Handle scramble (erratic movement from EMP)
+    self._speedScale = dt * 30
+    if self:handleScramble(dt) then return end
 
     -- Update timers
     self.phaseTimer = self.phaseTimer + dt

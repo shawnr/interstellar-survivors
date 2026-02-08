@@ -28,6 +28,7 @@ import "data/bonus_items_data"
 import "data/episodes_data"
 import "data/research_specs_data"
 import "data/grant_funding_data"
+import "data/pickups_data"
 
 -- Import systems
 import "systems/upgrade_system"
@@ -52,6 +53,7 @@ import "entities/tool"
 import "entities/projectile"
 import "entities/mob"
 import "entities/collectible"
+import "entities/pickup"
 
 -- Import all MOBs
 -- Episode 1

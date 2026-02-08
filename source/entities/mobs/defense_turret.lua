@@ -29,6 +29,7 @@ DefenseTurret.DATA = {
     -- Attack properties
     fireRate = 0.6,     -- Shots per second
     projectileSpeed = 4,
+    isMechanical = true,
 }
 
 function DefenseTurret:init(x, y, waveMultipliers)
@@ -67,6 +68,12 @@ function DefenseTurret:fire()
     local dx = self.targetX - self.x
     local dy = self.targetY - self.y
     local angle = math_atan(dx, -dy) * RAD_TO_DEG
+
+    -- Sometimes apply rotationSlow on fire (like Chomper boss)
+    if math.random(100) <= 7 and GameplayScene and GameplayScene.station then
+        GameplayScene.station:applyDebuff("rotationSlow", 0.3, 3.0)
+        GameplayScene:showMessage("Turret jams rotation!", 1.5)
+    end
 
     -- Create projectile aimed at station
     if GameplayScene and GameplayScene.createEnemyProjectile then

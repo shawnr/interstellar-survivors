@@ -2,9 +2,8 @@
 -- Manages research specs and applies their effects
 
 ResearchSpecSystem = {
-    -- Currently equipped specs (max 3)
+    -- Currently equipped specs
     equippedSpecs = {},
-    maxEquipped = 3,
 
     -- Cached effect bonuses
     bonuses = {
@@ -27,16 +26,47 @@ function ResearchSpecSystem:init()
     Utils.debugPrint("ResearchSpecSystem initialized")
 end
 
+-- Get maximum number of specs that can be equipped
+function ResearchSpecSystem:getMaxEquipped()
+    -- Creative mode: no limit
+    if SaveManager:isDebugFeatureEnabled("unlockAllResearchSpecs") then
+        return 99
+    end
+    -- Base: 4 specs
+    local base = 4
+    -- Expanded Memory grant funding: L1=6, L2=7, L3=8, L4=9
+    local memoryLevel = SaveManager:getGrantFundingLevel("expanded_memory")
+    if memoryLevel > 0 then
+        return base + 1 + memoryLevel  -- 5+1=6, 5+2=7, 5+3=8, 5+4=9
+    end
+    return base
+end
+
 function ResearchSpecSystem:loadEquipped()
     self.equippedSpecs = {}
 
-    -- Get unlocked specs from save manager
     local unlockedIds = SaveManager:getUnlockedResearchSpecs()
+    local maxEquipped = self:getMaxEquipped()
 
-    -- For now, auto-equip all unlocked specs (up to max)
-    for i, specId in ipairs(unlockedIds) do
-        if i <= self.maxEquipped then
-            table.insert(self.equippedSpecs, specId)
+    -- Check for saved equipped selection
+    local savedEquipped = SaveManager:getEquippedResearchSpecs()
+    if savedEquipped then
+        -- Use saved selection, but filter to only unlocked specs and respect limit
+        local unlockedSet = {}
+        for _, id in ipairs(unlockedIds) do
+            unlockedSet[id] = true
+        end
+        for _, specId in ipairs(savedEquipped) do
+            if unlockedSet[specId] and #self.equippedSpecs < maxEquipped then
+                self.equippedSpecs[#self.equippedSpecs + 1] = specId
+            end
+        end
+    else
+        -- Auto-equip first N unlocked specs
+        for i, specId in ipairs(unlockedIds) do
+            if i <= maxEquipped then
+                self.equippedSpecs[#self.equippedSpecs + 1] = specId
+            end
         end
     end
 
@@ -127,7 +157,7 @@ function ResearchSpecSystem:equipSpec(specId)
     end
 
     -- Check if we have room
-    if #self.equippedSpecs >= self.maxEquipped then
+    if #self.equippedSpecs >= self:getMaxEquipped() then
         return false
     end
 
@@ -136,8 +166,9 @@ function ResearchSpecSystem:equipSpec(specId)
         return false
     end
 
-    table.insert(self.equippedSpecs, specId)
+    self.equippedSpecs[#self.equippedSpecs + 1] = specId
     self:recalculateBonuses()
+    SaveManager:saveEquippedSpecs(self.equippedSpecs)
     return true
 end
 
@@ -147,6 +178,7 @@ function ResearchSpecSystem:unequipSpec(specId)
         if id == specId then
             table.remove(self.equippedSpecs, i)
             self:recalculateBonuses()
+            SaveManager:saveEquippedSpecs(self.equippedSpecs)
             return true
         end
     end

@@ -29,10 +29,11 @@ function ToolPlacementScreen:init()
     Utils.debugPrint("ToolPlacementScreen initialized")
 end
 
-function ToolPlacementScreen:show(toolData, station, callback)
+function ToolPlacementScreen:show(toolData, station, callback, cancelCallback)
     self.isVisible = true
     self.toolData = toolData
     self.onConfirm = callback
+    self.onCancel = cancelCallback
     self.isConfirming = false
     self.pulseTimer = 0
 
@@ -178,6 +179,13 @@ function ToolPlacementScreen:update()
                 if AudioManager then AudioManager:playSFX("menu_select", 0.3) end
                 self.isConfirming = true
             end
+        elseif InputManager.buttonJustPressed.b then
+            if self.onCancel then
+                if AudioManager then AudioManager:playSFX("menu_back", 0.3) end
+                local cancelFn = self.onCancel
+                self:hide()
+                cancelFn()
+            end
         end
     end
 end
@@ -192,8 +200,8 @@ function ToolPlacementScreen:draw()
     gfx.setDitherPattern(0)
 
     -- Draw panel: BLACK fill
-    local panelX, panelY = 40, 30
-    local panelW, panelH = 320, 180
+    local panelX, panelY = 20, 30
+    local panelW, panelH = 360, 180
 
     gfx.setColor(gfx.kColorBlack)
     gfx.fillRect(panelX, panelY, panelW, panelH)
@@ -214,7 +222,7 @@ function ToolPlacementScreen:draw()
     gfx.drawLine(panelX + 4, panelY + 28, panelX + panelW - 4, panelY + 28)
 
     -- LEFT SIDE: Tool info (icon on top, text below with wrapping)
-    local dividerX = panelX + 150
+    local dividerX = panelX + 170
     local leftColumnWidth = dividerX - panelX - 16  -- Width with padding
     local leftCenterX = panelX + (dividerX - panelX) / 2
 
@@ -251,7 +259,7 @@ function ToolPlacementScreen:draw()
 
     -- RIGHT SIDE: Rotating slot wheel
     local selectedSlot = self:getSlotAtSelectionPoint()
-    local centerX = panelX + 235
+    local centerX = panelX + 275
     local centerY = panelY + 95
     local slotRadius = 38
     local slotSize = 20
@@ -360,15 +368,19 @@ function ToolPlacementScreen:draw()
 
     -- WHITE footer rule
     gfx.setColor(gfx.kColorWhite)
-    gfx.drawLine(panelX + 4, panelY + panelH - 24, panelX + panelW - 4, panelY + panelH - 24)
+    gfx.drawLine(panelX + 4, panelY + panelH - 26, panelX + panelW - 4, panelY + panelH - 26)
 
     -- Instructions: WHITE text on black, footer font
     FontManager:setFooterFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
     if self.isConfirming then
-        gfx.drawTextAligned("A: Confirm   B: Back", 200, panelY + panelH - 18, kTextAlignment.center)
+        gfx.drawTextAligned("A: Confirm   B: Back", 200, panelY + panelH - 20, kTextAlignment.center)
     else
-        gfx.drawTextAligned("D-Pad/Crank: Rotate   A: Place", 200, panelY + panelH - 18, kTextAlignment.center)
+        local footerText = "D-Pad/Crank: Rotate   A: Place"
+        if self.onCancel then
+            footerText = footerText .. "   B: Back"
+        end
+        gfx.drawTextAligned(footerText, 200, panelY + panelH - 20, kTextAlignment.center)
     end
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end

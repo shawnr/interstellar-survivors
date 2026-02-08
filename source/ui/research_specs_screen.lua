@@ -29,14 +29,14 @@ function ResearchSpecsScreen:refreshSpecs()
         return aSource < bSource
     end)
 
-    -- Build specs list with unlock status
-    local debugUnlockAll = SaveManager and SaveManager:isDebugFeatureEnabled("unlockAllResearchSpecs")
-
+    -- Build specs list with unlock and equipped status
     for _, specData in ipairs(allSpecs) do
-        local isUnlocked = debugUnlockAll or (SaveManager and SaveManager:isResearchSpecUnlocked(specData.id))
+        local isUnlocked = SaveManager and SaveManager:isResearchSpecUnlocked(specData.id)
+        local isEquipped = ResearchSpecSystem and ResearchSpecSystem:isEquipped(specData.id)
         table.insert(self.specs, {
             data = specData,
-            unlocked = isUnlocked
+            unlocked = isUnlocked,
+            equipped = isEquipped,
         })
     end
 end
@@ -62,6 +62,29 @@ function ResearchSpecsScreen:update()
         self:moveSelection(-1)
     elseif InputManager.buttonJustPressed.down or InputManager.buttonJustPressed.left then
         self:moveSelection(1)
+    end
+
+    -- A button to toggle equip/unequip
+    if InputManager.buttonJustPressed.a then
+        local spec = self.specs[self.selectedIndex]
+        if spec and spec.unlocked then
+            if spec.equipped then
+                -- Unequip
+                ResearchSpecSystem:unequipSpec(spec.data.id)
+                spec.equipped = false
+                if AudioManager then AudioManager:playSFX("menu_back", 0.3) end
+            else
+                -- Try to equip
+                local success = ResearchSpecSystem:equipSpec(spec.data.id)
+                if success then
+                    spec.equipped = true
+                    if AudioManager then AudioManager:playSFX("menu_confirm", 0.5) end
+                else
+                    -- At capacity
+                    if AudioManager then AudioManager:playSFX("menu_back", 0.5) end
+                end
+            end
+        end
     end
 
     -- B button to go back
@@ -172,14 +195,15 @@ function ResearchSpecsScreen:draw()
     gfx.setColor(gfx.kColorWhite)
     gfx.drawLine(0, Constants.SCREEN_HEIGHT - 26, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT - 26)
 
-    local unlockCount = 0
+    local equipCount = 0
     for _, s in ipairs(self.specs) do
-        if s.unlocked then unlockCount = unlockCount + 1 end
+        if s.equipped then equipCount = equipCount + 1 end
     end
+    local maxEquipped = ResearchSpecSystem and ResearchSpecSystem:getMaxEquipped() or 4
 
     FontManager:setFooterFont()
     gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-    gfx.drawTextAligned(unlockCount .. "/" .. #self.specs .. " Unlocked   [B] Back",
+    gfx.drawTextAligned(equipCount .. "/" .. maxEquipped .. " Equipped   [A] Toggle   [B] Back",
         Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 19, kTextAlignment.center)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
@@ -206,6 +230,10 @@ function ResearchSpecsScreen:drawSpecItem(spec, y, isSelected)
         -- Show spec name on first line
         FontManager:setMenuFont()
         gfx.drawText(spec.data.name, 28, y + 8)
+
+        -- Draw [ON]/[OFF] badge on right
+        local badge = spec.equipped and "[ON]" or "[OFF]"
+        gfx.drawTextAligned(badge, Constants.SCREEN_WIDTH - 28, y + 8, kTextAlignment.right)
 
         -- Draw description on second line
         FontManager:setBodyFont()

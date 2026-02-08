@@ -757,12 +757,14 @@ function Station:drawDebuffIndicator()
         end
 
     elseif debuffType == "fireRateSlow" then
-        -- Dashed circle: 8 dashes with gaps
-        local dashR = 38
+        -- Pulsing dashed circle: 8 dashes rotating clockwise, radius pulses
         local dashCount = 8
+        local time = playdate.getCurrentTimeMilliseconds() * 0.003
+        local dashR = 38 + 2 * math.sin(time * 4)  -- Pulsing radius
         local dashAngle = 360 / (dashCount * 2)
+        local rotOffset = time * 30  -- Slow clockwise rotation (degrees)
         for i = 0, dashCount - 1 do
-            local startA = i * dashAngle * 2
+            local startA = i * dashAngle * 2 + rotOffset
             local endA = startA + dashAngle
             gfx.drawArc(cx, cy, dashR, startA, endA)
         end

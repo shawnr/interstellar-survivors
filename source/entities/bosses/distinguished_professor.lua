@@ -27,6 +27,7 @@ DistinguishedProfessor.DATA = {
     -- Attack properties
     fireRate = 1.2,
     projectileSpeed = 5,
+    isBoss = true,
 }
 
 -- Boss phases
@@ -75,6 +76,10 @@ function DistinguishedProfessor:update(dt)
             self.showHealthBar = false
         end
     end
+
+    -- Handle scramble (erratic movement from EMP)
+    self._speedScale = dt * 30
+    if self:handleScramble(dt) then return end
 
     -- Update timers
     self.phaseTimer = self.phaseTimer + dt

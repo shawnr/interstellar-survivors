@@ -46,6 +46,7 @@ GameManager = {
 
     -- Selected starting tool (from Tool Mastery research spec)
     selectedStartingTool = nil,  -- nil means use default (Rail Driver)
+    selectedStartingSlot = nil,  -- nil means auto-place
 }
 
 function GameManager:init()
@@ -190,6 +191,11 @@ function GameManager:startNewEpisode(episodeId)
     self.currentEpisodeId = episodeId
     self.episodeInProgress = true
 
+    -- Refresh research specs (picks up latest equip selections and creative mode)
+    if ResearchSpecSystem then
+        ResearchSpecSystem:loadEquipped()
+    end
+
     -- Check for starting level bonus from research specs
     local startingLevel = 1
     if ResearchSpecSystem then
@@ -203,6 +209,11 @@ end
 
 -- Resume a saved episode (bypasses story intro, goes directly to gameplay)
 function GameManager:resumeEpisode(sessionData)
+    -- Refresh research specs before consuming bonuses
+    if ResearchSpecSystem then
+        ResearchSpecSystem:loadEquipped()
+    end
+
     self.currentEpisodeId = sessionData.episodeId
     self.episodeInProgress = true
     self.playerLevel = sessionData.playerLevel or 1
@@ -330,6 +341,7 @@ function GameManager:createTitleScene()
         "Attendance is mandatory. Survival is extra credit.",
         "The Professor has notes.",
         "A qualified success.",
+        "Try. Fail. Learn.",
     }
 
     -- Crank easter egg: track cumulative rotation to cycle taglines
@@ -461,9 +473,9 @@ function GameManager:createTitleScene()
 
         if titleState == STATE_SPLASH then
             -- Draw tagline from center-screen to near right edge
-            local boxX = 180
+            local boxX = 170
             local boxY = 125
-            local boxWidth = 215
+            local boxWidth = 205
             local boxHeight = 90
 
             -- Format tagline with Roobert body font
@@ -481,7 +493,7 @@ function GameManager:createTitleScene()
             gfx.setImageDrawMode(gfx.kDrawModeCopy)
         else
             -- Draw main menu in the tagline area
-            local menuX = 250
+            local menuX = 225
             local menuY = 125
             local menuWidth = 145
             local itemHeight = 22
@@ -1108,20 +1120,44 @@ end
 function GameManager:createStoryIntroScene()
     local scene = {}
     local showingToolSelect = false
+    local showingToolPlacement = false
 
-    -- Helper to transition to gameplay (potentially after tool select)
+    -- Helper to transition to gameplay (potentially after tool select + placement)
     local function goToGameplay()
         -- Check if player can select starting tool (Tool Mastery research spec)
         if ResearchSpecSystem and ResearchSpecSystem:canSelectStartingTool() then
             showingToolSelect = true
-            ToolSelect:show(function(selectedToolId)
-                GameManager.selectedStartingTool = selectedToolId
-                showingToolSelect = false
-                GameManager:setState(GameManager.states.GAMEPLAY)
-            end)
+            local function showToolSelect()
+                showingToolSelect = true
+                showingToolPlacement = false
+                ToolSelect:show(function(selectedToolId)
+                    GameManager.selectedStartingTool = selectedToolId
+                    showingToolSelect = false
+
+                    -- Chain into tool placement screen
+                    local toolData = ToolsData[selectedToolId]
+                    if toolData then
+                        showingToolPlacement = true
+                        -- Pass a mock station with empty tools (no tools placed yet)
+                        local mockStation = { tools = {} }
+                        ToolPlacementScreen:show(toolData, mockStation, function(slotIndex)
+                            GameManager.selectedStartingSlot = slotIndex
+                            showingToolPlacement = false
+                            GameManager:setState(GameManager.states.GAMEPLAY)
+                        end, function()
+                            -- Cancel: go back to tool select
+                            showToolSelect()
+                        end)
+                    else
+                        GameManager:setState(GameManager.states.GAMEPLAY)
+                    end
+                end)
+            end
+            showToolSelect()
         else
             -- No tool selection, use default
             GameManager.selectedStartingTool = nil
+            GameManager.selectedStartingSlot = nil
             GameManager:setState(GameManager.states.GAMEPLAY)
         end
     end
@@ -1129,6 +1165,7 @@ function GameManager:createStoryIntroScene()
     function scene:enter(params)
         Utils.debugPrint("Entering story intro scene")
         showingToolSelect = false
+        showingToolPlacement = false
 
         -- Stop title theme music when starting an episode
         if AudioManager then
@@ -1151,7 +1188,9 @@ function GameManager:createStoryIntroScene()
     end
 
     function scene:update()
-        if showingToolSelect then
+        if showingToolPlacement then
+            ToolPlacementScreen:update()
+        elseif showingToolSelect then
             ToolSelect:update()
         else
             StoryPanel:update()
@@ -1159,7 +1198,9 @@ function GameManager:createStoryIntroScene()
     end
 
     function scene:drawOverlay()
-        if showingToolSelect then
+        if showingToolPlacement then
+            ToolPlacementScreen:draw()
+        elseif showingToolSelect then
             ToolSelect:draw()
         else
             StoryPanel:draw()
@@ -1169,6 +1210,7 @@ function GameManager:createStoryIntroScene()
     function scene:exit()
         Utils.debugPrint("Exiting story intro scene")
         showingToolSelect = false
+        showingToolPlacement = false
     end
 
     return scene

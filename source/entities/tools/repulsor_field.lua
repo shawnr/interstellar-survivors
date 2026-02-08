@@ -1,5 +1,5 @@
 -- Repulsor Field Tool
--- Pushes enemies away (no damage)
+-- Pushes enemies away from station (no donut hole - affects all mobs to outer edge)
 
 class('RepulsorField').extends(Tool)
 
@@ -25,35 +25,27 @@ RepulsorField.DATA = {
 function RepulsorField:init()
     RepulsorField.super.init(self, RepulsorField.DATA)
     self.pushForce = 3
-    self.pushRadius = 50
+    self.pushRadius = 70   -- Wider than shield (~40px)
     self.pushForceBonus = 0
 end
 
+function RepulsorField:recalculateStats()
+    RepulsorField.super.recalculateStats(self)
+    if not self.isEvolved then
+        -- L1=70, L2=80, L3=90, L4=100
+        self.pushRadius = 70 + (self.level - 1) * 10
+    end
+end
+
 function RepulsorField:fire()
-    -- Push all nearby enemies away
+    -- Push all nearby enemies away (no donut hole)
     self:pushEnemies()
 
-    -- Create visual effect (radial wave)
-    local firingAngle = self.station:getSlotFiringAngle(self.slotIndex)
-    local numWaves = 8
-    local angleStep = 360 / numWaves
-
-    for i = 1, numWaves do
-        local angle = firingAngle + (i - 1) * angleStep
-        local offsetDist = 12
-        local dx, dy = Utils.angleToVector(angle)
-        local fireX = self.x + dx * offsetDist
-        local fireY = self.y + dy * offsetDist
-
-        if GameplayScene and GameplayScene.createProjectile then
-            GameplayScene:createProjectile(
-                fireX, fireY, angle,
-                6,
-                0,  -- No damage, just visual
-                self.data.projectileImage,
-                true  -- Pass through
-            )
-        end
+    -- Create expanding circle flash centered on station
+    if GameplayScene and GameplayScene.createPulseEffect then
+        local cx = self.station and self.station.x or self.x
+        local cy = self.station and self.station.y or self.y
+        GameplayScene:createPulseEffect(cx, cy, self.pushRadius, 0.3, "repulsor")
     end
 end
 
@@ -91,7 +83,7 @@ function RepulsorField:upgrade(bonusItem)
     local success = RepulsorField.super.upgrade(self, bonusItem)
     if success then
         self.pushForce = 5
-        self.pushRadius = 80
+        self.pushRadius = 130  -- Evolved: large coverage
     end
     return success
 end

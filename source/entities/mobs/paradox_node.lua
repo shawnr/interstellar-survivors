@@ -40,3 +40,21 @@ function ParadoxNode:update(dt)
     end
 end
 
+-- Override onHitStation to sometimes apply a random debuff (like Improbability Engine boss)
+function ParadoxNode:onHitStation()
+    if GameplayScene and GameplayScene.station and math.random(100) <= 15 then
+        local roll = math.random(3)
+        if roll == 1 then
+            GameplayScene.station:applyDebuff("controlsInverted", true, 2.5)
+            GameplayScene:showMessage("Reality inverted!", 1.5)
+        elseif roll == 2 then
+            GameplayScene.station:applyDebuff("rotationSlow", 0.5, 2.0)
+            GameplayScene:showMessage("Probability drag!", 1.5)
+        else
+            GameplayScene.station:applyDebuff("fireRateSlow", 0.6, 2.0)
+            GameplayScene:showMessage("Temporal distortion!", 1.5)
+        end
+    end
+    ParadoxNode.super.onHitStation(self)
+end
+

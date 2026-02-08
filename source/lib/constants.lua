@@ -3,8 +3,8 @@
 
 Constants = {
     -- Version info (keep in sync with pdxinfo)
-    VERSION = "0.1.215",
-    BUILD = 216,
+    VERSION = "0.1.224",
+    BUILD = 226,
 
     -- Screen dimensions
     SCREEN_WIDTH = 400,

@@ -22,6 +22,7 @@ ImprobabilityEngine.DATA = {
     height = 48,
     range = 100,
     emits = true,
+    isBoss = true,
 }
 
 -- Boss phases
@@ -82,6 +83,10 @@ function ImprobabilityEngine:update(dt)
             self.showHealthBar = false
         end
     end
+
+    -- Handle scramble (erratic movement from EMP)
+    self._speedScale = dt * 30
+    if self:handleScramble(dt) then return end
 
     -- Update timers
     self.phaseTimer = self.phaseTimer + dt

@@ -1,12 +1,15 @@
 -- EMP Burst Tool
--- Radial electric damage that disables mechs
+-- Donut-shaped AoE: scrambles mechanical mobs, reduced damage to organic
+
+local math_floor <const> = math.floor
+local math_max <const> = math.max
 
 class('EMPBurst').extends(Tool)
 
 EMPBurst.DATA = {
     id = "emp_burst",
     name = "EMP Burst",
-    description = "Disables mechs. Dmg: 2",
+    description = "EMP donut. Scrambles mechs",
     imagePath = "images/tools/tool_emp_burst",
     iconPath = "images/tools/tool_emp_burst",
     projectileImage = "images/tools/tool_emp_effect",
@@ -25,31 +28,56 @@ EMPBurst.DATA = {
 
 function EMPBurst:init()
     EMPBurst.super.init(self, EMPBurst.DATA)
-    self.burstRadius = 60
-    self.burstProjectiles = 8
+    self.innerRadius = 45         -- Safe zone (station + tools + shield)
+    self.donutThickness = 50      -- Base donut width
+    self.thicknessPerLevel = 15   -- +15px per level
 end
 
 function EMPBurst:fire()
-    local firingAngle = self.station:getSlotFiringAngle(self.slotIndex)
+    local thickness = self.donutThickness + (self.level - 1) * self.thicknessPerLevel
+    local outerR = self.innerRadius + thickness
 
-    -- Fire projectiles in all directions from the tool
-    local angleStep = 360 / self.burstProjectiles
+    -- Apply donut AoE damage
+    self:burstDamage(self.innerRadius, outerR)
 
-    for i = 1, self.burstProjectiles do
-        local angle = firingAngle + (i - 1) * angleStep
-        local offsetDist = 12
-        local dx, dy = Utils.angleToVector(angle)
-        local fireX = self.x + dx * offsetDist
-        local fireY = self.y + dy * offsetDist
+    -- Create donut particle visual effect centered on station
+    if GameplayScene and GameplayScene.createEMPEffect then
+        local cx = self.station and self.station.x or self.x
+        local cy = self.station and self.station.y or self.y
+        GameplayScene:createEMPEffect(cx, cy, self.innerRadius, outerR, 0.5)
+    end
+end
 
-        if GameplayScene and GameplayScene.createProjectile then
-            GameplayScene:createProjectile(
-                fireX, fireY, angle,
-                8,  -- Medium speed for radial
-                self.damage,
-                self.data.projectileImage,
-                false
-            )
+function EMPBurst:burstDamage(innerR, outerR)
+    if not GameplayScene or not GameplayScene.mobs then return end
+
+    local mobs = GameplayScene.mobs
+    local mobCount = #mobs
+    local innerRSq = innerR * innerR
+    local outerRSq = outerR * outerR
+    local cx = self.station and self.station.x or self.x
+    local cy = self.station and self.station.y or self.y
+    local damage = self.damage
+
+    for i = 1, mobCount do
+        local mob = mobs[i]
+        if mob.active then
+            local dx = mob.x - cx
+            local dy = mob.y - cy
+            local distSq = dx * dx + dy * dy
+            -- Only damage mobs inside the donut (between inner and outer radius)
+            if distSq >= innerRSq and distSq <= outerRSq then
+                if mob.isMechanical then
+                    -- Mechanical: 2x damage + scramble
+                    mob:takeDamage(damage * 2)
+                    if mob.applyScramble then
+                        mob:applyScramble(1.0)
+                    end
+                else
+                    -- Non-mechanical: 0.5x damage (min 1)
+                    mob:takeDamage(math_max(1, math_floor(damage * 0.5)))
+                end
+            end
         end
     end
 end
@@ -57,8 +85,8 @@ end
 function EMPBurst:upgrade(bonusItem)
     local success = EMPBurst.super.upgrade(self, bonusItem)
     if success then
-        self.burstRadius = 90
-        self.burstProjectiles = 12
+        -- Evolved: covers whole game field
+        self.donutThickness = 210  -- outer = 45 + 210 = 255
     end
     return success
 end

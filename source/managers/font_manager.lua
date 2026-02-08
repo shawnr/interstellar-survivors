@@ -14,6 +14,7 @@ function FontManager:init()
     self.boldFont = gfx.font.new("fonts/Roobert-11-Bold")            -- Bold text
     self.episodeTitleFont = gfx.font.new("fonts/Roobert-20-Medium")  -- Large episode titles
     self.smallBoldFont = gfx.font.new("fonts/Roobert-10-Bold-Halved")  -- Small bold (version numbers)
+    self.promptFont = gfx.font.new("fonts/Roobert-10-Bold")           -- Prompt text (story panels)
 
     -- Register bold variant so *bold* markup works with body font
     local bodyFamily = gfx.font.newFamily({

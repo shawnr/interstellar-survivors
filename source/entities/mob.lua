@@ -87,6 +87,8 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.range = mobData.range or 1
     self.emits = mobData.emits or false
     self.skipRotation = mobData.skipRotation or false  -- Performance: skip setRotation calls
+    self.isMechanical = mobData.isMechanical or false
+    self.isBoss = mobData.isBoss or false
 
     -- Movement
     self.targetX = Constants.STATION_CENTER_X
@@ -100,6 +102,12 @@ function MOB:init(x, y, mobData, waveMultipliers)
     self.evading = false
     self.evadeTimer = 0
     self.evadeDirection = 0
+
+    -- Scramble behavior (EMP effect on mechanical mobs)
+    self.scrambled = false
+    self.scrambleTimer = 0
+    self.scrambleDirection = 0
+    self.scrambleChangeTimer = 0
 
     -- Frame guard (set to -1 so first update runs)
     self._lastFrame = -1
@@ -213,6 +221,9 @@ function MOB:update(dt)
     if self.animImageTable and self.frameCount > 1 then
         self:updateAnimation(dt)
     end
+
+    -- Handle scramble (erratic movement from EMP)
+    if self:handleScramble(dt) then return end
 
     -- Movement
     if self.emits then
@@ -362,6 +373,37 @@ function MOB:startEvasion(sourceX, sourceY)
     if math_random() > 0.6 then
         self.orbitDirection = -self.orbitDirection
     end
+end
+
+-- Apply scramble debuff (EMP effect - makes mob move erratically)
+function MOB:applyScramble(duration)
+    -- Bosses have 50% chance to resist scramble
+    if self.isBoss and math_random() > 0.5 then return end
+    self.scrambled = true
+    self.scrambleTimer = duration
+    self.scrambleDirection = math_random() * TWO_PI
+    self.scrambleChangeTimer = 0.2
+end
+
+-- Handle scramble movement - returns true if scramble handled movement this frame
+function MOB:handleScramble(dt)
+    if not self.scrambled then return false end
+    self.scrambleTimer = self.scrambleTimer - dt
+    if self.scrambleTimer <= 0 then
+        self.scrambled = false
+        -- Restore orbit angle to current position
+        self.orbitAngle = math_atan(self.y - self.targetY, self.x - self.targetX)
+        return false
+    end
+    self.scrambleChangeTimer = self.scrambleChangeTimer - dt
+    if self.scrambleChangeTimer <= 0 then
+        self.scrambleDirection = math_random() * TWO_PI
+        self.scrambleChangeTimer = 0.2
+    end
+    local trigIdx = math_floor((self.scrambleDirection % TWO_PI) * TRIG_SCALE) % TRIG_ENTRIES
+    self.x = self.x + Utils.COS_TABLE[trigIdx] * self.speed * self._speedScale
+    self.y = self.y + Utils.SIN_TABLE[trigIdx] * self.speed * self._speedScale
+    return true
 end
 
 -- Called when MOB is destroyed

@@ -1,5 +1,6 @@
 -- Tool Selection UI
--- Shows a grid of all tools for the player to choose their starting tool
+-- Shows a scrollable list of all tools (same style as Level Up menu)
+-- Retro terminal aesthetic: black panels, white borders, inverted selection
 
 local gfx <const> = playdate.graphics
 
@@ -7,7 +8,8 @@ ToolSelect = {
     isVisible = false,
     tools = {},
     selectedIndex = 1,
-    columns = 4,
+    scrollOffset = 0,
+    crankAccum = 0,
     callback = nil,
 }
 
@@ -21,6 +23,8 @@ function ToolSelect:show(callback)
     self.callback = callback
     self.isVisible = true
     self.selectedIndex = 1
+    self.scrollOffset = 0
+    self.crankAccum = 0
 
     -- Load all available tools
     self.tools = {}
@@ -35,19 +39,16 @@ function ToolSelect:show(callback)
         local toolData = ToolsData[toolId]
         if toolData then
             local iconOnBlack = nil
-            local iconOnWhite = nil
             local iconPath = toolData.iconPath or toolData.imagePath
             if iconPath then
                 local filename = iconPath:match("([^/]+)$")
                 iconOnBlack = gfx.image.new("images/icons_on_black/" .. filename)
-                iconOnWhite = gfx.image.new("images/icons_on_white/" .. filename)
             end
-            table.insert(self.tools, {
+            self.tools[#self.tools + 1] = {
                 id = toolId,
                 data = toolData,
                 iconOnBlack = iconOnBlack,
-                iconOnWhite = iconOnWhite
-            })
+            }
         end
     end
 
@@ -62,129 +63,223 @@ end
 function ToolSelect:update()
     if not self.isVisible then return end
 
-    -- Handle input
-    if InputManager.buttonJustPressed.left then
+    -- up/right = up, down/left = down (matches Level Up menu)
+    if InputManager.buttonJustPressed.up or InputManager.buttonJustPressed.right then
         self.selectedIndex = self.selectedIndex - 1
-        if self.selectedIndex < 1 then
-            self.selectedIndex = #self.tools
-        end
-        if AudioManager then AudioManager:playSFX("menu_move") end
-    elseif InputManager.buttonJustPressed.right then
+        if self.selectedIndex < 1 then self.selectedIndex = #self.tools end
+        if AudioManager then AudioManager:playSFX("menu_move", 0.5) end
+    elseif InputManager.buttonJustPressed.down or InputManager.buttonJustPressed.left then
         self.selectedIndex = self.selectedIndex + 1
-        if self.selectedIndex > #self.tools then
-            self.selectedIndex = 1
-        end
-        if AudioManager then AudioManager:playSFX("menu_move") end
-    elseif InputManager.buttonJustPressed.up then
-        self.selectedIndex = self.selectedIndex - self.columns
-        if self.selectedIndex < 1 then
-            self.selectedIndex = self.selectedIndex + #self.tools
-        end
-        if AudioManager then AudioManager:playSFX("menu_move") end
-    elseif InputManager.buttonJustPressed.down then
-        self.selectedIndex = self.selectedIndex + self.columns
-        if self.selectedIndex > #self.tools then
-            self.selectedIndex = self.selectedIndex - #self.tools
-        end
-        if AudioManager then AudioManager:playSFX("menu_move") end
+        if self.selectedIndex > #self.tools then self.selectedIndex = 1 end
+        if AudioManager then AudioManager:playSFX("menu_move", 0.5) end
     elseif InputManager.buttonJustPressed.a then
-        -- Select this tool
         local selectedTool = self.tools[self.selectedIndex]
         if selectedTool and self.callback then
-            if AudioManager then AudioManager:playSFX("menu_select") end
+            if AudioManager then AudioManager:playSFX("card_confirm", 0.5) end
             self.callback(selectedTool.id)
         end
         self:hide()
     end
+
+    -- Crank scrolling (accumulate degrees, move on threshold)
+    local crankChange = playdate.getCrankChange()
+    if crankChange ~= 0 then
+        self.crankAccum = self.crankAccum + crankChange
+        local threshold = 30
+
+        if self.crankAccum >= threshold then
+            self.selectedIndex = self.selectedIndex + 1
+            if self.selectedIndex > #self.tools then self.selectedIndex = 1 end
+            self.crankAccum = 0
+            if AudioManager then AudioManager:playSFX("menu_move", 0.5) end
+        elseif self.crankAccum <= -threshold then
+            self.selectedIndex = self.selectedIndex - 1
+            if self.selectedIndex < 1 then self.selectedIndex = #self.tools end
+            self.crankAccum = 0
+            if AudioManager then AudioManager:playSFX("menu_move", 0.5) end
+        end
+    end
+end
+
+-- Helper function to draw A button icon (black circle with white A)
+function ToolSelect:drawAButtonIcon(x, y, radius)
+    radius = radius or 8
+    gfx.setColor(gfx.kColorBlack)
+    gfx.fillCircleAtPoint(x, y, radius)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.drawCircleAtPoint(x, y, radius)
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    FontManager:setBoldFont()
+    local font = FontManager.boldFont
+    local textW = font:getTextWidth("A")
+    local textH = font:getHeight()
+    gfx.drawText("A", x - textW/2, y - textH/2)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 
 function ToolSelect:draw()
     if not self.isVisible then return end
 
-    -- Draw semi-transparent background
+    -- Layout constants (matches Level Up menu style)
+    local panelX, panelY = 10, 10
+    local panelW, panelH = 380, 220
+    local headerH = 30
+    local footerH = 26
+    local cardH = 50
+    local cardMargin = 6
+    local cardW = panelW - (cardMargin * 2)
+    local contentAreaH = panelH - headerH - footerH
+
+    -- Calculate card positions
+    local cardPositions = {}
+    for i = 1, #self.tools do
+        cardPositions[i] = (i - 1) * cardH
+    end
+
+    -- Get selected card bounds
+    local selectedCardTop = cardPositions[self.selectedIndex] or 0
+    local selectedCardBottom = selectedCardTop + cardH
+
+    -- Adjust scroll to keep selected in view
+    if selectedCardTop < self.scrollOffset then
+        self.scrollOffset = selectedCardTop
+    elseif selectedCardBottom > self.scrollOffset + contentAreaH then
+        self.scrollOffset = selectedCardBottom - contentAreaH
+    end
+
+    -- 1. Dim the background (50% dither overlay)
     gfx.setColor(gfx.kColorBlack)
-    gfx.fillRect(0, 0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+    gfx.setDitherPattern(0.5)
+    gfx.fillRect(0, 0, 400, 240)
+    gfx.setDitherPattern(0)
 
-    -- Draw title
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    -- 2. Draw solid BLACK panel background
+    gfx.setColor(gfx.kColorBlack)
+    gfx.fillRect(panelX, panelY, panelW, panelH)
+
+    -- 3. Draw WHITE panel border (double line for emphasis)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.drawRect(panelX, panelY, panelW, panelH)
+    gfx.drawRect(panelX + 2, panelY + 2, panelW - 4, panelH - 4)
+
+    -- 4. Draw header text
     FontManager:setTitleFont()
-    gfx.drawTextAligned("CHOOSE STARTING TOOL", Constants.SCREEN_WIDTH / 2, 15, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawTextAligned("CHOOSE STARTING TOOL", 200, panelY + 8, kTextAlignment.center)
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
-    -- Grid layout
-    local gridStartX = 30
-    local gridStartY = 50
-    local cellSize = 48
-    local cellPadding = 8
-    local totalCellSize = cellSize + cellPadding
+    -- 5. Draw white horizontal rule under header
+    gfx.setColor(gfx.kColorWhite)
+    gfx.drawLine(panelX + 4, panelY + headerH, panelX + panelW - 4, panelY + headerH)
 
-    -- Draw tool grid
+    -- Set clip rect for scrolling content area
+    local contentY = panelY + headerH + 2
+    gfx.setClipRect(panelX + 4, contentY, panelW - 8, contentAreaH - 4)
+
+    -- Use body family for card text (supports *bold* markup)
+    FontManager:setBodyFamily()
+
+    -- 6. Draw each card (with scroll offset)
     for i, tool in ipairs(self.tools) do
-        local col = (i - 1) % self.columns
-        local row = math.floor((i - 1) / self.columns)
-        local x = gridStartX + col * totalCellSize
-        local y = gridStartY + row * totalCellSize
-
+        local cardY = contentY + cardPositions[i] - self.scrollOffset
+        local cardX = panelX + cardMargin
         local isSelected = (i == self.selectedIndex)
 
-        -- Draw cell background
+        -- Skip if card is outside visible area
+        if cardY + cardH < contentY or cardY > contentY + contentAreaH then
+            goto continue
+        end
+
         if isSelected then
-            -- Selected: white background
+            -- Selected card: WHITE fill, BLACK text
             gfx.setColor(gfx.kColorWhite)
-            gfx.fillRect(x, y, cellSize, cellSize)
-            gfx.setColor(gfx.kColorBlack)
-            gfx.setLineWidth(2)
-            gfx.drawRect(x, y, cellSize, cellSize)
-            gfx.setLineWidth(1)
+            gfx.fillRoundRect(cardX, cardY, cardW, cardH - 4, 4)
         else
-            -- Not selected: black background with white border
+            -- Unselected card: BLACK fill, WHITE border
             gfx.setColor(gfx.kColorBlack)
-            gfx.fillRect(x, y, cellSize, cellSize)
+            gfx.fillRoundRect(cardX, cardY, cardW, cardH - 4, 4)
             gfx.setColor(gfx.kColorWhite)
-            gfx.drawRect(x, y, cellSize, cellSize)
+            gfx.drawRoundRect(cardX, cardY, cardW, cardH - 4, 4)
         end
 
-        -- Draw tool icon (use pre-processed icons)
-        local icon = isSelected and tool.iconOnWhite or tool.iconOnBlack
-        if icon then
-            local iconW, iconH = icon:getSize()
-            local padding = 6
-            local targetSize = cellSize - padding * 2
-            local scale = math.min(targetSize / iconW, targetSize / iconH)
-            local scaledW = iconW * scale
-            local scaledH = iconH * scale
-            local drawX = x + (cellSize - scaledW) / 2
-            local drawY = y + (cellSize - scaledH) / 2
+        -- Icon (left side)
+        local iconX = cardX + 6
+        local iconY = cardY + 4
+        local iconSize = 38
 
-            -- Pre-processed icons are ready to use directly
-            icon:drawScaled(drawX, drawY, scale)
-        end
-    end
-
-    -- Draw selected tool info at bottom
-    local selectedTool = self.tools[self.selectedIndex]
-    if selectedTool then
-        local infoY = Constants.SCREEN_HEIGHT - 50
-
-        -- Draw info background (black with white rule divider)
+        -- Black background behind icon
         gfx.setColor(gfx.kColorBlack)
-        gfx.fillRect(0, infoY, Constants.SCREEN_WIDTH, 50)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.drawLine(0, infoY, Constants.SCREEN_WIDTH, infoY)
+        gfx.fillRect(iconX, iconY, iconSize, iconSize)
 
-        -- Draw tool name and description (white text on black)
-        gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
-        FontManager:setMenuFont()
-        gfx.drawTextAligned(selectedTool.data.name, Constants.SCREEN_WIDTH / 2, infoY + 8, kTextAlignment.center)
+        -- Draw icon
+        local icon = tool.iconOnBlack
+        if icon then
+            icon:drawScaled(iconX, iconY, iconSize / 32)
+        else
+            gfx.setColor(gfx.kColorWhite)
+            gfx.drawRect(iconX, iconY, iconSize, iconSize)
+        end
 
-        FontManager:setBodyFont()
-        gfx.drawTextAligned(selectedTool.data.description or "", Constants.SCREEN_WIDTH / 2, infoY + 28, kTextAlignment.center)
+        -- Text (right of icon)
+        local textX = iconX + iconSize + 10
+        local textY = cardY + 4
+
+        if isSelected then
+            gfx.setImageDrawMode(gfx.kDrawModeFillBlack)
+        else
+            gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+        end
+
+        -- Name
+        local name = tool.data.name or "Unknown"
+        gfx.drawText("*" .. name .. "*", textX, textY)
+
+        -- Description on second line
+        local desc = tool.data.description or ""
+        gfx.drawText(desc, textX, textY + 16)
+
+        -- [TOOL] badge on right
+        gfx.drawTextAligned("[TOOL]", cardX + cardW - 10, textY, kTextAlignment.right)
+
         gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
+        ::continue::
     end
 
-    -- Draw instructions
-    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    -- Clear clip rect
+    gfx.clearClipRect()
+
+    -- Draw white horizontal rule above footer
+    gfx.setColor(gfx.kColorWhite)
+    gfx.drawLine(panelX + 4, panelY + panelH - footerH, panelX + panelW - 4, panelY + panelH - footerH)
+
+    -- 7. Draw footer instructions
     FontManager:setFooterFont()
-    gfx.drawTextAligned("D-Pad: Navigate   A: Select", Constants.SCREEN_WIDTH / 2, Constants.SCREEN_HEIGHT - 55, kTextAlignment.center)
+
+    local footerTextY = panelY + panelH - footerH + 3
+    local footerCenterX = 200
+    local iconRadius = 7
+
+    local leftText = "Up/Down: Select   "
+    local rightText = ": Confirm"
+    local font = FontManager.footerFont
+    local leftWidth = font:getTextWidth(leftText)
+    local rightWidth = font:getTextWidth(rightText)
+    local totalWidth = leftWidth + (iconRadius * 2) + rightWidth
+
+    local startX = footerCenterX - totalWidth / 2
+
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawText(leftText, startX, footerTextY)
+
+    -- Draw A button icon
+    local iconCenterX = startX + leftWidth + iconRadius
+    local iconCenterY = footerTextY + font:getHeight() / 2
+    self:drawAButtonIcon(iconCenterX, iconCenterY, iconRadius)
+
+    -- Draw rest of footer text
+    gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+    gfx.drawText(rightText, startX + leftWidth + (iconRadius * 2), footerTextY)
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
 

@@ -21,6 +21,7 @@ DebateDrone.DATA = {
     range = 1,
     emits = false,
     skipRotation = true,  -- Performance: no rotation updates
+    isMechanical = true,
 }
 
 -- Image variants for visual variety (different alien species)

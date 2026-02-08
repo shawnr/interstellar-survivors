@@ -80,6 +80,24 @@ function TractorPulse:pullCollectibles(firingAngle)
         end
     end
 
+    -- Also pull pickups within range
+    if GameplayScene.pickups then
+        local pickups = GameplayScene.pickups
+        local pCount = #pickups
+        for i = 1, pCount do
+            local pickup = pickups[i]
+            if pickup.active then
+                local dx = pickup.x - Constants.STATION_CENTER_X
+                local dy = pickup.y - Constants.STATION_CENTER_Y
+                local distSq = dx * dx + dy * dy
+                if distSq < rangeSq and distSq > minDistSq then
+                    pickup:pullToward(Constants.STATION_CENTER_X, Constants.STATION_CENTER_Y, pullStrength)
+                    pulledAny = true
+                end
+            end
+        end
+    end
+
     return pulledAny
 end
 

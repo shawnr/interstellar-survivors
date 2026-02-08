@@ -57,6 +57,21 @@ GrantFundingData = {
             [4] = { cost = 10800, bonus = 1.00, label = "+100% RP" },
         },
     },
+
+    -- Expanded Memory: Equip additional Research Specs (2x research costs)
+    -- Only visible after all other 4 stats are maxed
+    expanded_memory = {
+        id = "expanded_memory",
+        name = "Expanded Memory",
+        description = "Equip additional Research Specs",
+        icon = "expanded_memory",
+        levels = {
+            [1] = { cost = 800,   bonus = 6, label = "Equip up to 6 Specs" },
+            [2] = { cost = 2400,  bonus = 7, label = "Equip up to 7 Specs" },
+            [3] = { cost = 7200,  bonus = 8, label = "Equip up to 8 Specs" },
+            [4] = { cost = 21600, bonus = 9, label = "Equip up to 9 Specs" },
+        },
+    },
 }
 
 -- Get the upgrade cost for a stat at a given level (1-4)
@@ -100,7 +115,7 @@ end
 
 -- Get all stat IDs in display order
 function GrantFundingData.getStatOrder()
-    return { "health", "damage", "shields", "research" }
+    return { "health", "damage", "shields", "research", "expanded_memory" }
 end
 
 -- Get data for a stat

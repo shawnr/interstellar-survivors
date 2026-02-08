@@ -22,6 +22,7 @@ CulturalAttache.DATA = {
     height = 48,
     range = 100,    -- Stays at range
     emits = true,   -- Shooting boss
+    isBoss = true,
 }
 
 -- Boss phases
@@ -73,6 +74,10 @@ function CulturalAttache:update(dt)
             self.showHealthBar = false
         end
     end
+
+    -- Handle scramble (erratic movement from EMP)
+    self._speedScale = dt * 30
+    if self:handleScramble(dt) then return end
 
     -- Update phase timer
     self.phaseTimer = self.phaseTimer + dt

@@ -57,6 +57,11 @@ function GameplayScene:init()
     self.enemyProjectilePool = nil
     self.collectiblePool = nil
 
+    -- Random sci-fi pickups
+    self.pickups = {}
+    self.pickupTimer = 30       -- First pickup at 30s
+    self.pickupInterval = 30    -- Every 30 seconds
+
     -- Wave management (7 waves over 1 minute for testing)
     self.currentWave = 1
     self.spawnTimer = 0
@@ -677,7 +682,7 @@ function GameplayScene:enter(params)
         startingToolId = "rail_driver"
     end
 
-    self.station:attachTool(startingTool)
+    self.station:attachTool(startingTool, GameManager.selectedStartingSlot)
 
     -- Track starting tool in equipment order
     if UpgradeSystem then
@@ -685,8 +690,9 @@ function GameplayScene:enter(params)
         UpgradeSystem.toolLevels[startingToolId] = 1
     end
 
-    -- Clear the selected starting tool for next run
+    -- Clear the selected starting tool/slot for next run
     GameManager.selectedStartingTool = nil
+    GameManager.selectedStartingSlot = nil
 
     -- Load background based on current episode
     local episodeId = GameManager.currentEpisodeId or 1
@@ -785,6 +791,9 @@ function GameplayScene:update()
 
     -- Update collectibles
     self:updateCollectibles(dt)
+
+    -- Update random pickups
+    self:updatePickups(dt)
 
     -- Update visual pulse effects
     self:updatePulseEffects(dt)
@@ -896,6 +905,38 @@ function GameplayScene:updateCollectibles(dt)
     if self.salvageDrone and self.salvageDrone.active then
         self.salvageDrone:update()
     end
+end
+
+function GameplayScene:updatePickups(dt)
+    -- Spawn timer
+    self.pickupTimer = self.pickupTimer - dt
+    if self.pickupTimer <= 0 then
+        self:spawnRandomPickup()
+        self.pickupTimer = self.pickupInterval
+    end
+
+    -- Update active pickups (swap-and-pop removal)
+    local pickups = self.pickups
+    local i = 1
+    local n = #pickups
+    while i <= n do
+        local p = pickups[i]
+        p:update(dt)
+        if not p.active then
+            pickups[i] = pickups[n]
+            pickups[n] = nil
+            n = n - 1
+        else
+            i = i + 1
+        end
+    end
+end
+
+function GameplayScene:spawnRandomPickup()
+    local x, y = Utils.randomEdgePoint(20)
+    local data = PickupsData[math_random(#PickupsData)]
+    local pickup = Pickup(x, y, data)
+    self.pickups[#self.pickups + 1] = pickup
 end
 
 function GameplayScene:updateSpawning(dt)
@@ -1594,6 +1635,21 @@ function GameplayScene:createPulseEffect(x, y, maxRadius, duration, effectType)
     })
 end
 
+-- Create EMP donut particle visual effect
+function GameplayScene:createEMPEffect(x, y, innerR, outerR, duration)
+    local particles = {}
+    for i = 1, 40 do
+        local angle = math.random() * 6.2832  -- TWO_PI
+        local dist = innerR + math.random() * (outerR - innerR)
+        particles[i] = { angle = angle, dist = dist }
+    end
+    table.insert(self.pulseEffects, {
+        x = x, y = y, innerR = innerR, outerR = outerR,
+        duration = duration, elapsed = 0,
+        effectType = "emp_donut", particles = particles
+    })
+end
+
 -- Update pulse effects
 function GameplayScene:updatePulseEffects(dt)
     for i = #self.pulseEffects, 1, -1 do
@@ -1612,24 +1668,69 @@ function GameplayScene:drawPulseEffects()
     for pi = 1, peCount do
         local effect = self.pulseEffects[pi]
         local progress = effect.elapsed / effect.duration
-        local currentRadius = effect.maxRadius * progress
+        local effectType = effect.effectType
+        local currentRadius = effect.maxRadius and (effect.maxRadius * progress) or 0
 
-        -- Fade out as the ring expands
-        local alpha = 1 - progress
+        if effectType == "repulsor" then
+            -- Repulsor: thick expanding circle that fades via dither
+            local lineWidth = math.max(1, math.floor(4 * (1 - progress)))
+            gfx.setLineWidth(lineWidth)
+            if progress > 0.5 then
+                gfx.setColor(gfx.kColorWhite)
+                gfx.setDitherPattern(progress)
+            else
+                gfx.setColor(gfx.kColorWhite)
+            end
+            gfx.drawCircleAtPoint(effect.x, effect.y, currentRadius)
+            gfx.setDitherPattern(0)
+            gfx.setLineWidth(1)
+        elseif effectType == "emp_donut" then
+            -- EMP donut: particles sweep outward from inner to outer radius
+            local innerR = effect.innerR
+            local outerR = effect.outerR
+            local particles = effect.particles
+            local sweepPos = innerR + (outerR - innerR) * progress
+            local ex = effect.x
+            local ey = effect.y
 
-        -- Set line width based on effect type
-        local lineWidth = 2
-        if effect.effectType == "tractor" then
-            lineWidth = 3
+            -- Draw dithered boundary rings
+            gfx.setColor(gfx.kColorWhite)
+            gfx.setDitherPattern(0.7)
+            gfx.drawCircleAtPoint(ex, ey, innerR)
+            gfx.drawCircleAtPoint(ex, ey, outerR)
+            gfx.setDitherPattern(0)
+
+            -- Draw particles as 2px dots near sweep position
+            gfx.setColor(gfx.kColorWhite)
+            for pi2 = 1, #particles do
+                local p = particles[pi2]
+                local pdist = p.dist
+                local diff = pdist - sweepPos
+                if diff > -15 and diff < 15 then
+                    -- Active particle near sweep line
+                    local px = ex + math.cos(p.angle) * pdist
+                    local py = ey + math.sin(p.angle) * pdist
+                    if diff < 0 then
+                        -- Behind sweep: fade via dither
+                        gfx.setDitherPattern(0.5 + (-diff / 30))
+                        gfx.fillRect(px - 1, py - 1, 2, 2)
+                        gfx.setDitherPattern(0)
+                    else
+                        gfx.fillRect(px - 1, py - 1, 2, 2)
+                    end
+                end
+            end
+        else
+            -- Default / tractor: simple expanding ring
+            local lineWidth = 2
+            if effectType == "tractor" then
+                lineWidth = 3
+            end
+            gfx.setLineWidth(lineWidth)
+            gfx.setColor(gfx.kColorWhite)
+            gfx.drawCircleAtPoint(effect.x, effect.y, currentRadius)
+            gfx.setLineWidth(1)
         end
-
-        gfx.setLineWidth(lineWidth)
-
-        -- Draw expanding ring (single draw call for performance)
-        gfx.setColor(gfx.kColorWhite)
-        gfx.drawCircleAtPoint(effect.x, effect.y, currentRadius)
-
-        gfx.setLineWidth(1)
     end
 end
 
@@ -1741,6 +1842,19 @@ function GameplayScene:drawOverlay()
             -- Skip off-screen collectibles
             if cx > -8 and cx < 408 and cy > -8 and cy < 248 then
                 c.drawImage:draw(cx - 4, cy - 4)
+            end
+        end
+    end
+
+    -- Draw pickups (between collectibles and mobs, 16x16)
+    local pickups = self.pickups
+    local pCount = #pickups
+    for i = 1, pCount do
+        local p = pickups[i]
+        if p.active and p.drawVisible and p.drawImage then
+            local px, py = p.drawX, p.drawY
+            if px > -16 and px < 416 and py > -16 and py < 256 then
+                p.drawImage:draw(px - 8, py - 8)
             end
         end
     end
@@ -2199,6 +2313,12 @@ function GameplayScene:onUpgradeSelected(selectionType, selectionData)
                 else
                     self:resumeFromLevelUp()
                 end
+            end, function()
+                -- Cancel: go back to upgrade selection with same options
+                local toolOptions, bonusOptions = UpgradeSystem:getUpgradeOptions(self.station)
+                UpgradeSelection:show(toolOptions, bonusOptions, function(selType, selData)
+                    self:onUpgradeSelected(selType, selData)
+                end)
             end)
         else
             -- Normal flow: auto-place tool
@@ -2443,6 +2563,7 @@ function GameplayScene:exit()
     if self.collectiblePool then
         self.collectiblePool:releaseAll()
     end
+    self.pickups = {}
     gfx.sprite.removeAll()
 
     -- Restore dirty-rect optimization for menu screens
